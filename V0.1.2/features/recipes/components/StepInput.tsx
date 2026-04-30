@@ -20,7 +20,7 @@ export function StepInput({ index, value, onChange, onRemove }: StepInputProps) 
         style={styles.input}
         value={value}
         onChangeText={onChange}
-        placeholder={`Step ${index + 1}…`}
+        placeholder={`Stap ${index + 1}…`}
         placeholderTextColor={Colors.textSecondary}
         multiline
         textAlignVertical="top"
@@ -35,26 +35,27 @@ export function StepInput({ index, value, onChange, onRemove }: StepInputProps) 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   stepNumber: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 7,
+    flexShrink: 0,
   },
   stepNumberText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   input: {
     flex: 1,
     backgroundColor: Colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 14,
     color: Colors.text,
-    minHeight: 60,
+    minHeight: 64,
   },
-  removeBtn: { padding: 2, marginTop: 8 },
+  removeBtn: { padding: 2, marginTop: 7 },
 });

@@ -11,16 +11,24 @@ export default function TabLayout() {
         tabBarStyle: {
           borderTopColor: Colors.border,
           backgroundColor: Colors.surface,
+          height: 56,
+          paddingBottom: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
         },
         headerStyle: { backgroundColor: Colors.surface },
-        headerTitleStyle: { fontWeight: '700', fontSize: 18 },
+        headerTitleStyle: { fontWeight: '800', fontSize: 18, color: Colors.text },
         headerShadowVisible: false,
+        headerTintColor: Colors.text,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Recipes',
+          title: 'Recepten',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="book-outline" size={size} color={color} />
           ),
@@ -29,7 +37,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="grocery"
         options={{
-          title: 'Grocery List',
+          title: 'Boodschappenlijst',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cart-outline" size={size} color={color} />
           ),

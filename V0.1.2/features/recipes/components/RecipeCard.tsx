@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,56 +12,58 @@ import { Recipe } from '../../../types/recipe';
 interface RecipeCardProps {
   recipe: Recipe;
   onPress: () => void;
-  onDelete: () => void;
+  onToggleFavorite: () => void;
 }
 
-export function RecipeCard({ recipe, onPress, onDelete }: RecipeCardProps) {
-  const handleDelete = () => {
-    Alert.alert(
-      'Delete Recipe',
-      `Delete "${recipe.title}"? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: onDelete },
-      ],
-    );
-  };
-
-  const date = new Date(recipe.createdAt).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-
+export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProps) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
       <View style={styles.body}>
-        <Text style={styles.title} numberOfLines={2}>{recipe.title}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title} numberOfLines={2}>{recipe.title}</Text>
+          <TouchableOpacity onPress={onToggleFavorite} hitSlop={10} style={styles.favoriteBtn}>
+            <Ionicons
+              name={recipe.isFavorite ? 'heart' : 'heart-outline'}
+              size={20}
+              color={recipe.isFavorite ? Colors.danger : Colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.meta}>
+          {recipe.category ? (
+            <View style={[styles.badge, styles.categoryBadge]}>
+              <Text style={styles.categoryBadgeText}>{recipe.category}</Text>
+            </View>
+          ) : null}
           <View style={styles.badge}>
-            <Ionicons name="restaurant-outline" size={12} color={Colors.primary} />
+            <Ionicons name="restaurant-outline" size={11} color={Colors.primary} />
             <Text style={styles.badgeText}>
-              {recipe.ingredients.length} ingredient{recipe.ingredients.length !== 1 ? 's' : ''}
+              {recipe.ingredients.length} ingredient{recipe.ingredients.length !== 1 ? 'en' : ''}
             </Text>
           </View>
           <View style={styles.badge}>
-            <Ionicons name="list-outline" size={12} color={Colors.primary} />
+            <Ionicons name="list-outline" size={11} color={Colors.primary} />
             <Text style={styles.badgeText}>
-              {recipe.steps.length} step{recipe.steps.length !== 1 ? 's' : ''}
+              {recipe.steps.length} {recipe.steps.length !== 1 ? 'stappen' : 'stap'}
             </Text>
           </View>
           {recipe.sourceUrl ? (
             <View style={styles.badge}>
-              <Ionicons name="link-outline" size={12} color={Colors.primary} />
-              <Text style={styles.badgeText}>Imported</Text>
+              <Ionicons name="link-outline" size={11} color={Colors.primary} />
+              <Text style={styles.badgeText}>Geïmporteerd</Text>
             </View>
           ) : null}
         </View>
-        <Text style={styles.date}>{date}</Text>
+
+        <Text style={styles.date}>
+          {new Date(recipe.createdAt).toLocaleDateString('nl-NL', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })}
+        </Text>
       </View>
-      <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} hitSlop={8}>
-        <Ionicons name="trash-outline" size={18} color={Colors.danger} />
-      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
@@ -70,18 +71,18 @@ export function RecipeCard({ recipe, onPress, onDelete }: RecipeCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
     elevation: 2,
   },
-  body: { flex: 1, gap: 6 },
-  title: { fontSize: 16, fontWeight: '700', color: Colors.text },
+  body: { gap: 8 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  title: { fontSize: 16, fontWeight: '700', color: Colors.text, flex: 1, lineHeight: 22 },
+  favoriteBtn: { paddingTop: 2 },
   meta: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   badge: {
     flexDirection: 'row',
@@ -92,7 +93,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 4,
   },
+  categoryBadge: {
+    backgroundColor: Colors.accentLight,
+  },
+  categoryBadgeText: { fontSize: 11, color: Colors.accent, fontWeight: '600' },
   badgeText: { fontSize: 11, color: Colors.primary, fontWeight: '500' },
   date: { fontSize: 12, color: Colors.textSecondary },
-  deleteBtn: { padding: 4, marginLeft: 8 },
 });

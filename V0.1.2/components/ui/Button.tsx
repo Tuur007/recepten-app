@@ -20,7 +20,7 @@ interface ButtonProps extends TouchableOpacityProps {
 
 const variantContainerStyle: Record<Variant, object> = {
   primary: { backgroundColor: Colors.primary },
-  secondary: { backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: Colors.primary },
+  secondary: { backgroundColor: Colors.primaryLight, borderWidth: 1.5, borderColor: Colors.primary },
   danger: { backgroundColor: Colors.danger },
   ghost: { backgroundColor: 'transparent' },
 };
@@ -53,13 +53,13 @@ export function Button({
         style as ViewStyle,
       ]}
       disabled={isDisabled}
-      activeOpacity={0.75}
+      activeOpacity={0.8}
       {...rest}
     >
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' ? '#fff' : Colors.primary}
+          color={variant === 'primary' || variant === 'danger' ? '#fff' : Colors.primary}
         />
       ) : (
         <Text style={[styles.label, variantLabelStyle[variant]]}>{label}</Text>
@@ -72,12 +72,12 @@ const styles = StyleSheet.create({
   base: {
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
   },
   fullWidth: { width: '100%' },
-  disabled: { opacity: 0.5 },
-  label: { fontSize: 15, fontWeight: '600' },
+  disabled: { opacity: 0.45 },
+  label: { fontSize: 15, fontWeight: '700', letterSpacing: 0.1 },
 });

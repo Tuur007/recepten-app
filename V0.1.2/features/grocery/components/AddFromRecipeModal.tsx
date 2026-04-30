@@ -20,12 +20,7 @@ interface AddFromRecipeModalProps {
   onClose: () => void;
 }
 
-export function AddFromRecipeModal({
-  visible,
-  recipes,
-  onConfirm,
-  onClose,
-}: AddFromRecipeModalProps) {
+export function AddFromRecipeModal({ visible, recipes, onConfirm, onClose }: AddFromRecipeModalProps) {
   const [selected, setSelected] = useState<string | null>(null);
 
   const handleConfirm = () => {
@@ -40,14 +35,14 @@ export function AddFromRecipeModal({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>Add from Recipe</Text>
+          <Text style={styles.title}>Van recept toevoegen</Text>
           <TouchableOpacity onPress={onClose} hitSlop={8}>
             <Ionicons name="close" size={24} color={Colors.text} />
           </TouchableOpacity>
         </View>
 
         <Text style={styles.subtitle}>
-          Ingredients will be merged into your current grocery list.
+          Ingrediënten worden samengevoegd met je huidige boodschappenlijst.
         </Text>
 
         <FlatList
@@ -62,9 +57,16 @@ export function AddFromRecipeModal({
             >
               <View style={styles.recipeInfo}>
                 <Text style={styles.recipeName}>{item.title}</Text>
-                <Text style={styles.recipeMeta}>
-                  {item.ingredients.length} ingredient{item.ingredients.length !== 1 ? 's' : ''}
-                </Text>
+                <View style={styles.recipeMeta}>
+                  {item.category ? (
+                    <View style={styles.catBadge}>
+                      <Text style={styles.catBadgeText}>{item.category}</Text>
+                    </View>
+                  ) : null}
+                  <Text style={styles.recipeMetaText}>
+                    {item.ingredients.length} ingrediënt{item.ingredients.length !== 1 ? 'en' : ''}
+                  </Text>
+                </View>
               </View>
               {selected === item.id ? (
                 <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
@@ -74,13 +76,13 @@ export function AddFromRecipeModal({
             </TouchableOpacity>
           )}
           ListEmptyComponent={
-            <Text style={styles.empty}>No recipes yet. Create a recipe first.</Text>
+            <Text style={styles.empty}>Nog geen recepten. Voeg eerst een recept toe.</Text>
           }
         />
 
         <View style={styles.footer}>
           <Button
-            label="Add Ingredients"
+            label="Ingrediënten toevoegen"
             onPress={handleConfirm}
             disabled={!selected}
             fullWidth
@@ -115,16 +117,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 14,
     borderWidth: 2,
     borderColor: 'transparent',
     gap: 12,
   },
   selectedRow: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  recipeInfo: { flex: 1, gap: 2 },
+  recipeInfo: { flex: 1, gap: 4 },
   recipeName: { fontSize: 15, fontWeight: '600', color: Colors.text },
-  recipeMeta: { fontSize: 13, color: Colors.textSecondary },
+  recipeMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  recipeMetaText: { fontSize: 13, color: Colors.textSecondary },
+  catBadge: {
+    backgroundColor: Colors.accentLight,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  catBadgeText: { fontSize: 11, fontWeight: '600', color: Colors.accent },
   unselected: {
     width: 22,
     height: 22,

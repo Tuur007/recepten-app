@@ -1,5 +1,5 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
-import { CREATE_GROCERY_ITEMS_TABLE, CREATE_RECIPES_TABLE } from './schema';
+import { CREATE_GROCERY_ITEMS_TABLE, CREATE_RECIPES_TABLE, MIGRATIONS } from './schema';
 
 export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(`
@@ -8,4 +8,17 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
     ${CREATE_RECIPES_TABLE}
     ${CREATE_GROCERY_ITEMS_TABLE}
   `);
+
+  const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  const currentVersion = result?.user_version ?? 0;
+
+  for (let i = currentVersion; i < MIGRATIONS.length; i++) {
+    try {
+      await db.execAsync(MIGRATIONS[i]);
+    } catch {
+      // Column already exists — safe to ignore
+    }
+  }
+
+  await db.execAsync(`PRAGMA user_version = ${MIGRATIONS.length}`);
 }

@@ -1,14 +1,27 @@
 export const KNOWN_UNITS: string[] = [
-  // Volume — sorted longest-first to avoid partial regex matches
+  // Volume — longest first to avoid partial regex matches
+  'eetlepels', 'eetlepel', 'theelepels', 'theelepel',
   'milliliters', 'milliliter', 'tablespoons', 'tablespoon',
   'teaspoons', 'teaspoon', 'kilograms', 'kilogram',
   'ounces', 'ounce', 'pounds', 'pound', 'grams', 'gram',
-  'liters', 'liter', 'cups', 'cup', 'tbsp', 'tbs', 'tsp',
-  'lbs', 'lb', 'oz', 'kg', 'ml', 'g', 'l',
-  // Count / other
+  'liters', 'liter', 'liters', 'liter',
+  'cups', 'cup', 'tbsp', 'tbs', 'tsp',
+  'lbs', 'lb', 'oz', 'kg', 'ml', 'gr', 'g', 'l',
+  'dl', 'deciliter', 'deciliters',
+  'cl', 'centiliter', 'centiliters',
+  // Count / other — NL + EN
+  'pakjes', 'pakje', 'blikjes', 'blikje', 'bossen', 'bosje', 'bos',
+  'snufjes', 'snufje', 'snuifjes', 'snuifje',
+  'scheutjes', 'scheutje',
+  'plakjes', 'plakje', 'plakken',
+  'takjes', 'takje',
+  'stukjes', 'stukje', 'stuks',
+  'teentjes', 'teentje', 'teen',
   'packages', 'package', 'bunches', 'bunch', 'slices', 'slice',
   'cloves', 'clove', 'pieces', 'piece', 'pinches', 'pinch',
-  'dashes', 'dash', 'cans', 'can', 'whole', 'large', 'medium', 'small', 'pkg',
+  'dashes', 'dash', 'cans', 'can', 'whole',
+  'large', 'medium', 'small', 'pkg',
+  'zakjes', 'zakje',
 ];
 
 export function normalizeUnit(unit: string): string {

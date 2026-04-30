@@ -20,13 +20,30 @@ export interface ParsedRecipe {
 export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
   const html = await fetchHtml(url);
 
-  const jsonLdResult = tryParseJsonLd(html, url);
-  if (jsonLdResult) return jsonLdResult;
+  // 1. JSON-LD schema.org/Recipe — works on most food blogs & WordPress sites
+  const jsonLd = tryParseJsonLd(html, url);
+  if (jsonLd && isUsable(jsonLd)) return jsonLd;
+
+  // 2. Next.js __NEXT_DATA__ — dagelijksekost.een.be and similar SSR sites
+  const nextData = tryParseNextData(html, url);
+  if (nextData && isUsable(nextData)) return nextData;
+
+  // 3. HTML Microdata (itemprop attributes)
+  const microdata = tryParseMicrodata(html, url);
+  if (microdata && isUsable(microdata)) return microdata;
+
+  // 4. Generic HTML heuristic — Dutch/Belgian recipe class-name patterns
+  const heuristic = tryParseHeuristic(html, url);
+  if (heuristic && isUsable(heuristic)) return heuristic;
 
   throw new Error(
-    'Could not automatically extract a recipe from this page.\n' +
-    'Please fill in the details manually.',
+    'Kon het recept niet automatisch uitlezen van deze pagina.\n' +
+      'Vul de gegevens hieronder handmatig in.',
   );
+}
+
+function isUsable(r: ParsedRecipe): boolean {
+  return r.title.trim().length > 0 && (r.ingredients.length > 0 || r.steps.length > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -40,17 +57,20 @@ async function fetchHtml(url: string): Promise<string> {
   try {
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'ReceptenApp/1.0 (recipe-importer)' },
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) ' +
+          'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        Accept: 'text/html,application/xhtml+xml',
+        'Accept-Language': 'nl-BE,nl;q=0.9,en;q=0.8',
+      },
     });
 
-    if (!response.ok) {
-      throw new Error(`Server returned ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`Server antwoordde met ${response.status}`);
     return await response.text();
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('Request timed out. Check your connection and try again.');
+      throw new Error('Verzoek verlopen. Controleer je verbinding en probeer opnieuw.');
     }
     throw err;
   } finally {
@@ -59,29 +79,29 @@ async function fetchHtml(url: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// JSON-LD strategy (schema.org/Recipe) — works on most food sites
+// Strategy 1 — JSON-LD (schema.org/Recipe)
+// Works on: Karola's Kitchen, most WordPress blogs (WP Recipe Maker,
+//           Tasty Recipes, WPRM), HelloFresh, many international sites.
 // ---------------------------------------------------------------------------
 
 function tryParseJsonLd(html: string, url: string): ParsedRecipe | null {
-  const scriptRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-  let match: RegExpExecArray | null;
+  const scriptRe = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
 
-  while ((match = scriptRegex.exec(html)) !== null) {
+  while ((m = scriptRe.exec(html)) !== null) {
     try {
-      const data: unknown = JSON.parse(match[1]);
-      const recipeNode = findRecipeNode(data);
-      if (recipeNode) return extractFromJsonLd(recipeNode, url);
+      const data: unknown = JSON.parse(m[1]);
+      const node = findRecipeNode(data);
+      if (node) return extractFromJsonLd(node, url);
     } catch {
-      // malformed JSON — continue to next script tag
+      // malformed JSON — try next script tag
     }
   }
-
   return null;
 }
 
 function findRecipeNode(data: unknown): Record<string, unknown> | null {
   if (!data || typeof data !== 'object') return null;
-
   if (Array.isArray(data)) {
     for (const item of data) {
       const found = findRecipeNode(item);
@@ -89,54 +109,330 @@ function findRecipeNode(data: unknown): Record<string, unknown> | null {
     }
     return null;
   }
-
   const obj = data as Record<string, unknown>;
-  const type = obj['@type'];
-
-  if (type === 'Recipe' || (Array.isArray(type) && type.includes('Recipe'))) {
-    return obj;
-  }
-
-  if (obj['@graph']) {
-    return findRecipeNode(obj['@graph']);
-  }
-
+  const t = obj['@type'];
+  if (t === 'Recipe' || (Array.isArray(t) && t.includes('Recipe'))) return obj;
+  if (obj['@graph']) return findRecipeNode(obj['@graph']);
   return null;
 }
 
 function extractFromJsonLd(recipe: Record<string, unknown>, url: string): ParsedRecipe {
-  const title = typeof recipe.name === 'string' ? recipe.name : 'Untitled Recipe';
+  const title = str(recipe.name) || str(recipe.headline) || 'Recept';
 
-  const rawIngredients = Array.isArray(recipe.recipeIngredient)
-    ? (recipe.recipeIngredient as unknown[]).map(String)
-    : [];
+  const rawIngredients = asStringArray(recipe.recipeIngredient);
+  const ingredients = rawIngredients.map(parseIngredientString);
 
-  const ingredients: ParsedIngredient[] = rawIngredients.map(parseIngredientString);
-
-  const instructions = recipe.recipeInstructions;
   const steps: string[] = [];
-
+  const instructions = recipe.recipeInstructions;
   if (Array.isArray(instructions)) {
     for (const step of instructions) {
       if (typeof step === 'string') {
-        steps.push(step.trim());
+        steps.push(...splitSentences(step));
       } else if (step && typeof step === 'object') {
         const s = step as Record<string, unknown>;
         if (s['@type'] === 'HowToSection' && Array.isArray(s.itemListElement)) {
           for (const sub of s.itemListElement as Record<string, unknown>[]) {
-            const text = typeof sub.text === 'string' ? sub.text.trim() : '';
-            if (text) steps.push(text);
+            const t = str(sub.text) || str(sub.name);
+            if (t) steps.push(t.trim());
           }
-        } else if (typeof s.text === 'string') {
-          steps.push(s.text.trim());
+        } else {
+          const t = str(s.text) || str(s.name);
+          if (t) steps.push(t.trim());
         }
       }
     }
   } else if (typeof instructions === 'string') {
-    steps.push(...instructions.split('\n').map(s => s.trim()).filter(Boolean));
+    steps.push(...splitSentences(instructions));
   }
 
   return { title, ingredients, steps, sourceUrl: url };
+}
+
+// ---------------------------------------------------------------------------
+// Strategy 2 — Next.js __NEXT_DATA__
+// Works on: dagelijksekost.een.be (VRT), other Next.js SSR recipe sites.
+// ---------------------------------------------------------------------------
+
+function tryParseNextData(html: string, url: string): ParsedRecipe | null {
+  const m = html.match(/<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (!m) return null;
+
+  try {
+    const data = JSON.parse(m[1]) as Record<string, unknown>;
+    return searchObjectForRecipe(data, url, 0);
+  } catch {
+    return null;
+  }
+}
+
+function searchObjectForRecipe(
+  obj: unknown,
+  url: string,
+  depth: number,
+): ParsedRecipe | null {
+  if (depth > 10 || !obj || typeof obj !== 'object') return null;
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      const found = searchObjectForRecipe(item, url, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  const o = obj as Record<string, unknown>;
+
+  // Dagelijkse Kost structure: { title, ingredients[{amount,unit,name}], steps[{text}] }
+  if (typeof o.title === 'string' && Array.isArray(o.ingredients)) {
+    return extractDagelijksekost(o, url);
+  }
+
+  // Generic: { name, recipeIngredient, recipeInstructions } (schema.org-like in JS)
+  if (typeof o.name === 'string' && Array.isArray(o.recipeIngredient)) {
+    return extractFromJsonLd(o, url);
+  }
+
+  // Recurse
+  for (const value of Object.values(o)) {
+    const found = searchObjectForRecipe(value, url, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+function extractDagelijksekost(
+  o: Record<string, unknown>,
+  url: string,
+): ParsedRecipe {
+  const title = str(o.title) || 'Recept';
+
+  const rawIngredients = Array.isArray(o.ingredients) ? o.ingredients : [];
+  const ingredients: ParsedIngredient[] = rawIngredients.flatMap((group: unknown) => {
+    // Ingredients can be grouped: { title, ingredients: [...] }
+    if (group && typeof group === 'object') {
+      const g = group as Record<string, unknown>;
+      if (Array.isArray(g.ingredients)) {
+        return g.ingredients.map((ing: unknown) => parseDKIngredient(ing));
+      }
+      return [parseDKIngredient(g)];
+    }
+    return [];
+  });
+
+  const rawSteps = Array.isArray(o.steps)
+    ? o.steps
+    : Array.isArray(o.preparation_steps)
+      ? o.preparation_steps
+      : Array.isArray(o.preparations)
+        ? o.preparations
+        : [];
+
+  const steps: string[] = rawSteps.flatMap((s: unknown) => {
+    if (typeof s === 'string') return splitSentences(s);
+    if (s && typeof s === 'object') {
+      const step = s as Record<string, unknown>;
+      const text = str(step.text) || str(step.description) || str(step.step);
+      return text ? [text.trim()] : [];
+    }
+    return [];
+  });
+
+  return { title, ingredients, steps, sourceUrl: url };
+}
+
+function parseDKIngredient(ing: unknown): ParsedIngredient {
+  if (!ing || typeof ing !== 'object') {
+    return { name: String(ing ?? ''), quantity: 1, unit: '' };
+  }
+  const o = ing as Record<string, unknown>;
+
+  // If there's a raw text field, parse it
+  const rawText = str(o.text) || str(o.ingredient_text) || str(o.label);
+  if (rawText) return parseIngredientString(rawText);
+
+  // Structured fields
+  const name = str(o.name) || str(o.ingredient) || str(o.product) || '';
+  const unit = str(o.unit) || str(o.measure) || '';
+  const qty = parseFloat(str(o.amount) || str(o.quantity) || str(o.qty) || '1');
+
+  return { name, quantity: isFinite(qty) ? qty : 1, unit };
+}
+
+// ---------------------------------------------------------------------------
+// Strategy 3 — HTML Microdata (itemprop attributes)
+// Works on: older sites using schema.org microdata in HTML attributes.
+// ---------------------------------------------------------------------------
+
+function tryParseMicrodata(html: string, url: string): ParsedRecipe | null {
+  if (
+    !html.includes('schema.org/Recipe') &&
+    !html.includes('schema.org%2FRecipe')
+  ) {
+    return null;
+  }
+
+  const title =
+    extractItemprop(html, 'name') ||
+    extractMetaContent(html, 'og:title') ||
+    extractH1(html) ||
+    '';
+
+  const ingredientMatches = [
+    ...html.matchAll(/itemprop=["']recipeIngredient["'][^>]*>([^<]+)/gi),
+  ].map((m) => decodeHtmlEntities(m[1].trim()));
+
+  const ingredients = ingredientMatches.map(parseIngredientString);
+
+  // Instructions can be plain text or structured
+  const instructionText = extractItemprop(html, 'recipeInstructions') || '';
+  const steps = instructionText
+    ? splitSentences(instructionText)
+    : [
+        ...(html.matchAll(/itemprop=["']text["'][^>]*>([^<]{10,})/gi)),
+      ].map((m) => decodeHtmlEntities(m[1].trim()));
+
+  if (!title && ingredients.length === 0) return null;
+  return { title, ingredients, steps, sourceUrl: url };
+}
+
+function extractItemprop(html: string, prop: string): string {
+  // <meta itemprop="name" content="...">
+  const metaM = html.match(
+    new RegExp(`itemprop=["']${prop}["'][^>]*content=["']([^"']+)["']`, 'i'),
+  );
+  if (metaM) return decodeHtmlEntities(metaM[1]);
+
+  // <span itemprop="name">...</span>
+  const tagM = html.match(
+    new RegExp(`itemprop=["']${prop}["'][^>]*>([^<]+)`, 'i'),
+  );
+  if (tagM) return decodeHtmlEntities(tagM[1].trim());
+
+  return '';
+}
+
+// ---------------------------------------------------------------------------
+// Strategy 4 — Generic HTML heuristic
+// Looks for Dutch/Belgian class-name patterns and common list structures.
+// Works as a last-resort fallback for sites not using structured data.
+// ---------------------------------------------------------------------------
+
+function tryParseHeuristic(html: string, url: string): ParsedRecipe | null {
+  const title = extractH1(html) || extractMetaContent(html, 'og:title') || '';
+
+  // Strip script/style tags to avoid matching JS code
+  const cleaned = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '');
+
+  const ingredients = extractHeuristicIngredients(cleaned);
+  const steps = extractHeuristicSteps(cleaned);
+
+  if (!title && ingredients.length === 0) return null;
+  return { title, ingredients, steps, sourceUrl: url };
+}
+
+function extractHeuristicIngredients(html: string): ParsedIngredient[] {
+  // Look for containers with ingredient-related class names (NL + EN)
+  const containerPatterns = [
+    /class=["'][^"']*ingredi[eë]nt[^"']*["'][\s\S]{0,2000}?<\/[uo]l>/gi,
+    /class=["'][^"']*ingredient[^"']*["'][\s\S]{0,2000}?<\/[uo]l>/gi,
+    /class=["'][^"']*bestanddelen[^"']*["'][\s\S]{0,2000}?<\/[uo]l>/gi,
+  ];
+
+  for (const pattern of containerPatterns) {
+    const containerMatch = html.match(pattern);
+    if (containerMatch) {
+      const items = [...containerMatch[0].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)];
+      const parsed = items
+        .map((m) => decodeHtmlEntities(stripTags(m[1])).trim())
+        .filter((t) => t.length > 2 && t.length < 200)
+        .map(parseIngredientString);
+      if (parsed.length > 0) return parsed;
+    }
+  }
+  return [];
+}
+
+function extractHeuristicSteps(html: string): string[] {
+  // Look for containers with step/preparation-related class names (NL + EN)
+  const containerPatterns = [
+    /class=["'][^"']*(bereidings?(?:wijze)?|voorbereiding|stapp?en?)[^"']*["'][\s\S]{0,5000}?<\/[uo]l>/gi,
+    /class=["'][^"']*(preparation|instructions?|directions?|method|steps?)[^"']*["'][\s\S]{0,5000}?<\/[uo]l>/gi,
+    /class=["'][^"']*(bereidings?(?:wijze)?|voorbereiding|stapp?en?)[^"']*["'][\s\S]{0,5000}?<\/div>/gi,
+  ];
+
+  for (const pattern of containerPatterns) {
+    const containerMatch = html.match(pattern);
+    if (containerMatch) {
+      const items = [
+        ...containerMatch[0].matchAll(/<(?:li|p)[^>]*>([\s\S]*?)<\/(?:li|p)>/gi),
+      ];
+      const steps = items
+        .map((m) => decodeHtmlEntities(stripTags(m[1])).trim())
+        .filter((t) => t.length > 10);
+      if (steps.length > 0) return steps;
+    }
+  }
+  return [];
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+function extractH1(html: string): string {
+  const m = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  return m ? decodeHtmlEntities(stripTags(m[1])).trim() : '';
+}
+
+function extractMetaContent(html: string, property: string): string {
+  const m = html.match(
+    new RegExp(
+      `<meta[^>]*(?:property|name)=["']${property}["'][^>]*content=["']([^"']+)["']`,
+      'i',
+    ),
+  );
+  if (m) return decodeHtmlEntities(m[1]);
+  const m2 = html.match(
+    new RegExp(
+      `<meta[^>]*content=["']([^"']+)["'][^>]*(?:property|name)=["']${property}["']`,
+      'i',
+    ),
+  );
+  return m2 ? decodeHtmlEntities(m2[1]) : '';
+}
+
+function stripTags(html: string): string {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
+}
+
+function asStringArray(val: unknown): string[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.map(String);
+  if (typeof val === 'string') return [val];
+  return [];
+}
+
+function str(val: unknown): string {
+  return typeof val === 'string' ? val : '';
+}
+
+function splitSentences(text: string): string[] {
+  return text
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 5);
 }
 
 // ---------------------------------------------------------------------------
@@ -144,37 +440,43 @@ function extractFromJsonLd(recipe: Record<string, unknown>, url: string): Parsed
 // ---------------------------------------------------------------------------
 
 export function parseIngredientString(raw: string): ParsedIngredient {
-  // Normalise Unicode fractions
-  const text = raw
+  // Normalise Unicode fractions and strip HTML entities
+  const text = decodeHtmlEntities(raw)
     .trim()
     .replace(/¼/g, '0.25')
     .replace(/½/g, '0.5')
     .replace(/¾/g, '0.75')
     .replace(/⅓/g, '0.333')
     .replace(/⅔/g, '0.667')
-    .replace(/⅛/g, '0.125');
+    .replace(/⅛/g, '0.125')
+    // Dutch number notation: comma as decimal separator
+    .replace(/(\d),(\d)/g, '$1.$2');
 
   let remaining = text;
   let quantity = 1;
 
-  // Match mixed numbers "1 1/2", plain fractions "1/2", or decimals "1.5"
+  // Match mixed numbers "1 1/2", plain fractions "1/2", or decimals
   const qMatch = remaining.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d*\.?\d+)\s*/);
   if (qMatch) {
     const q = qMatch[1].trim();
     if (q.includes('/')) {
-      const parts = q.split('/');
-      quantity = parseFloat(parts[0]) / parseFloat(parts[1]);
-    } else if (/\d\s+\d/.test(q)) {
-      const [whole, frac] = q.split(/\s+/);
-      const [num, den] = frac.split('/');
-      quantity = parseFloat(whole) + parseFloat(num) / parseFloat(den);
+      // Could be "1 1/2" or "1/2"
+      const spaceIdx = q.indexOf(' ');
+      if (spaceIdx > -1) {
+        const [whole, frac] = q.split(' ');
+        const [num, den] = frac.split('/');
+        quantity = parseFloat(whole) + parseFloat(num) / parseFloat(den);
+      } else {
+        const [num, den] = q.split('/');
+        quantity = parseFloat(num) / parseFloat(den);
+      }
     } else {
       quantity = parseFloat(q);
     }
     remaining = remaining.slice(qMatch[0].length);
   }
 
-  // Match unit (longest-first list so "tablespoons" beats "table")
+  // Match unit (longest-first to avoid partial matches)
   const unitPattern = new RegExp(`^(${KNOWN_UNITS.join('|')})\\b\\.?\\s*`, 'i');
   const uMatch = remaining.match(unitPattern);
   let unit = '';
@@ -185,6 +487,5 @@ export function parseIngredientString(raw: string): ParsedIngredient {
   }
 
   const name = remaining.trim() || raw.trim();
-
   return { name, quantity: isFinite(quantity) ? quantity : 1, unit };
 }

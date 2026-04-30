@@ -1,6 +1,3 @@
-S
-Copy
-
 /**
  * Genereert een uniek ID.
  *

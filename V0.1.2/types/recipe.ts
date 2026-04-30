@@ -1,3 +1,17 @@
+export const RECIPE_CATEGORIES = [
+  'Ontbijt',
+  'Lunch',
+  'Diner',
+  'Snack',
+  'Dessert',
+  'Soep',
+  'Salade',
+  'Bakken',
+  'Dranken',
+] as const;
+
+export type RecipeCategory = (typeof RECIPE_CATEGORIES)[number] | '';
+
 export interface Ingredient {
   id: string;
   name: string;
@@ -11,6 +25,8 @@ export interface Recipe {
   ingredients: Ingredient[];
   steps: string[];
   sourceUrl?: string;
+  category: RecipeCategory;
+  isFavorite: boolean;
   createdAt: string;
   updatedAt: string;
 }

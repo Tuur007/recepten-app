@@ -13,62 +13,38 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../features/recipes/hooks';
+import { useRecipeForm } from '../../features/recipes/hooks/useRecipeForm';
 import { IngredientInput } from '../../features/recipes/components/IngredientInput';
 import { StepInput } from '../../features/recipes/components/StepInput';
+import { CategoryPicker } from '../../features/recipes/components/CategoryPicker';
 import { AppTextInput } from '../../components/ui/AppTextInput';
 import { Button } from '../../components/ui/Button';
 import { Colors } from '../../components/ui/colors';
-import { Ingredient } from '../../types/recipe';
-import { generateId } from '../../utils/id';
-
-function emptyIngredient(): Ingredient {
-  return { id: generateId(), name: '', quantity: 1, unit: '' };
-}
 
 export default function NewRecipeScreen() {
   const router = useRouter();
   const { create } = useRecipes();
-
-  const [title, setTitle] = useState('');
-  const [ingredients, setIngredients] = useState<Ingredient[]>([emptyIngredient()]);
-  const [steps, setSteps] = useState<string[]>(['']);
   const [saving, setSaving] = useState(false);
 
-  const updateIngredient = (index: number, updated: Ingredient) => {
-    setIngredients((prev) => prev.map((ing, i) => (i === index ? updated : ing)));
-  };
-
-  const removeIngredient = (index: number) => {
-    setIngredients((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const updateStep = (index: number, text: string) => {
-    setSteps((prev) => prev.map((s, i) => (i === index ? text : s)));
-  };
-
-  const removeStep = (index: number) => {
-    setSteps((prev) => prev.filter((_, i) => i !== index));
-  };
+  const form = useRecipeForm();
 
   const handleSave = async () => {
-    if (!title.trim()) {
-      Alert.alert('Missing title', 'Please enter a recipe title.');
+    if (!form.title.trim()) {
+      Alert.alert('Titel ontbreekt', 'Voer een recepttitel in.');
       return;
     }
-
-    const validIngredients = ingredients.filter((i) => i.name.trim());
-    const validSteps = steps.filter((s) => s.trim());
-
     setSaving(true);
     try {
       await create({
-        title: title.trim(),
-        ingredients: validIngredients,
-        steps: validSteps,
+        title: form.title.trim(),
+        category: form.category,
+        isFavorite: false,
+        ingredients: form.validIngredients,
+        steps: form.validSteps,
       });
       router.back();
-    } catch (err) {
-      Alert.alert('Error', 'Could not save recipe. Please try again.');
+    } catch {
+      Alert.alert('Fout', 'Kon recept niet opslaan. Probeer opnieuw.');
     } finally {
       setSaving(false);
     }
@@ -76,73 +52,59 @@ export default function NewRecipeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
           <Ionicons name="close" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Recipe</Text>
-        <Button label="Save" onPress={handleSave} loading={saving} />
+        <Text style={styles.headerTitle}>Nieuw recept</Text>
+        <Button label="Opslaan" onPress={handleSave} loading={saving} />
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Title */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <AppTextInput
-            label="Title"
-            value={title}
-            onChangeText={setTitle}
-            placeholder="e.g. Grandma's Lasagna"
+            label="Titel"
+            value={form.title}
+            onChangeText={form.setTitle}
+            placeholder="bijv. Oma's Lasagne"
             autoFocus
           />
 
-          {/* Ingredients */}
+          <CategoryPicker value={form.category} onChange={form.setCategory} />
+
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ingredients</Text>
+            <Text style={styles.sectionTitle}>Ingrediënten</Text>
             <View style={styles.sectionContent}>
-              {ingredients.map((ing, index) => (
+              {form.ingredients.map((ing, index) => (
                 <IngredientInput
                   key={ing.id}
                   ingredient={ing}
-                  onChange={(updated) => updateIngredient(index, updated)}
-                  onRemove={() => removeIngredient(index)}
+                  onChange={(updated) => form.updateIngredient(index, updated)}
+                  onRemove={() => form.removeIngredient(index)}
                 />
               ))}
-              <TouchableOpacity
-                style={styles.addRowBtn}
-                onPress={() => setIngredients((prev) => [...prev, emptyIngredient()])}
-              >
+              <TouchableOpacity style={styles.addRowBtn} onPress={form.addIngredient}>
                 <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
-                <Text style={styles.addRowBtnText}>Add ingredient</Text>
+                <Text style={styles.addRowBtnText}>Ingrediënt toevoegen</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Steps */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Steps</Text>
+            <Text style={styles.sectionTitle}>Stappen</Text>
             <View style={styles.sectionContent}>
-              {steps.map((step, index) => (
+              {form.steps.map((step, index) => (
                 <StepInput
                   key={index}
                   index={index}
                   value={step}
-                  onChange={(text) => updateStep(index, text)}
-                  onRemove={() => removeStep(index)}
+                  onChange={(text) => form.updateStep(index, text)}
+                  onRemove={() => form.removeStep(index)}
                 />
               ))}
-              <TouchableOpacity
-                style={styles.addRowBtn}
-                onPress={() => setSteps((prev) => [...prev, ''])}
-              >
+              <TouchableOpacity style={styles.addRowBtn} onPress={form.addStep}>
                 <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
-                <Text style={styles.addRowBtnText}>Add step</Text>
+                <Text style={styles.addRowBtnText}>Stap toevoegen</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -167,17 +129,8 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.text },
   content: { padding: 16, gap: 20, paddingBottom: 40 },
   section: { gap: 10 },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.text,
-  },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
   sectionContent: { gap: 8 },
-  addRowBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-  },
+  addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
   addRowBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '500' },
 });

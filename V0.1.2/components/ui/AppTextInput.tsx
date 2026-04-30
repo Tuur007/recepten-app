@@ -28,25 +28,25 @@ export function AppTextInput({ label, error, style, ...rest }: AppTextInputProps
 }
 
 const styles = StyleSheet.create({
-  wrapper: { gap: 4 },
+  wrapper: { gap: 6 },
   label: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   input: {
     backgroundColor: Colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 15,
     color: Colors.text,
-    minHeight: 44,
+    minHeight: 48,
   },
   inputError: { borderColor: Colors.danger },
-  error: { fontSize: 12, color: Colors.danger },
+  error: { fontSize: 12, color: Colors.danger, marginTop: 2 },
 });

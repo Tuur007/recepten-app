@@ -16,10 +16,8 @@ export function IngredientInput({ ingredient, onChange, onRemove }: IngredientIn
       <TextInput
         style={[styles.input, styles.quantityInput]}
         value={ingredient.quantity > 0 ? String(ingredient.quantity) : ''}
-        onChangeText={(text) =>
-          onChange({ ...ingredient, quantity: parseFloat(text) || 0 })
-        }
-        placeholder="Qty"
+        onChangeText={(text) => onChange({ ...ingredient, quantity: parseFloat(text) || 0 })}
+        placeholder="Hv."
         placeholderTextColor={Colors.textSecondary}
         keyboardType="decimal-pad"
       />
@@ -27,7 +25,7 @@ export function IngredientInput({ ingredient, onChange, onRemove }: IngredientIn
         style={[styles.input, styles.unitInput]}
         value={ingredient.unit}
         onChangeText={(text) => onChange({ ...ingredient, unit: text })}
-        placeholder="Unit"
+        placeholder="Eenheid"
         placeholderTextColor={Colors.textSecondary}
         autoCapitalize="none"
       />
@@ -35,7 +33,7 @@ export function IngredientInput({ ingredient, onChange, onRemove }: IngredientIn
         style={[styles.input, styles.nameInput]}
         value={ingredient.name}
         onChangeText={(text) => onChange({ ...ingredient, name: text })}
-        placeholder="Ingredient name"
+        placeholder="Ingrediëntnaam"
         placeholderTextColor={Colors.textSecondary}
       />
       <TouchableOpacity onPress={onRemove} hitSlop={8} style={styles.removeBtn}>
@@ -49,17 +47,17 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   input: {
     backgroundColor: Colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 9,
     fontSize: 14,
     color: Colors.text,
-    minHeight: 40,
+    minHeight: 42,
   },
-  quantityInput: { width: 58 },
-  unitInput: { width: 72 },
+  quantityInput: { width: 56 },
+  unitInput: { width: 76 },
   nameInput: { flex: 1 },
   removeBtn: { padding: 2 },
 });

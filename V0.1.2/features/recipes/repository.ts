@@ -8,6 +8,8 @@ interface RecipeRow {
   ingredients: string;
   steps: string;
   source_url: string | null;
+  category: string;
+  is_favorite: number;
   created_at: string;
   updated_at: string;
 }
@@ -19,6 +21,8 @@ function rowToRecipe(row: RecipeRow): Recipe {
     ingredients: JSON.parse(row.ingredients),
     steps: JSON.parse(row.steps),
     sourceUrl: row.source_url ?? undefined,
+    category: (row.category ?? '') as Recipe['category'],
+    isFavorite: row.is_favorite === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -44,19 +48,21 @@ export const RecipeRepository = {
     const id = generateId();
     const now = new Date().toISOString();
     await db.runAsync(
-      `INSERT INTO recipes (id, title, ingredients, steps, source_url, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO recipes (id, title, ingredients, steps, source_url, category, is_favorite, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         input.title,
         JSON.stringify(input.ingredients),
         JSON.stringify(input.steps),
         input.sourceUrl ?? null,
+        input.category ?? '',
+        input.isFavorite ? 1 : 0,
         now,
         now,
       ],
     );
-    return { id, ...input, createdAt: now, updatedAt: now };
+    return { id, ...input, category: input.category ?? '', isFavorite: input.isFavorite ?? false, createdAt: now, updatedAt: now };
   },
 
   async update(db: SQLiteDatabase, id: string, changes: RecipeUpdate): Promise<void> {
@@ -68,13 +74,15 @@ export const RecipeRepository = {
 
     await db.runAsync(
       `UPDATE recipes
-         SET title = ?, ingredients = ?, steps = ?, source_url = ?, updated_at = ?
+         SET title = ?, ingredients = ?, steps = ?, source_url = ?, category = ?, is_favorite = ?, updated_at = ?
        WHERE id = ?`,
       [
         merged.title,
         JSON.stringify(merged.ingredients),
         JSON.stringify(merged.steps),
         merged.sourceUrl ?? null,
+        merged.category ?? '',
+        merged.isFavorite ? 1 : 0,
         now,
         id,
       ],

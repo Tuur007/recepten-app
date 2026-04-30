@@ -18,6 +18,20 @@ interface ButtonProps extends TouchableOpacityProps {
   fullWidth?: boolean;
 }
 
+const variantContainerStyle: Record<Variant, object> = {
+  primary: { backgroundColor: Colors.primary },
+  secondary: { backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: Colors.primary },
+  danger: { backgroundColor: Colors.danger },
+  ghost: { backgroundColor: 'transparent' },
+};
+
+const variantLabelStyle: Record<Variant, object> = {
+  primary: { color: '#fff' },
+  secondary: { color: Colors.primary },
+  danger: { color: '#fff' },
+  ghost: { color: Colors.primary },
+};
+
 export function Button({
   label,
   variant = 'primary',
@@ -33,7 +47,7 @@ export function Button({
     <TouchableOpacity
       style={[
         styles.base,
-        styles[variant],
+        variantContainerStyle[variant],
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
         style as ViewStyle,
@@ -48,7 +62,7 @@ export function Button({
           color={variant === 'primary' ? '#fff' : Colors.primary}
         />
       ) : (
-        <Text style={[styles.label, styles[`${variant}Label`]]}>{label}</Text>
+        <Text style={[styles.label, variantLabelStyle[variant]]}>{label}</Text>
       )}
     </TouchableOpacity>
   );
@@ -65,19 +79,5 @@ const styles = StyleSheet.create({
   },
   fullWidth: { width: '100%' },
   disabled: { opacity: 0.5 },
-
-  primary: { backgroundColor: Colors.primary },
-  secondary: {
-    backgroundColor: Colors.primaryLight,
-    borderWidth: 1,
-    borderColor: Colors.primary,
-  },
-  danger: { backgroundColor: Colors.danger },
-  ghost: { backgroundColor: 'transparent' },
-
   label: { fontSize: 15, fontWeight: '600' },
-  primaryLabel: { color: '#fff' },
-  secondaryLabel: { color: Colors.primary },
-  dangerLabel: { color: '#fff' },
-  ghostLabel: { color: Colors.primary },
 });

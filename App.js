@@ -1,4 +1,4 @@
-// Entry point shim for tools that require App.js (e.g. Expo Snack).
-// Expo Router uses "main": "expo-router/entry" in package.json as the real
-// entry point — this file simply forwards to it.
+// Entry point shim required by Expo Snack and similar tools.
+// In a local Expo project the real entry is set via "main": "expo-router/entry"
+// in package.json; this file just satisfies tools that expect App.js.
 import 'expo-router/entry';

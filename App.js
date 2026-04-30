@@ -1,4 +1,13 @@
-// Entry point shim required by Expo Snack and similar tools.
-// In a local Expo project the real entry is set via "main": "expo-router/entry"
-// in package.json; this file just satisfies tools that expect App.js.
-import 'expo-router/entry';
+// Entry point shim — required by tools that expect App.js.
+// In a normal Expo project the entry is "expo-router/entry" (set in package.json).
+// Expo Snack does not support expo-router file-based routing or expo-sqlite
+// (native module). Run locally with: npx expo start
+import { registerRootComponent } from 'expo';
+import { ExpoRoot } from 'expo-router';
+import React from 'react';
+
+const ctx = require.context('./app');
+function App() {
+  return React.createElement(ExpoRoot, { context: ctx });
+}
+registerRootComponent(App);

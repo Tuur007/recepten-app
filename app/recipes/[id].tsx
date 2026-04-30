@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -41,13 +41,16 @@ export default function EditRecipeScreen() {
   const [saving, setSaving] = useState(false);
   const [addingToList, setAddingToList] = useState(false);
 
+  // Initialise form fields once when the recipe first loads.
+  // A ref guard prevents resetting local edits on subsequent re-renders.
+  const initialised = useRef(false);
   useEffect(() => {
-    if (recipe) {
-      setTitle(recipe.title);
-      setIngredients(recipe.ingredients.length > 0 ? recipe.ingredients : [emptyIngredient()]);
-      setSteps(recipe.steps.length > 0 ? recipe.steps : ['']);
-    }
-  }, [recipe?.id]);
+    if (!recipe || initialised.current) return;
+    initialised.current = true;
+    setTitle(recipe.title);
+    setIngredients(recipe.ingredients.length > 0 ? recipe.ingredients : [emptyIngredient()]);
+    setSteps(recipe.steps.length > 0 ? recipe.steps : ['']);
+  }, [recipe]);
 
   if (!recipe) return <LoadingScreen />;
 

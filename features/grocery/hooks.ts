@@ -30,7 +30,7 @@ export function useGrocery() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [db, hasLoaded]);
+  }, [db, hasLoaded, setLoading, setItems, setLoaded]);
 
   const addManual = useCallback(
     async (input: GroceryItemInput): Promise<GroceryItem> => {

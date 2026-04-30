@@ -28,7 +28,7 @@ export function useRecipes() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [db, hasLoaded]);
+  }, [db, hasLoaded, setLoading, setRecipes, setLoaded]);
 
   const create = useCallback(
     async (input: RecipeInput): Promise<Recipe> => {

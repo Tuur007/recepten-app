@@ -2,12 +2,11 @@
 // In a normal Expo project the entry is "expo-router/entry" (set in package.json).
 // Expo Snack does not support expo-router file-based routing or expo-sqlite
 // (native module). Run locally with: npx expo start
-import { registerRootComponent } from 'expo';
 import { ExpoRoot } from 'expo-router';
 import React from 'react';
 
 const ctx = require.context('./app');
-function App() {
+
+export default function App() {
   return React.createElement(ExpoRoot, { context: ctx });
 }
-registerRootComponent(App);

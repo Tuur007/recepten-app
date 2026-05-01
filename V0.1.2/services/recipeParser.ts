@@ -36,6 +36,17 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
   const heuristic = tryParseHeuristic(html, url);
   if (heuristic && isUsable(heuristic)) return heuristic;
 
+  // 5. Last-resort: extract whatever title we can find + empty ingredient list
+  //    so the user can fill in details manually rather than seeing a hard error.
+  const fallbackTitle =
+    extractMetaContent(html, 'og:title') ||
+    extractH1(html) ||
+    extractTitleTag(html) ||
+    '';
+  if (fallbackTitle) {
+    return { title: fallbackTitle, ingredients: [], steps: [], sourceUrl: url };
+  }
+
   throw new Error(
     'Kon het recept niet automatisch uitlezen van deze pagina.\n' +
       'Vul de gegevens hieronder handmatig in.',
@@ -52,17 +63,19 @@ function isUsable(r: ParsedRecipe): boolean {
 
 async function fetchHtml(url: string): Promise<string> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12_000);
+  const timer = setTimeout(() => controller.abort(), 15_000);
 
   try {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) ' +
-          'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        Accept: 'text/html,application/xhtml+xml',
-        'Accept-Language': 'nl-BE,nl;q=0.9,en;q=0.8',
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) ' +
+          'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'nl-BE,nl;q=0.9,en-GB;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
       },
     });
 
@@ -191,7 +204,6 @@ function searchObjectForRecipe(
     return extractFromJsonLd(o, url);
   }
 
-  // Recurse
   for (const value of Object.values(o)) {
     const found = searchObjectForRecipe(value, url, depth + 1);
     if (found) return found;
@@ -207,7 +219,6 @@ function extractDagelijksekost(
 
   const rawIngredients = Array.isArray(o.ingredients) ? o.ingredients : [];
   const ingredients: ParsedIngredient[] = rawIngredients.flatMap((group: unknown) => {
-    // Ingredients can be grouped: { title, ingredients: [...] }
     if (group && typeof group === 'object') {
       const g = group as Record<string, unknown>;
       if (Array.isArray(g.ingredients)) {
@@ -245,11 +256,9 @@ function parseDKIngredient(ing: unknown): ParsedIngredient {
   }
   const o = ing as Record<string, unknown>;
 
-  // If there's a raw text field, parse it
   const rawText = str(o.text) || str(o.ingredient_text) || str(o.label);
   if (rawText) return parseIngredientString(rawText);
 
-  // Structured fields
   const name = str(o.name) || str(o.ingredient) || str(o.product) || '';
   const unit = str(o.unit) || str(o.measure) || '';
   const qty = parseFloat(str(o.amount) || str(o.quantity) || str(o.qty) || '1');
@@ -259,7 +268,6 @@ function parseDKIngredient(ing: unknown): ParsedIngredient {
 
 // ---------------------------------------------------------------------------
 // Strategy 3 — HTML Microdata (itemprop attributes)
-// Works on: older sites using schema.org microdata in HTML attributes.
 // ---------------------------------------------------------------------------
 
 function tryParseMicrodata(html: string, url: string): ParsedRecipe | null {
@@ -274,6 +282,7 @@ function tryParseMicrodata(html: string, url: string): ParsedRecipe | null {
     extractItemprop(html, 'name') ||
     extractMetaContent(html, 'og:title') ||
     extractH1(html) ||
+    extractTitleTag(html) ||
     '';
 
   const ingredientMatches = [
@@ -282,7 +291,6 @@ function tryParseMicrodata(html: string, url: string): ParsedRecipe | null {
 
   const ingredients = ingredientMatches.map(parseIngredientString);
 
-  // Instructions can be plain text or structured
   const instructionText = extractItemprop(html, 'recipeInstructions') || '';
   const steps = instructionText
     ? splitSentences(instructionText)
@@ -295,13 +303,11 @@ function tryParseMicrodata(html: string, url: string): ParsedRecipe | null {
 }
 
 function extractItemprop(html: string, prop: string): string {
-  // <meta itemprop="name" content="...">
   const metaM = html.match(
     new RegExp(`itemprop=["']${prop}["'][^>]*content=["']([^"']+)["']`, 'i'),
   );
   if (metaM) return decodeHtmlEntities(metaM[1]);
 
-  // <span itemprop="name">...</span>
   const tagM = html.match(
     new RegExp(`itemprop=["']${prop}["'][^>]*>([^<]+)`, 'i'),
   );
@@ -312,14 +318,16 @@ function extractItemprop(html: string, prop: string): string {
 
 // ---------------------------------------------------------------------------
 // Strategy 4 — Generic HTML heuristic
-// Looks for Dutch/Belgian class-name patterns and common list structures.
-// Works as a last-resort fallback for sites not using structured data.
 // ---------------------------------------------------------------------------
 
 function tryParseHeuristic(html: string, url: string): ParsedRecipe | null {
-  const title = extractH1(html) || extractMetaContent(html, 'og:title') || '';
+  const title =
+    extractH1(html) ||
+    extractMetaContent(html, 'og:title') ||
+    extractMetaContent(html, 'twitter:title') ||
+    extractTitleTag(html) ||
+    '';
 
-  // Strip script/style tags to avoid matching JS code
   const cleaned = html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '');
@@ -332,11 +340,12 @@ function tryParseHeuristic(html: string, url: string): ParsedRecipe | null {
 }
 
 function extractHeuristicIngredients(html: string): ParsedIngredient[] {
-  // Look for containers with ingredient-related class names (NL + EN)
   const containerPatterns = [
-    /class=["'][^"']*ingredi[eë]nt[^"']*["'][\s\S]{0,2000}?<\/[uo]l>/gi,
-    /class=["'][^"']*ingredient[^"']*["'][\s\S]{0,2000}?<\/[uo]l>/gi,
-    /class=["'][^"']*bestanddelen[^"']*["'][\s\S]{0,2000}?<\/[uo]l>/gi,
+    /class=["'][^"']*ingredi[eë]nt[^"']*["'][\s\S]{0,3000}?<\/[uo]l>/gi,
+    /class=["'][^"']*ingredient[^"']*["'][\s\S]{0,3000}?<\/[uo]l>/gi,
+    /class=["'][^"']*bestanddelen[^"']*["'][\s\S]{0,3000}?<\/[uo]l>/gi,
+    // data-* attributes (used by some modern sites)
+    /data-[^=]*ingredient[^=]*=["'][^"']*["'][\s\S]{0,3000}?<\/[uo]l>/gi,
   ];
 
   for (const pattern of containerPatterns) {
@@ -354,7 +363,6 @@ function extractHeuristicIngredients(html: string): ParsedIngredient[] {
 }
 
 function extractHeuristicSteps(html: string): string[] {
-  // Look for containers with step/preparation-related class names (NL + EN)
   const containerPatterns = [
     /class=["'][^"']*(bereidings?(?:wijze)?|voorbereiding|stapp?en?)[^"']*["'][\s\S]{0,5000}?<\/[uo]l>/gi,
     /class=["'][^"']*(preparation|instructions?|directions?|method|steps?)[^"']*["'][\s\S]{0,5000}?<\/[uo]l>/gi,
@@ -383,6 +391,15 @@ function extractHeuristicSteps(html: string): string[] {
 function extractH1(html: string): string {
   const m = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
   return m ? decodeHtmlEntities(stripTags(m[1])).trim() : '';
+}
+
+/** Extract <title>...</title> as last-resort title fallback */
+function extractTitleTag(html: string): string {
+  const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (!m) return '';
+  // Strip common site suffixes like " | Site Name" or " - Site Name"
+  const raw = decodeHtmlEntities(stripTags(m[1])).trim();
+  return raw.replace(/\s*[|\-–—]\s*.{2,60}$/, '').trim();
 }
 
 function extractMetaContent(html: string, property: string): string {
@@ -437,10 +454,10 @@ function splitSentences(text: string): string[] {
 
 // ---------------------------------------------------------------------------
 // Ingredient string parser  e.g. "1½ cups all-purpose flour" → structured
+// Also handles: "1-2 tomatoes" (range → take max), "ca. 200g" (approximate)
 // ---------------------------------------------------------------------------
 
 export function parseIngredientString(raw: string): ParsedIngredient {
-  // Normalise Unicode fractions and strip HTML entities
   const text = decodeHtmlEntities(raw)
     .trim()
     .replace(/¼/g, '0.25')
@@ -449,31 +466,37 @@ export function parseIngredientString(raw: string): ParsedIngredient {
     .replace(/⅓/g, '0.333')
     .replace(/⅔/g, '0.667')
     .replace(/⅛/g, '0.125')
-    // Dutch number notation: comma as decimal separator
-    .replace(/(\d),(\d)/g, '$1.$2');
+    .replace(/(\d),(\d)/g, '$1.$2')   // Dutch decimal comma
+    .replace(/^(?:ca\.?|circa|ongeveer|approx\.?)\s*/i, ''); // strip approximation prefix
 
   let remaining = text;
   let quantity = 1;
 
-  // Match mixed numbers "1 1/2", plain fractions "1/2", or decimals
-  const qMatch = remaining.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d*\.?\d+)\s*/);
-  if (qMatch) {
-    const q = qMatch[1].trim();
-    if (q.includes('/')) {
-      // Could be "1 1/2" or "1/2"
-      const spaceIdx = q.indexOf(' ');
-      if (spaceIdx > -1) {
-        const [whole, frac] = q.split(' ');
-        const [num, den] = frac.split('/');
-        quantity = parseFloat(whole) + parseFloat(num) / parseFloat(den);
+  // Handle range "1-2" or "1 à 2" → take the maximum value
+  const rangeMatch = remaining.match(/^(\d*\.?\d+)\s*[-à]\s*(\d*\.?\d+)\s*/);
+  if (rangeMatch) {
+    quantity = parseFloat(rangeMatch[2]); // take max of range
+    remaining = remaining.slice(rangeMatch[0].length);
+  } else {
+    // Match mixed numbers "1 1/2", plain fractions "1/2", or decimals
+    const qMatch = remaining.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d*\.?\d+)\s*/);
+    if (qMatch) {
+      const q = qMatch[1].trim();
+      if (q.includes('/')) {
+        const spaceIdx = q.indexOf(' ');
+        if (spaceIdx > -1) {
+          const [whole, frac] = q.split(' ');
+          const [num, den] = frac.split('/');
+          quantity = parseFloat(whole) + parseFloat(num) / parseFloat(den);
+        } else {
+          const [num, den] = q.split('/');
+          quantity = parseFloat(num) / parseFloat(den);
+        }
       } else {
-        const [num, den] = q.split('/');
-        quantity = parseFloat(num) / parseFloat(den);
+        quantity = parseFloat(q);
       }
-    } else {
-      quantity = parseFloat(q);
+      remaining = remaining.slice(qMatch[0].length);
     }
-    remaining = remaining.slice(qMatch[0].length);
   }
 
   // Match unit (longest-first to avoid partial matches)

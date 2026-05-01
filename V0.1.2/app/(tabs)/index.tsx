@@ -90,7 +90,7 @@ export default function RecipesScreen() {
   if (isLoading) return <LoadingScreen />;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Search bar */}
       <View style={styles.searchRow}>
         <Ionicons name="search-outline" size={18} color={Colors.textSecondary} style={styles.searchIcon} />

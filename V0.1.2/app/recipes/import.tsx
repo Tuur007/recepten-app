@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -125,19 +126,30 @@ export default function ImportRecipeScreen() {
               </Text>
             </View>
 
-            <AppTextInput
-              label="Recept URL"
-              value={url}
-              onChangeText={(text) => {
-                setUrl(text);
-                setFetchError('');
-              }}
-              placeholder="https://www.example.com/recept"
-              keyboardType="url"
-              autoCapitalize="none"
-              autoCorrect={false}
-              error={fetchError}
-            />
+            <View style={styles.urlWrapper}>
+              <Text style={styles.urlLabel}>Recept URL</Text>
+              <View style={[styles.urlInputRow, fetchError ? styles.urlInputRowError : null]}>
+                <TextInput
+                  style={styles.urlInput}
+                  value={url}
+                  onChangeText={(text) => {
+                    setUrl(text);
+                    setFetchError('');
+                  }}
+                  placeholder="https://www.example.com/recept"
+                  placeholderTextColor={Colors.textSecondary}
+                  keyboardType="url"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {url.length > 0 ? (
+                  <TouchableOpacity onPress={() => { setUrl(''); setFetchError(''); }} hitSlop={8}>
+                    <Ionicons name="close-circle" size={18} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              {fetchError ? <Text style={styles.urlError}>{fetchError}</Text> : null}
+            </View>
 
             <Button
               label={fetching ? 'Ophalen…' : 'Recept ophalen'}
@@ -263,4 +275,27 @@ const styles = StyleSheet.create({
   sectionContent: { gap: 8 },
   addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
   addRowBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '500' },
+  urlWrapper: { gap: 6 },
+  urlLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  urlInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 8,
+    minHeight: 48,
+  },
+  urlInputRowError: { borderColor: Colors.danger },
+  urlInput: { flex: 1, fontSize: 15, color: Colors.text },
+  urlError: { fontSize: 12, color: Colors.danger, marginTop: 2 },
 });

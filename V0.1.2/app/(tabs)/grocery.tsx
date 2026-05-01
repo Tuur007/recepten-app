@@ -67,7 +67,7 @@ export default function GroceryScreen() {
   const hasItems = items.length > 0;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Manual add input */}
       <View style={styles.addRow}>
         <TextInput

@@ -1,32 +1,32 @@
 export const Colors = {
-  // Primary — indigo/blue (modern, accessible)
-  primary: '#4f46e5',
-  primaryLight: '#eef2ff',
-  primaryDark: '#3730a3',
+  // Primary — warm taupe/brown
+  primary: '#8B7B6B',
+  primaryLight: '#F5EFE8',
+  primaryDark: '#6B5B4E',
 
-  // Accent — warm coral/orange
-  accent: '#ea580c',
-  accentLight: '#fff7ed',
+  // Accent — warm gold
+  accent: '#D4A574',
+  accentLight: '#FDF3E7',
 
   // Backgrounds
-  background: '#f8fafc',
-  surface: '#ffffff',
-  surfaceAlt: '#f1f5f9',
+  background: '#FFFBF7',
+  surface: '#FFFFFF',
+  surfaceAlt: '#F7F0E8',
 
   // Borders
-  border: '#e2e8f0',
+  border: '#E8DDD0',
 
   // Text
-  text: '#0f172a',
-  textSecondary: '#64748b',
+  text: '#4A4A4A',
+  textSecondary: '#8A7A70',
 
   // Status
-  danger: '#ef4444',
-  dangerLight: '#fef2f2',
-  warning: '#f59e0b',
-  success: '#22c55e',
-  successLight: '#f0fdf4',
+  danger: '#C0392B',
+  dangerLight: '#FDEDEC',
+  warning: '#D4A017',
+  success: '#6AAB7A',
+  successLight: '#EDF7F0',
 
   // Grocery
-  checked: '#94a3b8',
+  checked: '#B0A090',
 } as const;

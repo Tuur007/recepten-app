@@ -18,6 +18,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { Colors } from '../../components/ui/colors';
 import { Recipe } from '../../types/recipe';
+import { generateId } from '../../utils/id';
 
 export default function GroceryScreen() {
   const { items, uncheckedItems, checkedItems, isLoading, toggleChecked, remove, clearChecked, addFromRecipe, addManual } =
@@ -41,7 +42,7 @@ export default function GroceryScreen() {
 
   const handleAddFromRecipe = async (recipe: Recipe) => {
     setModalVisible(false);
-    await addFromRecipe(recipe.ingredients, recipe.title);
+    await addFromRecipe(recipe.ingredients, recipe.id, recipe.title);
   };
 
   const handleManualAdd = async () => {
@@ -49,7 +50,12 @@ export default function GroceryScreen() {
     if (!name) return;
     setAdding(true);
     try {
-      await addManual({ name, quantity: 1, unit: '', recipes: [], checked: false });
+      await addManual({
+        name,
+        unit: '',
+        sources: [{ sourceId: generateId(), sourceType: 'manual', sourceName: name, quantity: 1 }],
+        checked: false,
+      });
       setManualInput('');
     } finally {
       setAdding(false);

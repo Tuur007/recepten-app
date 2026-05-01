@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../components/ui/colors';
 import { GroceryItem as GroceryItemType } from '../../../types/grocery';
@@ -21,11 +15,14 @@ export function GroceryItem({ item, onToggle, onDelete }: GroceryItemProps) {
   const origin = formatItemOrigin(item);
 
   const handleDelete = () => {
-    Alert.alert('Remove Item', `Remove "${item.name}" from the list?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: onDelete },
+    Alert.alert('Item verwijderen', `"${item.name}" verwijderen uit de lijst?`, [
+      { text: 'Annuleer', style: 'cancel' },
+      { text: 'Verwijder', style: 'destructive', onPress: onDelete },
     ]);
   };
+
+  const quantityLabel =
+    item.totalQuantity > 0 && item.totalQuantity !== 1 ? `${item.totalQuantity} ` : '';
 
   return (
     <TouchableOpacity
@@ -34,22 +31,16 @@ export function GroceryItem({ item, onToggle, onDelete }: GroceryItemProps) {
       activeOpacity={0.7}
     >
       <View style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
-        {item.checked ? (
-          <Ionicons name="checkmark" size={14} color="#fff" />
-        ) : null}
+        {item.checked ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
       </View>
 
       <View style={styles.content}>
         <Text style={[styles.name, item.checked && styles.checkedText]}>
-          {item.quantity > 0 && item.quantity !== 1
-            ? `${item.quantity} `
-            : ''}
+          {quantityLabel}
           {item.unit ? `${item.unit} ` : ''}
           {item.name}
         </Text>
-        {origin ? (
-          <Text style={styles.origin}>{origin}</Text>
-        ) : null}
+        {origin ? <Text style={styles.origin}>{origin}</Text> : null}
       </View>
 
       <TouchableOpacity onPress={handleDelete} hitSlop={8} style={styles.deleteBtn}>

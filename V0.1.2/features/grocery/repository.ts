@@ -1,24 +1,25 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
-import { GroceryItem, GroceryItemInput, GroceryItemUpdate } from '../../types/grocery';
+import { GroceryItem, GroceryItemInput, GroceryItemUpdate, computeTotalQuantity } from '../../types/grocery';
 import { generateId } from '../../utils/id';
 
 interface GroceryRow {
   id: string;
   name: string;
-  quantity: number;
   unit: string;
-  recipes: string;
+  sources: string;
+  total_quantity: number;
   checked: number;
   created_at: string;
 }
 
 function rowToItem(row: GroceryRow): GroceryItem {
+  const sources = JSON.parse(row.sources ?? '[]');
   return {
     id: row.id,
     name: row.name,
-    quantity: row.quantity,
     unit: row.unit,
-    recipes: JSON.parse(row.recipes),
+    sources,
+    totalQuantity: row.total_quantity ?? computeTotalQuantity(sources),
     checked: row.checked === 1,
     createdAt: row.created_at,
   };
@@ -27,7 +28,7 @@ function rowToItem(row: GroceryRow): GroceryItem {
 export const GroceryRepository = {
   async getAll(db: SQLiteDatabase): Promise<GroceryItem[]> {
     const rows = await db.getAllAsync<GroceryRow>(
-      'SELECT * FROM grocery_items ORDER BY checked ASC, created_at DESC',
+      'SELECT id, name, unit, sources, total_quantity, checked, created_at FROM grocery_items ORDER BY checked ASC, created_at DESC',
     );
     return rows.map(rowToItem);
   },
@@ -35,29 +36,13 @@ export const GroceryRepository = {
   async create(db: SQLiteDatabase, input: GroceryItemInput): Promise<GroceryItem> {
     const id = generateId();
     const now = new Date().toISOString();
+    const totalQuantity = computeTotalQuantity(input.sources);
     await db.runAsync(
-      `INSERT INTO grocery_items (id, name, quantity, unit, recipes, checked, created_at)
+      `INSERT INTO grocery_items (id, name, unit, sources, total_quantity, checked, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        input.name,
-        input.quantity,
-        input.unit,
-        JSON.stringify(input.recipes),
-        input.checked ? 1 : 0,
-        now,
-      ],
+      [id, input.name, input.unit, JSON.stringify(input.sources), totalQuantity, input.checked ? 1 : 0, now],
     );
-    return { id, ...input, createdAt: now };
-  },
-
-  async createMany(db: SQLiteDatabase, inputs: GroceryItemInput[]): Promise<GroceryItem[]> {
-    const created: GroceryItem[] = [];
-    for (const input of inputs) {
-      const item = await GroceryRepository.create(db, input);
-      created.push(item);
-    }
-    return created;
+    return { id, ...input, totalQuantity, createdAt: now };
   },
 
   async update(db: SQLiteDatabase, id: string, changes: GroceryItemUpdate): Promise<void> {
@@ -65,10 +50,14 @@ export const GroceryRepository = {
     const values: unknown[] = [];
 
     if (changes.name !== undefined) { fields.push('name = ?'); values.push(changes.name); }
-    if (changes.quantity !== undefined) { fields.push('quantity = ?'); values.push(changes.quantity); }
     if (changes.unit !== undefined) { fields.push('unit = ?'); values.push(changes.unit); }
-    if (changes.recipes !== undefined) { fields.push('recipes = ?'); values.push(JSON.stringify(changes.recipes)); }
     if (changes.checked !== undefined) { fields.push('checked = ?'); values.push(changes.checked ? 1 : 0); }
+    if (changes.sources !== undefined) {
+      fields.push('sources = ?');
+      values.push(JSON.stringify(changes.sources));
+      fields.push('total_quantity = ?');
+      values.push(computeTotalQuantity(changes.sources));
+    }
 
     if (fields.length === 0) return;
     values.push(id);

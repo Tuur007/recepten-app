@@ -4,7 +4,7 @@ import { GroceryItem, GroceryItemInput, GroceryItemUpdate } from '../../types/gr
 import { Ingredient } from '../../types/recipe';
 import { GroceryRepository } from './repository';
 import { useGroceryStore } from '../../store/groceryStore';
-import { mergeIngredientsIntoGrocery } from '../../utils/merge';
+import { mergeIngredientsIntoGrocery, removeSourceFromGrocery } from '../../utils/merge';
 
 export function useGrocery() {
   const db = useSQLiteContext();
@@ -20,25 +20,20 @@ export function useGrocery() {
     removeItem,
   } = useGroceryStore();
 
-  // Laad boodschappenlijst bij eerste gebruik
   useEffect(() => {
     if (hasLoaded) return;
-
     setLoading(true);
     GroceryRepository.getAll(db)
       .then((data) => {
         setItems(data);
         setLoaded(true);
       })
-      .catch((fout) => {
-        console.error('[useGrocery] Fout bij laden van boodschappenlijst:', fout);
+      .catch((err) => {
+        console.error('[useGrocery] Fout bij laden:', err);
       })
       .finally(() => setLoading(false));
   }, [db, hasLoaded, setLoading, setItems, setLoaded]);
 
-  /**
-   * Voeg een enkel item handmatig toe aan de boodschappenlijst.
-   */
   const addManual = useCallback(
     async (input: GroceryItemInput): Promise<GroceryItem> => {
       const item = await GroceryRepository.create(db, input);
@@ -49,37 +44,25 @@ export function useGrocery() {
   );
 
   /**
-   * Voeg ingrediënten van een recept toe aan de boodschappenlijst.
-   *
-   * Gebruikt een SQLite-transactie zodat de boodschappenlijst nooit
-   * in een half-bijgewerkte staat achterblijft als er iets misgaat.
-   * Bij een fout blijft de vorige lijst volledig intact.
+   * Adds a recipe's ingredients to the grocery list.
+   * Tracks sourceId so the same recipe re-added overwrites instead of duplicating.
    */
   const addFromRecipe = useCallback(
-    async (ingredients: Ingredient[], receptNaam: string): Promise<void> => {
-      // Bereken de samengevoegde lijst op basis van de huidige items
-      const samengevoegd = mergeIngredientsIntoGrocery(
-        items,
-        ingredients,
-        receptNaam,
-      );
+    async (ingredients: Ingredient[], recipeId: string, recipeName: string): Promise<void> => {
+      const merged = mergeIngredientsIntoGrocery(items, ingredients, recipeId, recipeName);
 
-      // Voer alles uit binnen één transactie:
-      // als één stap faalt, wordt alles teruggedraaid (rollback)
       await db.withTransactionAsync(async () => {
         await db.runAsync('DELETE FROM grocery_items');
-
-        for (const item of samengevoegd) {
+        for (const item of merged) {
           await db.runAsync(
-            `INSERT INTO grocery_items
-               (id, name, quantity, unit, recipes, checked, created_at)
+            `INSERT INTO grocery_items (id, name, unit, sources, total_quantity, checked, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
               item.id,
               item.name,
-              item.quantity,
               item.unit,
-              JSON.stringify(item.recipes),
+              JSON.stringify(item.sources),
+              item.totalQuantity,
               item.checked ? 1 : 0,
               item.createdAt,
             ],
@@ -87,30 +70,54 @@ export function useGrocery() {
         }
       });
 
-      // Pas de store pas aan nadat de transactie succesvol was
-      setItems(samengevoegd);
+      setItems(merged);
     },
     [db, items, setItems],
   );
 
   /**
-   * Schakel het afgevinkte-status van een item om.
+   * Removes all contributions of a recipe from the grocery list.
+   * Items with no remaining sources are deleted automatically.
    */
+  const removeSource = useCallback(
+    async (sourceId: string): Promise<void> => {
+      const updated = removeSourceFromGrocery(items, sourceId);
+
+      await db.withTransactionAsync(async () => {
+        await db.runAsync('DELETE FROM grocery_items');
+        for (const item of updated) {
+          await db.runAsync(
+            `INSERT INTO grocery_items (id, name, unit, sources, total_quantity, checked, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              item.id,
+              item.name,
+              item.unit,
+              JSON.stringify(item.sources),
+              item.totalQuantity,
+              item.checked ? 1 : 0,
+              item.createdAt,
+            ],
+          );
+        }
+      });
+
+      setItems(updated);
+    },
+    [db, items, setItems],
+  );
+
   const toggleChecked = useCallback(
     async (id: string): Promise<void> => {
       const item = items.find((i) => i.id === id);
       if (!item) return;
-
-      const afgevinkt = !item.checked;
-      await GroceryRepository.update(db, id, { checked: afgevinkt });
-      updateItemInStore(id, { checked: afgevinkt });
+      const checked = !item.checked;
+      await GroceryRepository.update(db, id, { checked });
+      updateItemInStore(id, { checked });
     },
     [db, items, updateItemInStore],
   );
 
-  /**
-   * Verwijder een enkel item uit de boodschappenlijst.
-   */
   const remove = useCallback(
     async (id: string): Promise<void> => {
       await GroceryRepository.delete(db, id);
@@ -119,36 +126,23 @@ export function useGrocery() {
     [db, removeItem],
   );
 
-  /**
-   * Verwijder alle afgevinkte items.
-   *
-   * Gebruikt withTransactionAsync voor consistentie,
-   * en haalt daarna de actuele lijst opnieuw op uit de database
-   * om stale-state te vermijden.
-   */
   const clearChecked = useCallback(async (): Promise<void> => {
     await db.withTransactionAsync(async () => {
       await db.runAsync('DELETE FROM grocery_items WHERE checked = 1');
     });
-
-    // Haal de actuele lijst opnieuw op in plaats van de closure-waarde te gebruiken
-    // Dit voorkomt stale-state als er ondertussen wijzigingen waren
-    const bijgewerkt = await GroceryRepository.getAll(db);
-    setItems(bijgewerkt);
+    const updated = await GroceryRepository.getAll(db);
+    setItems(updated);
   }, [db, setItems]);
-
-  // Gesplitste lijsten voor gemakkelijk gebruik in de UI
-  const nietAfgevinkt = items.filter((i) => !i.checked);
-  const afgevinkt = items.filter((i) => i.checked);
 
   return {
     items,
-    uncheckedItems: nietAfgevinkt,
-    checkedItems: afgevinkt,
+    uncheckedItems: items.filter((i) => !i.checked),
+    checkedItems: items.filter((i) => i.checked),
     isLoading,
     hasLoaded,
     addManual,
     addFromRecipe,
+    removeSource,
     toggleChecked,
     remove,
     clearChecked,

@@ -68,13 +68,24 @@ export default function GroceryScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Manual add input */}
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Boodschappen</Text>
+          <TouchableOpacity style={styles.iconBtn} hitSlop={8}>
+            <Ionicons name="sunny-outline" size={20} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Add input */}
       <View style={styles.addRow}>
+        <Ionicons name="add-outline" size={18} color={Colors.textSecondary} />
         <TextInput
           style={styles.addInput}
           value={manualInput}
           onChangeText={setManualInput}
-          placeholder="Item toevoegen…"
+          placeholder="Item toevoegen..."
           placeholderTextColor={Colors.textSecondary}
           returnKeyType="done"
           onSubmitEditing={handleManualAdd}
@@ -86,26 +97,35 @@ export default function GroceryScreen() {
           disabled={!manualInput.trim() || adding}
           activeOpacity={0.75}
         >
-          <Ionicons name="add" size={22} color="#fff" />
+          <Ionicons name="add" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
       {/* Toolbar */}
       <View style={styles.toolbar}>
-        <TouchableOpacity style={styles.toolbarBtn} onPress={() => setModalVisible(true)}>
+        <TouchableOpacity 
+          style={styles.toolbarBtn} 
+          onPress={() => setModalVisible(true)}
+          activeOpacity={0.7}
+        >
           <Ionicons name="book-outline" size={16} color={Colors.primary} />
           <Text style={styles.toolbarBtnText}>Van recept</Text>
         </TouchableOpacity>
         {checkedItems.length > 0 ? (
-          <TouchableOpacity style={styles.toolbarBtn} onPress={handleClearChecked}>
+          <TouchableOpacity 
+            style={styles.toolbarBtn} 
+            onPress={handleClearChecked}
+            activeOpacity={0.7}
+          >
             <Ionicons name="trash-outline" size={16} color={Colors.danger} />
             <Text style={[styles.toolbarBtnText, { color: Colors.danger }]}>
-              Verwijder afgevinkt ({checkedItems.length})
+              Verwijder ({checkedItems.length})
             </Text>
           </TouchableOpacity>
         ) : null}
       </View>
 
+      {/* Items list */}
       <FlatList
         data={[...uncheckedItems, ...checkedItems]}
         keyExtractor={(i) => i.id}
@@ -154,53 +174,81 @@ export default function GroceryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+  },
+  addInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: Colors.background,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    color: Colors.text,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+  },
+  addBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: Colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addBtnDisabled: { opacity: 0.4 },
+
+  toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 10,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  addInput: {
-    flex: 1,
-    height: 44,
-    backgroundColor: Colors.background,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    color: Colors.text,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  addBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtnDisabled: { opacity: 0.4 },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 12,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
     backgroundColor: Colors.surface,
   },
   toolbarBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
+    gap: 6,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: Colors.background,
   },
   toolbarBtnText: {
@@ -208,14 +256,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.primary,
   },
-  list: { padding: 16, gap: 8 },
+
+  list: { padding: 12, gap: 8 },
   sectionHeader: {
     fontSize: 11,
     fontWeight: '700',
     color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: 4,
+    marginBottom: 8,
     marginTop: 4,
   },
 });

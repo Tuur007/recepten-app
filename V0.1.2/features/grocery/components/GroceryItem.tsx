@@ -1,87 +1,90 @@
 import React from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../components/ui/colors';
-import { GroceryItem as GroceryItemType } from '../../../types/grocery';
-import { formatItemOrigin } from '../../../utils/merge';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableOpacityProps,
+  ViewStyle,
+} from 'react-native';
+import { Colors } from './colors';
 
-interface GroceryItemProps {
-  item: GroceryItemType;
-  onToggle: () => void;
-  onDelete: () => void;
+type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
+
+interface ButtonProps extends TouchableOpacityProps {
+  label: string;
+  variant?: Variant;
+  loading?: boolean;
+  fullWidth?: boolean;
 }
 
-export function GroceryItem({ item, onToggle, onDelete }: GroceryItemProps) {
-  const origin = formatItemOrigin(item);
+const variantContainerStyle: Record<Variant, object> = {
+  primary: { 
+    background: 'linear-gradient(135deg, #d4a574 0%, #8B7B6B 100%)',
+    backgroundColor: '#8B7B6B'
+  },
+  secondary: { 
+    backgroundColor: Colors.primaryLight, 
+    borderWidth: 1.5, 
+    borderColor: Colors.primary 
+  },
+  danger: { backgroundColor: Colors.danger },
+  ghost: { backgroundColor: 'transparent' },
+};
 
-  const handleDelete = () => {
-    Alert.alert('Item verwijderen', `"${item.name}" verwijderen uit de lijst?`, [
-      { text: 'Annuleer', style: 'cancel' },
-      { text: 'Verwijder', style: 'destructive', onPress: onDelete },
-    ]);
-  };
+const variantLabelStyle: Record<Variant, object> = {
+  primary: { color: '#fff' },
+  secondary: { color: Colors.primary },
+  danger: { color: '#fff' },
+  ghost: { color: Colors.primary },
+};
 
-  const quantityLabel =
-    item.totalQuantity > 0 && item.totalQuantity !== 1 ? `${item.totalQuantity} ` : '';
+export function Button({
+  label,
+  variant = 'primary',
+  loading = false,
+  fullWidth = false,
+  disabled,
+  style,
+  ...rest
+}: ButtonProps) {
+  const isDisabled = disabled || loading;
 
   return (
-    <View style={[styles.row, item.checked && styles.checkedRow]}>
-      {/* Only the checkbox triggers toggle */}
-      <TouchableOpacity
-        onPress={onToggle}
-        activeOpacity={0.7}
-        hitSlop={8}
-        style={[styles.checkbox, item.checked && styles.checkboxChecked]}
-      >
-        {item.checked ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
-      </TouchableOpacity>
-
-      <View style={styles.content}>
-        <Text style={[styles.name, item.checked && styles.checkedText]}>
-          {quantityLabel}
-          {item.unit ? `${item.unit} ` : ''}
-          {item.name}
-        </Text>
-        {origin ? <Text style={styles.origin}>{origin}</Text> : null}
-      </View>
-
-      <TouchableOpacity onPress={handleDelete} hitSlop={8} style={styles.deleteBtn}>
-        <Ionicons name="trash-outline" size={16} color={Colors.textSecondary} />
-      </TouchableOpacity>
-    </View>
+    <TouchableOpacity
+      style={[
+        styles.base,
+        variantContainerStyle[variant],
+        fullWidth && styles.fullWidth,
+        isDisabled && styles.disabled,
+        style as ViewStyle,
+      ]}
+      disabled={isDisabled}
+      activeOpacity={0.8}
+      {...rest}
+    >
+      {loading ? (
+        <ActivityIndicator
+          size="small"
+          color={variant === 'primary' || variant === 'danger' ? '#fff' : Colors.primary}
+        />
+      ) : (
+        <Text style={[styles.label, variantLabelStyle[variant]]}>{label}</Text>
+      )}
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+  base: {
+    paddingHorizontal: 28,
     paddingVertical: 12,
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  checkedRow: { opacity: 0.55 },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.border,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
+    minHeight: 48,
   },
-  checkboxChecked: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  content: { flex: 1, gap: 2 },
-  name: { fontSize: 15, fontWeight: '500', color: Colors.text },
-  checkedText: { textDecorationLine: 'line-through', color: Colors.textSecondary },
-  origin: { fontSize: 12, color: Colors.textSecondary },
-  deleteBtn: { padding: 4 },
+  fullWidth: { width: '100%' },
+  disabled: { opacity: 0.45 },
+  label: { fontSize: 15, fontWeight: '700', letterSpacing: 0.1 },
 });

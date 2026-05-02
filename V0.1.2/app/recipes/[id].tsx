@@ -22,6 +22,7 @@ import { AppTextInput } from '../../components/ui/AppTextInput';
 import { Button } from '../../components/ui/Button';
 import { Colors } from '../../components/ui/colors';
 import { LoadingScreen } from '../../components/LoadingScreen';
+import { Ingredient } from '../../types/recipe';
 
 export default function RecipeDetailScreen() {
   const router = useRouter();
@@ -35,6 +36,11 @@ export default function RecipeDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [addingToList, setAddingToList] = useState(false);
 
+  // Set of selected ingredient IDs for grocery
+  const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set());
+  const allSelected =
+    recipe ? selectedIngredients.size === recipe.ingredients.filter((i) => i.name.trim()).length : false;
+
   const form = useRecipeForm();
 
   const initialised = useRef(false);
@@ -47,9 +53,34 @@ export default function RecipeDetailScreen() {
       ingredients: recipe.ingredients,
       steps: recipe.steps,
     });
+    // Pre-select all valid ingredients by default
+    const validIds = new Set(recipe.ingredients.filter((i) => i.name.trim()).map((i) => i.id));
+    setSelectedIngredients(validIds);
   }, [recipe]);
 
   if (!recipe) return <LoadingScreen />;
+
+  const validIngredients = recipe.ingredients.filter((i) => i.name.trim());
+
+  const toggleIngredient = (ing: Ingredient) => {
+    setSelectedIngredients((prev) => {
+      const next = new Set(prev);
+      if (next.has(ing.id)) {
+        next.delete(ing.id);
+      } else {
+        next.add(ing.id);
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIngredients(new Set());
+    } else {
+      setSelectedIngredients(new Set(validIngredients.map((i) => i.id)));
+    }
+  };
 
   const handleCancelEdit = () => {
     form.reset({
@@ -97,15 +128,18 @@ export default function RecipeDetailScreen() {
   };
 
   const handleAddToGrocery = async () => {
-    const validIngredients = recipe.ingredients.filter((i) => i.name.trim());
-    if (validIngredients.length === 0) {
-      Alert.alert('Geen ingrediënten', 'Voeg eerst ingrediënten toe aan dit recept.');
+    const toAdd = validIngredients.filter((i) => selectedIngredients.has(i.id));
+    if (toAdd.length === 0) {
+      Alert.alert('Geen ingrediënten geselecteerd', 'Vink minstens één ingrediënt aan.');
       return;
     }
     setAddingToList(true);
     try {
-      await addFromRecipe(validIngredients, recipe.id, recipe.title);
-      Alert.alert('Toegevoegd!', 'Ingrediënten zijn samengevoegd in je boodschappenlijst.');
+      await addFromRecipe(toAdd, recipe.id, recipe.title);
+      Alert.alert(
+        'Toegevoegd! 🛒',
+        `${toAdd.length} ingrediënt${toAdd.length !== 1 ? 'en' : ''} toegevoegd aan je boodschappenlijst.`,
+      );
     } catch {
       Alert.alert('Fout', 'Kon niet toevoegen aan boodschappenlijst.');
     } finally {
@@ -113,6 +147,7 @@ export default function RecipeDetailScreen() {
     }
   };
 
+  // ─── Edit mode ──────────────────────────────────────────────────────────────
   if (isEditing) {
     return (
       <SafeAreaView style={styles.container}>
@@ -186,7 +221,9 @@ export default function RecipeDetailScreen() {
     );
   }
 
-  // Read-only view
+  // ─── Read-only view ──────────────────────────────────────────────────────────
+  const selectedCount = selectedIngredients.size;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -200,6 +237,7 @@ export default function RecipeDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* Meta row */}
         <View style={styles.metaRow}>
           {recipe.category ? (
             <View style={styles.categoryBadge}>
@@ -214,36 +252,74 @@ export default function RecipeDetailScreen() {
           ) : null}
         </View>
 
-        <TouchableOpacity
-          style={styles.groceryBtn}
-          onPress={handleAddToGrocery}
-          disabled={addingToList}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="cart-outline" size={18} color={Colors.primary} />
-          <Text style={styles.groceryBtnText}>
-            {addingToList ? 'Bezig…' : 'Ingrediënten naar boodschappenlijst'}
-          </Text>
-        </TouchableOpacity>
-
-        {recipe.ingredients.length > 0 ? (
+        {/* Ingredients section with checkboxes */}
+        {validIngredients.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ingrediënten ({recipe.ingredients.length})</Text>
-            <View style={styles.readonlyList}>
-              {recipe.ingredients.map((ing) => (
-                <View key={ing.id} style={styles.readonlyRow}>
-                  <View style={styles.readonlyBullet} />
-                  <Text style={styles.readonlyText}>
-                    {ing.quantity > 0 && ing.quantity !== 1 ? `${ing.quantity} ` : ''}
-                    {ing.unit ? `${ing.unit} ` : ''}
-                    {ing.name}
-                  </Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>
+                Ingrediënten ({validIngredients.length})
+              </Text>
+              {/* Select all toggle */}
+              <TouchableOpacity onPress={toggleAll} style={styles.selectAllBtn} activeOpacity={0.7}>
+                <View style={[styles.selectAllBox, allSelected && styles.selectAllBoxActive]}>
+                  {allSelected ? <Ionicons name="checkmark" size={12} color="#fff" /> : null}
                 </View>
-              ))}
+                <Text style={styles.selectAllText}>
+                  {allSelected ? 'Alles deselecteren' : 'Alles selecteren'}
+                </Text>
+              </TouchableOpacity>
             </View>
+
+            <View style={styles.readonlyList}>
+              {validIngredients.map((ing) => {
+                const checked = selectedIngredients.has(ing.id);
+                return (
+                  <TouchableOpacity
+                    key={ing.id}
+                    style={[styles.ingredientRow, checked && styles.ingredientRowSelected]}
+                    onPress={() => toggleIngredient(ing)}
+                    activeOpacity={0.7}
+                  >
+                    {/* Checkbox */}
+                    <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+                      {checked ? <Ionicons name="checkmark" size={13} color="#fff" /> : null}
+                    </View>
+
+                    {/* Text */}
+                    <Text style={[styles.ingredientText, !checked && styles.ingredientTextMuted]}>
+                      {ing.quantity > 0 && ing.quantity !== 1 ? `${ing.quantity} ` : ''}
+                      {ing.unit ? `${ing.unit} ` : ''}
+                      {ing.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Add to grocery button */}
+            <TouchableOpacity
+              style={[styles.groceryBtn, selectedCount === 0 && styles.groceryBtnDisabled]}
+              onPress={handleAddToGrocery}
+              disabled={addingToList || selectedCount === 0}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name="cart-outline"
+                size={18}
+                color={selectedCount === 0 ? Colors.textSecondary : Colors.primary}
+              />
+              <Text style={[styles.groceryBtnText, selectedCount === 0 && styles.groceryBtnTextMuted]}>
+                {addingToList
+                  ? 'Bezig…'
+                  : selectedCount === 0
+                  ? 'Selecteer ingrediënten'
+                  : `${selectedCount} ingrediënt${selectedCount !== 1 ? 'en' : ''} naar boodschappen`}
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : null}
 
+        {/* Steps section */}
         {recipe.steps.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Stappen ({recipe.steps.length})</Text>
@@ -260,7 +336,7 @@ export default function RecipeDetailScreen() {
           </View>
         ) : null}
 
-        {recipe.ingredients.length === 0 && recipe.steps.length === 0 ? (
+        {validIngredients.length === 0 && recipe.steps.length === 0 ? (
           <View style={styles.emptyRecipe}>
             <Text style={styles.emptyRecipeText}>
               Dit recept heeft nog geen ingrediënten of stappen.
@@ -270,6 +346,7 @@ export default function RecipeDetailScreen() {
         ) : null}
       </ScrollView>
 
+      {/* Floating edit button */}
       <View style={styles.editBtnContainer}>
         <TouchableOpacity style={styles.editBtn} onPress={() => setIsEditing(true)} activeOpacity={0.85}>
           <Ionicons name="pencil" size={20} color="#fff" />
@@ -315,6 +392,88 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   sourceText: { fontSize: 12, color: Colors.textSecondary, flex: 1 },
+
+  // Section
+  section: { gap: 10 },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
+  sectionContent: { gap: 8 },
+
+  // Select all
+  selectAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  selectAllBox: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+  },
+  selectAllBoxActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  selectAllText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+
+  // Ingredient rows with checkbox
+  readonlyList: { gap: 8 },
+  ingredientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  ingredientRowSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    backgroundColor: Colors.surface,
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  ingredientText: {
+    fontSize: 15,
+    color: Colors.text,
+    flex: 1,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  ingredientTextMuted: {
+    color: Colors.textSecondary,
+    fontWeight: '400',
+  },
+
+  // Grocery button
   groceryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -325,31 +484,22 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderWidth: 1.5,
     borderColor: Colors.primary,
+    marginTop: 4,
   },
-  groceryBtnText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
-  section: { gap: 10 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
-  sectionContent: { gap: 8 },
-  addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
-  addRowBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '500' },
-  readonlyList: { gap: 8 },
-  readonlyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  groceryBtnDisabled: {
+    backgroundColor: Colors.surfaceAlt,
+    borderColor: Colors.border,
   },
-  readonlyBullet: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: Colors.primary,
-    flexShrink: 0,
+  groceryBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
   },
-  readonlyText: { fontSize: 15, color: Colors.text, flex: 1, lineHeight: 20 },
+  groceryBtnTextMuted: {
+    color: Colors.textSecondary,
+  },
+
+  // Steps
   readonlyStepRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -371,8 +521,16 @@ const styles = StyleSheet.create({
   },
   stepNumberText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   readonlyStepText: { fontSize: 15, color: Colors.text, flex: 1, lineHeight: 22 },
+
+  // Empty state
   emptyRecipe: { alignItems: 'center', gap: 16, paddingVertical: 24 },
   emptyRecipeText: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
+
+  // Edit + add row buttons (edit mode)
+  addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
+  addRowBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '500' },
+
+  // Floating edit button
   editBtnContainer: {
     position: 'absolute',
     bottom: 24,

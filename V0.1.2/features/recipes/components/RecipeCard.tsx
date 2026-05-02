@@ -1,90 +1,120 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableOpacityProps,
-  ViewStyle,
+  View,
 } from 'react-native';
-import { Colors } from './colors';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../../../components/ui/colors';
+import { Recipe } from '../../../types/recipe';
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
-
-interface ButtonProps extends TouchableOpacityProps {
-  label: string;
-  variant?: Variant;
-  loading?: boolean;
-  fullWidth?: boolean;
+interface RecipeCardProps {
+  recipe: Recipe;
+  onPress: () => void;
+  onToggleFavorite: () => void;
 }
 
-const variantContainerStyle: Record<Variant, object> = {
-  primary: { 
-    background: 'linear-gradient(135deg, #d4a574 0%, #8B7B6B 100%)',
-    backgroundColor: '#8B7B6B'
-  },
-  secondary: { 
-    backgroundColor: Colors.primaryLight, 
-    borderWidth: 1.5, 
-    borderColor: Colors.primary 
-  },
-  danger: { backgroundColor: Colors.danger },
-  ghost: { backgroundColor: 'transparent' },
-};
-
-const variantLabelStyle: Record<Variant, object> = {
-  primary: { color: '#fff' },
-  secondary: { color: Colors.primary },
-  danger: { color: '#fff' },
-  ghost: { color: Colors.primary },
-};
-
-export function Button({
-  label,
-  variant = 'primary',
-  loading = false,
-  fullWidth = false,
-  disabled,
-  style,
-  ...rest
-}: ButtonProps) {
-  const isDisabled = disabled || loading;
-
+export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProps) {
   return (
-    <TouchableOpacity
-      style={[
-        styles.base,
-        variantContainerStyle[variant],
-        fullWidth && styles.fullWidth,
-        isDisabled && styles.disabled,
-        style as ViewStyle,
-      ]}
-      disabled={isDisabled}
-      activeOpacity={0.8}
-      {...rest}
-    >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'primary' || variant === 'danger' ? '#fff' : Colors.primary}
-        />
-      ) : (
-        <Text style={[styles.label, variantLabelStyle[variant]]}>{label}</Text>
-      )}
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
+      <View style={styles.imageContainer}>
+        <View style={[styles.imagePlaceholder, { 
+          backgroundColor: recipe.isFavorite ? '#d4a574' : '#9dd4c3'
+        }]} />
+        <TouchableOpacity 
+          onPress={onToggleFavorite} 
+          hitSlop={10} 
+          style={styles.favoriteBtn}
+        >
+          <Ionicons
+            name={recipe.isFavorite ? 'heart' : 'heart-outline'}
+            size={20}
+            color={recipe.isFavorite ? Colors.danger : '#fff'}
+          />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.body}>
+        <Text style={styles.title} numberOfLines={1}>{recipe.title}</Text>
+
+        <View style={styles.meta}>
+          <View style={styles.metaItem}>
+            <Ionicons name="restaurant-outline" size={12} color={Colors.primary} />
+            <Text style={styles.metaText}>{recipe.ingredients.length}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Ionicons name="timer-outline" size={12} color={Colors.primary} />
+            <Text style={styles.metaText}>30m</Text>
+          </View>
+        </View>
+
+        <Text style={styles.date}>
+          {new Date(recipe.createdAt).toLocaleDateString('nl-NL', {
+            month: 'short',
+            day: 'numeric',
+          })}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  base: {
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 20,
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+  },
+  imageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 110,
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+  },
+  favoriteBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
   },
-  fullWidth: { width: '100%' },
-  disabled: { opacity: 0.45 },
-  label: { fontSize: 15, fontWeight: '700', letterSpacing: 0.1 },
+  body: { 
+    padding: 12,
+    gap: 6,
+  },
+  title: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: Colors.text,
+    lineHeight: 18,
+  },
+  meta: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  date: { 
+    fontSize: 11, 
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
 });

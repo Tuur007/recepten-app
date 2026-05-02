@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   ActionSheetIOS,
   Alert,
@@ -6,7 +6,6 @@ import {
   Platform,
   StyleSheet,
   TouchableOpacity,
-  View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +18,7 @@ import { Colors } from '../../components/ui/colors';
 
 export default function RecipesScreen() {
   const router = useRouter();
-  const { recipes, isLoading, remove } = useRecipes();
+  const { recipes, isLoading, update } = useRecipes();
 
   const handleFab = () => {
     if (Platform.OS === 'ios') {
@@ -54,7 +53,7 @@ export default function RecipesScreen() {
           <RecipeCard
             recipe={item}
             onPress={() => router.push(`/recipes/${item.id}`)}
-            onDelete={() => remove(item.id)}
+            onToggleFavorite={() => update(item.id, { isFavorite: !item.isFavorite })}
           />
         )}
         ListEmptyComponent={

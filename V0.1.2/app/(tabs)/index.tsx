@@ -1,90 +1,95 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  ActivityIndicator,
+  ActionSheetIOS,
+  Alert,
+  FlatList,
+  Platform,
   StyleSheet,
-  Text,
   TouchableOpacity,
-  TouchableOpacityProps,
-  ViewStyle,
+  View,
 } from 'react-native';
-import { Colors } from './colors';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRecipes } from '../../features/recipes/hooks';
+import { RecipeCard } from '../../features/recipes/components/RecipeCard';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { LoadingScreen } from '../../components/LoadingScreen';
+import { Colors } from '../../components/ui/colors';
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
+export default function RecipesScreen() {
+  const router = useRouter();
+  const { recipes, isLoading, remove } = useRecipes();
 
-interface ButtonProps extends TouchableOpacityProps {
-  label: string;
-  variant?: Variant;
-  loading?: boolean;
-  fullWidth?: boolean;
-}
+  const handleFab = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Add Manually', 'Import from URL'],
+          cancelButtonIndex: 0,
+        },
+        (index) => {
+          if (index === 1) router.push('/recipes/new');
+          if (index === 2) router.push('/recipes/import');
+        },
+      );
+    } else {
+      Alert.alert('Add Recipe', undefined, [
+        { text: 'Add Manually', onPress: () => router.push('/recipes/new') },
+        { text: 'Import from URL', onPress: () => router.push('/recipes/import') },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  };
 
-const variantContainerStyle: Record<Variant, object> = {
-  primary: { 
-    background: 'linear-gradient(135deg, #d4a574 0%, #8B7B6B 100%)',
-    backgroundColor: '#8B7B6B'
-  },
-  secondary: { 
-    backgroundColor: Colors.primaryLight, 
-    borderWidth: 1.5, 
-    borderColor: Colors.primary 
-  },
-  danger: { backgroundColor: Colors.danger },
-  ghost: { backgroundColor: 'transparent' },
-};
-
-const variantLabelStyle: Record<Variant, object> = {
-  primary: { color: '#fff' },
-  secondary: { color: Colors.primary },
-  danger: { color: '#fff' },
-  ghost: { color: Colors.primary },
-};
-
-export function Button({
-  label,
-  variant = 'primary',
-  loading = false,
-  fullWidth = false,
-  disabled,
-  style,
-  ...rest
-}: ButtonProps) {
-  const isDisabled = disabled || loading;
+  if (isLoading) return <LoadingScreen />;
 
   return (
-    <TouchableOpacity
-      style={[
-        styles.base,
-        variantContainerStyle[variant],
-        fullWidth && styles.fullWidth,
-        isDisabled && styles.disabled,
-        style as ViewStyle,
-      ]}
-      disabled={isDisabled}
-      activeOpacity={0.8}
-      {...rest}
-    >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'primary' || variant === 'danger' ? '#fff' : Colors.primary}
-        />
-      ) : (
-        <Text style={[styles.label, variantLabelStyle[variant]]}>{label}</Text>
-      )}
-    </TouchableOpacity>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <FlatList
+        data={recipes}
+        keyExtractor={(r) => r.id}
+        contentContainerStyle={styles.list}
+        renderItem={({ item }) => (
+          <RecipeCard
+            recipe={item}
+            onPress={() => router.push(`/recipes/${item.id}`)}
+            onDelete={() => remove(item.id)}
+          />
+        )}
+        ListEmptyComponent={
+          <EmptyState
+            icon="📖"
+            title="No recipes yet"
+            message="Tap the + button to add your first recipe manually or import one from a URL."
+          />
+        }
+      />
+
+      <TouchableOpacity style={styles.fab} onPress={handleFab} activeOpacity={0.85}>
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  base: {
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 20,
+  container: { flex: 1, backgroundColor: Colors.background },
+  list: { padding: 16, gap: 10, flexGrow: 1 },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  fullWidth: { width: '100%' },
-  disabled: { opacity: 0.45 },
-  label: { fontSize: 15, fontWeight: '700', letterSpacing: 0.1 },
 });

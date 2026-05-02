@@ -1,6 +1,7 @@
 {
-  "license": "0BSD",
-  "main": "index.js",
+  "name": "recepten-app",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -23,6 +24,10 @@
     "use-sync-external-store": "^1.2.0",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-safe-area-context": "~5.6.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "typescript": "^5.3.3"
   },
   "private": true
 }

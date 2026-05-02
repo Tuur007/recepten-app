@@ -26,6 +26,19 @@ import { generateId } from '../../utils/id';
 
 type ImportStep = 'url' | 'edit';
 
+// Sites that block scraping — we detect them by checking if we got a title
+// but zero ingredients after parsing.
+const LOGIN_WALLED_HOSTS = [
+  'marleyspoon.com',
+  'hellofresh.',
+  'greenchef.',
+  'everyplate.',
+];
+
+function isLoginWalled(url: string): boolean {
+  return LOGIN_WALLED_HOSTS.some((host) => url.includes(host));
+}
+
 export default function ImportRecipeScreen() {
   const router = useRouter();
   const { create } = useRecipes();
@@ -35,6 +48,7 @@ export default function ImportRecipeScreen() {
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loginWalled, setLoginWalled] = useState(false);
 
   const form = useRecipeForm();
 
@@ -51,9 +65,15 @@ export default function ImportRecipeScreen() {
 
     setFetchError('');
     setFetching(true);
+    setLoginWalled(false);
 
     try {
       const parsed = await parseRecipeFromUrl(trimmedUrl);
+
+      // Detect login-walled: we got a title but no ingredients/steps
+      const walled = isLoginWalled(trimmedUrl) && parsed.ingredients.length === 0 && parsed.steps.length === 0;
+      setLoginWalled(walled);
+
       form.reset({
         title: parsed.title,
         category: '',
@@ -169,12 +189,26 @@ export default function ImportRecipeScreen() {
           </ScrollView>
         ) : (
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <View style={styles.parsedBanner}>
-              <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
-              <Text style={styles.parsedBannerText}>
-                Recept uitgelezen — controleer en bewerk voor je opslaat.
-              </Text>
-            </View>
+
+            {/* Banner: login-walled site */}
+            {loginWalled ? (
+              <View style={styles.warningBanner}>
+                <Ionicons name="lock-closed-outline" size={20} color={Colors.warning} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.warningBannerTitle}>Login vereist op deze site</Text>
+                  <Text style={styles.warningBannerText}>
+                    De titel is ingelezen vanuit de URL. Voeg de ingrediënten en stappen handmatig toe via je receptkaart of app.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.parsedBanner}>
+                <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+                <Text style={styles.parsedBannerText}>
+                  Recept uitgelezen — controleer en bewerk voor je opslaat.
+                </Text>
+              </View>
+            )}
 
             <AppTextInput
               label="Titel"
@@ -259,6 +293,8 @@ const styles = StyleSheet.create({
   },
   tipsTitle: { fontSize: 14, fontWeight: '700', color: Colors.primaryDark },
   tipsText: { fontSize: 13, color: Colors.primaryDark, lineHeight: 20 },
+
+  // Success banner
   parsedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -270,6 +306,29 @@ const styles = StyleSheet.create({
     borderColor: Colors.success,
   },
   parsedBannerText: { flex: 1, fontSize: 13, color: Colors.text },
+
+  // Warning banner for login-walled sites
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#FEF9EC',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.warning,
+  },
+  warningBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  warningBannerText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+
   section: { gap: 10 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
   sectionContent: { gap: 8 },

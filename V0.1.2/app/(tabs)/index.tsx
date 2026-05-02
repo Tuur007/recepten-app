@@ -45,7 +45,7 @@ export default function RecipesScreen() {
   if (isLoading) return <LoadingScreen />;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <FlatList
         data={recipes}
         keyExtractor={(r) => r.id}

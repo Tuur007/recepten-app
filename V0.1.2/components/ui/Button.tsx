@@ -19,8 +19,15 @@ interface ButtonProps extends TouchableOpacityProps {
 }
 
 const variantContainerStyle: Record<Variant, object> = {
-  primary: { backgroundColor: Colors.primary },
-  secondary: { backgroundColor: Colors.primaryLight, borderWidth: 1.5, borderColor: Colors.primary },
+  primary: { 
+    background: 'linear-gradient(135deg, #d4a574 0%, #8B7B6B 100%)',
+    backgroundColor: '#8B7B6B'
+  },
+  secondary: { 
+    backgroundColor: Colors.primaryLight, 
+    borderWidth: 1.5, 
+    borderColor: Colors.primary 
+  },
   danger: { backgroundColor: Colors.danger },
   ghost: { backgroundColor: 'transparent' },
 };
@@ -70,9 +77,9 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 28,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,

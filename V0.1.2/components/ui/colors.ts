@@ -1,24 +1,33 @@
 export const Colors = {
-  // Primary — warm taupe/brown
+  // Primary — warm taupe/brown (refined)
   primary: '#8B7B6B',
-  primaryLight: '#F5EFE8',
+  primaryLight: '#f5f3f0',
   primaryDark: '#6B5B4E',
 
   // Accent — warm gold
-  accent: '#D4A574',
-  accentLight: '#FDF3E7',
+  accent: '#d4a574',
+  accentLight: '#faf9f7',
+
+  // Green accent — fresh, family vibes
+  green: '#639922',
+  greenLight: '#e8f5e1',
+
+  // Blue accent — sky blue for variation
+  blue: '#378ADD',
+  blueLight: '#e6f2ff',
 
   // Backgrounds
-  background: '#FFFBF7',
-  surface: '#FFFFFF',
-  surfaceAlt: '#F7F0E8',
+  background: '#fafaf7',
+  surface: '#ffffff',
+  surfaceAlt: '#f5f3f0',
 
   // Borders
-  border: '#E8DDD0',
+  border: '#f0ede6',
+  borderSecondary: '#e8ddd0',
 
   // Text
-  text: '#4A4A4A',
-  textSecondary: '#8A7A70',
+  text: '#4a4a4a',
+  textSecondary: '#8a7a70',
 
   // Status
   danger: '#C0392B',
@@ -27,6 +36,10 @@ export const Colors = {
   success: '#6AAB7A',
   successLight: '#EDF7F0',
 
-  // Grocery
-  checked: '#B0A090',
+  // Dark mode
+  darkBg: '#1a1816',
+  darkSurface: '#2a2420',
+  darkBorder: '#3a3430',
+  darkText: '#f5f3f0',
+  darkTextSecondary: '#c9b8a8',
 } as const;

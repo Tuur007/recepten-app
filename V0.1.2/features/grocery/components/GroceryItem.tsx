@@ -1,18 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../components/ui/colors';
 import { GroceryItem as GroceryItemType } from '../../../types/grocery';
-import { formatItemOrigin } from '../../../utils/merge';
+import { GrocerySourceTag } from './GrocerySourceTag';
 
 interface GroceryItemProps {
   item: GroceryItemType;
   onToggle: () => void;
   onDelete: () => void;
+  onRemoveSource?: (sourceId: string) => void;
 }
 
-export function GroceryItem({ item, onToggle, onDelete }: GroceryItemProps) {
-  const origin = formatItemOrigin(item);
+export function GroceryItem({ item, onToggle, onDelete, onRemoveSource }: GroceryItemProps) {
+  const [expanded, setExpanded] = useState(false);
 
   const handleDelete = () => {
     Alert.alert('Item verwijderen', `"${item.name}" verwijderen uit de lijst?`, [
@@ -24,6 +25,8 @@ export function GroceryItem({ item, onToggle, onDelete }: GroceryItemProps) {
   const quantityLabel =
     item.totalQuantity > 0 && item.totalQuantity !== 1 ? `${item.totalQuantity} ` : '';
 
+  const hasMultipleSources = item.sources.length > 1;
+
   return (
     <View style={[styles.row, item.checked && styles.checkedRow]}>
       <TouchableOpacity
@@ -32,19 +35,44 @@ export function GroceryItem({ item, onToggle, onDelete }: GroceryItemProps) {
         hitSlop={10}
         style={[styles.checkbox, item.checked && styles.checkboxChecked]}
       >
-        {item.checked ? (
-          <Ionicons name="checkmark" size={14} color="#fff" />
-        ) : null}
+        {item.checked ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
       </TouchableOpacity>
 
-      <View style={styles.content}>
-        <Text style={[styles.name, item.checked && styles.checkedText]}>
-          {quantityLabel}
-          {item.unit ? `${item.unit} ` : ''}
-          {item.name}
-        </Text>
-        {origin ? <Text style={styles.origin}>{origin}</Text> : null}
-      </View>
+      <TouchableOpacity
+        style={styles.content}
+        onPress={() => hasMultipleSources && setExpanded((v) => !v)}
+        activeOpacity={hasMultipleSources ? 0.7 : 1}
+      >
+        <View style={styles.nameRow}>
+          <Text style={[styles.name, item.checked && styles.checkedText]} numberOfLines={1}>
+            {quantityLabel}
+            {item.unit ? `${item.unit} ` : ''}
+            {item.name}
+          </Text>
+          {hasMultipleSources ? (
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={12}
+              color={Colors.textSecondary}
+            />
+          ) : null}
+        </View>
+
+        {item.sources.length > 0 ? (
+          <View style={styles.sources}>
+            {(expanded ? item.sources : item.sources.slice(0, 2)).map((source) => (
+              <GrocerySourceTag
+                key={source.sourceId}
+                source={source}
+                onRemove={onRemoveSource}
+              />
+            ))}
+            {!expanded && item.sources.length > 2 ? (
+              <Text style={styles.moreLabel}>+{item.sources.length - 2}</Text>
+            ) : null}
+          </View>
+        ) : null}
+      </TouchableOpacity>
 
       <TouchableOpacity onPress={handleDelete} hitSlop={10} style={styles.deleteBtn}>
         <Text style={styles.deleteIcon}>×</Text>
@@ -56,7 +84,7 @@ export function GroceryItem({ item, onToggle, onDelete }: GroceryItemProps) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: Colors.surface,
     borderRadius: 12,
     paddingHorizontal: 14,
@@ -75,22 +103,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    marginTop: 2,
   },
-  checkboxChecked: { 
-    backgroundColor: Colors.green, 
-    borderColor: Colors.green 
+  checkboxChecked: {
+    backgroundColor: Colors.green,
+    borderColor: Colors.green,
   },
-  content: { flex: 1, gap: 2 },
-  name: { fontSize: 15, fontWeight: '500', color: Colors.text },
-  checkedText: { 
-    textDecorationLine: 'line-through', 
-    color: Colors.textSecondary 
+  content: { flex: 1, gap: 6 },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  origin: { fontSize: 12, color: Colors.textSecondary },
-  deleteBtn: { 
+  name: { fontSize: 15, fontWeight: '500', color: Colors.text, flex: 1 },
+  checkedText: {
+    textDecorationLine: 'line-through',
+    color: Colors.textSecondary,
+  },
+  sources: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  moreLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    alignSelf: 'center',
+  },
+  deleteBtn: {
     padding: 6,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: -2,
   },
   deleteIcon: {
     fontSize: 20,

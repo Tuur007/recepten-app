@@ -32,6 +32,7 @@ export default function GroceryScreen() {
     addFromRecipe,
     addManual,
     removeSource,
+    removeSingleSource,
   } = useGrocery();
   const { recipes } = useRecipes();
   const [modalVisible, setModalVisible] = useState(false);
@@ -147,7 +148,7 @@ export default function GroceryScreen() {
                 item={item}
                 onToggle={() => toggleChecked(item.id)}
                 onDelete={() => remove(item.id)}
-                onRemoveSource={(sourceId) => removeSource(sourceId)}
+                onRemoveSource={(sourceId) => removeSingleSource(item.id, sourceId)}
               />
             </>
           );

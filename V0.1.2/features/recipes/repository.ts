@@ -1,6 +1,7 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
 import { Recipe, RecipeInput, RecipeUpdate } from '../../types/recipe';
 import { generateId } from '../../utils/id';
+import { deleteRecipeImage } from '../../utils/imageStorage';
 
 interface RecipeRow {
   id: string;
@@ -10,6 +11,7 @@ interface RecipeRow {
   source_url: string | null;
   category: string;
   is_favorite: number;
+  image_uri: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +25,7 @@ function rowToRecipe(row: RecipeRow): Recipe {
     sourceUrl: row.source_url ?? undefined,
     category: (row.category ?? '') as Recipe['category'],
     isFavorite: row.is_favorite === 1,
+    imageUri: row.image_uri ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -48,8 +51,8 @@ export const RecipeRepository = {
     const id = generateId();
     const now = new Date().toISOString();
     await db.runAsync(
-      `INSERT INTO recipes (id, title, ingredients, steps, source_url, category, is_favorite, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO recipes (id, title, ingredients, steps, source_url, category, is_favorite, image_uri, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         input.title,
@@ -58,6 +61,7 @@ export const RecipeRepository = {
         input.sourceUrl ?? null,
         input.category ?? '',
         input.isFavorite ? 1 : 0,
+        input.imageUri ?? null,
         now,
         now,
       ],
@@ -72,9 +76,13 @@ export const RecipeRepository = {
     const merged = { ...current, ...changes };
     const now = new Date().toISOString();
 
+    if (changes.imageUri && current.imageUri !== changes.imageUri && current.imageUri) {
+      await deleteRecipeImage(current.imageUri);
+    }
+
     await db.runAsync(
       `UPDATE recipes
-         SET title = ?, ingredients = ?, steps = ?, source_url = ?, category = ?, is_favorite = ?, updated_at = ?
+         SET title = ?, ingredients = ?, steps = ?, source_url = ?, category = ?, is_favorite = ?, image_uri = ?, updated_at = ?
        WHERE id = ?`,
       [
         merged.title,
@@ -83,6 +91,7 @@ export const RecipeRepository = {
         merged.sourceUrl ?? null,
         merged.category ?? '',
         merged.isFavorite ? 1 : 0,
+        merged.imageUri ?? null,
         now,
         id,
       ],
@@ -90,6 +99,10 @@ export const RecipeRepository = {
   },
 
   async delete(db: SQLiteDatabase, id: string): Promise<void> {
+    const recipe = await RecipeRepository.getById(db, id);
+    if (recipe?.imageUri) {
+      await deleteRecipeImage(recipe.imageUri);
+    }
     await db.runAsync('DELETE FROM recipes WHERE id = ?', [id]);
   },
 };

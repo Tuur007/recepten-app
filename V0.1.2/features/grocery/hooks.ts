@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { GroceryItem, GroceryItemInput, GroceryItemUpdate } from '../../types/grocery';
+import { GroceryItem, GroceryItemInput } from '../../types/grocery';
 import { Ingredient } from '../../types/recipe';
 import { GroceryRepository } from './repository';
 import { useGroceryStore } from '../../store/groceryStore';
@@ -43,10 +43,6 @@ export function useGrocery() {
     [db, addItem],
   );
 
-  /**
-   * Adds a recipe's ingredients to the grocery list.
-   * Tracks sourceId so the same recipe re-added overwrites instead of duplicating.
-   */
   const addFromRecipe = useCallback(
     async (ingredients: Ingredient[], recipeId: string, recipeName: string): Promise<void> => {
       const merged = mergeIngredientsIntoGrocery(items, ingredients, recipeId, recipeName);
@@ -75,10 +71,6 @@ export function useGrocery() {
     [db, items, setItems],
   );
 
-  /**
-   * Removes all contributions of a recipe from the grocery list.
-   * Items with no remaining sources are deleted automatically.
-   */
   const removeSource = useCallback(
     async (sourceId: string): Promise<void> => {
       const updated = removeSourceFromGrocery(items, sourceId);
@@ -105,6 +97,26 @@ export function useGrocery() {
       setItems(updated);
     },
     [db, items, setItems],
+  );
+
+  const removeSingleSource = useCallback(
+    async (itemId: string, sourceId: string): Promise<void> => {
+      const item = items.find((i) => i.id === itemId);
+      if (!item) return;
+
+      const filteredSources = item.sources.filter((s) => s.sourceId !== sourceId);
+
+      if (filteredSources.length === 0) {
+        await GroceryRepository.delete(db, item.id);
+        removeItem(item.id);
+        return;
+      }
+
+      const totalQuantity = filteredSources.reduce((sum, s) => sum + s.quantity, 0);
+      await GroceryRepository.update(db, item.id, { sources: filteredSources });
+      updateItemInStore(item.id, { sources: filteredSources, totalQuantity });
+    },
+    [db, items, removeItem, updateItemInStore],
   );
 
   const toggleChecked = useCallback(
@@ -143,6 +155,7 @@ export function useGrocery() {
     addManual,
     addFromRecipe,
     removeSource,
+    removeSingleSource,
     toggleChecked,
     remove,
     clearChecked,

@@ -43,3 +43,14 @@ export const Colors = {
   darkText: '#f5f3f0',
   darkTextSecondary: '#c9b8a8',
 } as const;
+
+/**
+ * Colors Export (Backward Compatibility)
+ * Re-exports from themes.ts for existing code
+ */
+ 
+export { getTheme, lightTheme, darkTheme, ThemeColors, ThemeMode } from './themes';
+import { lightTheme } from './themes';
+ 
+// Export light theme as default Colors for backward compatibility
+export const Colors = lightTheme;

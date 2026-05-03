@@ -57,7 +57,7 @@ export default function RecipeDetailScreen() {
     });
     const validIds = new Set(recipe.ingredients.filter((i) => i.name.trim()).map((i) => i.id));
     setSelectedIngredients(validIds);
-  }, [recipe]);
+  }, [recipe?.id, form]);
 
   if (!recipe) return <LoadingScreen />;
 

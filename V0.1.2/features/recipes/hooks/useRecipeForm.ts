@@ -1,63 +1,108 @@
-import { useState } from 'react';
-import { Ingredient, RecipeCategory } from '../../../types/recipe';
-import { generateId } from '../../../utils/id';
+import { type SQLiteDatabase } from 'expo-sqlite';
+import { Recipe, RecipeInput, RecipeUpdate } from '../../types/recipe';
+import { generateId } from '../../utils/id';
+import { deleteRecipeImage } from '../../utils/imageStorage';
 
-export function emptyIngredient(): Ingredient {
-  return { id: generateId(), name: '', quantity: 1, unit: '' };
-}
-
-export interface RecipeFormState {
+interface RecipeRow {
+  id: string;
   title: string;
-  category: RecipeCategory;
-  ingredients: Ingredient[];
-  steps: string[];
+  ingredients: string;
+  steps: string;
+  source_url: string | null;
+  category: string;
+  is_favorite: number;
+  image_uri: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-export function useRecipeForm(initial?: Partial<RecipeFormState>) {
-  const [title, setTitle] = useState(initial?.title ?? '');
-  const [category, setCategory] = useState<RecipeCategory>(initial?.category ?? '');
-  const [ingredients, setIngredients] = useState<Ingredient[]>(
-    initial?.ingredients?.length ? initial.ingredients : [emptyIngredient()],
-  );
-  const [steps, setSteps] = useState<string[]>(
-    initial?.steps?.length ? initial.steps : [''],
-  );
-
-  const updateIngredient = (index: number, updated: Ingredient) =>
-    setIngredients((prev) => prev.map((ing, i) => (i === index ? updated : ing)));
-
-  const removeIngredient = (index: number) =>
-    setIngredients((prev) => prev.filter((_, i) => i !== index));
-
-  const addIngredient = () =>
-    setIngredients((prev) => [...prev, emptyIngredient()]);
-
-  const updateStep = (index: number, text: string) =>
-    setSteps((prev) => prev.map((s, i) => (i === index ? text : s)));
-
-  const removeStep = (index: number) =>
-    setSteps((prev) => prev.filter((_, i) => i !== index));
-
-  const addStep = () => setSteps((prev) => [...prev, '']);
-
-  const reset = (values: RecipeFormState) => {
-    setTitle(values.title);
-    setCategory(values.category);
-    setIngredients(values.ingredients.length > 0 ? values.ingredients : [emptyIngredient()]);
-    setSteps(values.steps.length > 0 ? values.steps : ['']);
-  };
-
-  const validIngredients = ingredients.filter((i) => i.name.trim());
-  const validSteps = steps.filter((s) => s.trim());
-
+function rowToRecipe(row: RecipeRow): Recipe {
   return {
-    title, setTitle,
-    category, setCategory,
-    ingredients, steps,
-    updateIngredient, removeIngredient, addIngredient,
-    updateStep, removeStep, addStep,
-    reset,
-    validIngredients,
-    validSteps,
+    id: row.id,
+    title: row.title,
+    ingredients: JSON.parse(row.ingredients),
+    steps: JSON.parse(row.steps),
+    sourceUrl: row.source_url ?? undefined,
+    category: (row.category ?? '') as Recipe['category'],
+    isFavorite: row.is_favorite === 1,
+    imageUri: row.image_uri ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
+
+export const RecipeRepository = {
+  async getAll(db: SQLiteDatabase): Promise<Recipe[]> {
+    const rows = await db.getAllAsync<RecipeRow>(
+      'SELECT * FROM recipes ORDER BY created_at DESC',
+    );
+    return rows.map(rowToRecipe);
+  },
+
+  async getById(db: SQLiteDatabase, id: string): Promise<Recipe | null> {
+    const row = await db.getFirstAsync<RecipeRow>(
+      'SELECT * FROM recipes WHERE id = ?',
+      [id],
+    );
+    return row ? rowToRecipe(row) : null;
+  },
+
+  async create(db: SQLiteDatabase, input: RecipeInput): Promise<Recipe> {
+    const id = generateId();
+    const now = new Date().toISOString();
+    await db.runAsync(
+      `INSERT INTO recipes (id, title, ingredients, steps, source_url, category, is_favorite, image_uri, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.title,
+        JSON.stringify(input.ingredients),
+        JSON.stringify(input.steps),
+        input.sourceUrl ?? null,
+        input.category ?? '',
+        input.isFavorite ? 1 : 0,
+        input.imageUri ?? null,
+        now,
+        now,
+      ],
+    );
+    return { id, ...input, category: input.category ?? '', isFavorite: input.isFavorite ?? false, createdAt: now, updatedAt: now };
+  },
+
+  async update(db: SQLiteDatabase, id: string, changes: RecipeUpdate): Promise<void> {
+    const current = await RecipeRepository.getById(db, id);
+    if (!current) throw new Error(`Recipe not found: ${id}`);
+
+    const merged = { ...current, ...changes };
+    const now = new Date().toISOString();
+
+    if (changes.imageUri && current.imageUri !== changes.imageUri && current.imageUri) {
+      await deleteRecipeImage(current.imageUri);
+    }
+
+    await db.runAsync(
+      `UPDATE recipes
+         SET title = ?, ingredients = ?, steps = ?, source_url = ?, category = ?, is_favorite = ?, image_uri = ?, updated_at = ?
+       WHERE id = ?`,
+      [
+        merged.title,
+        JSON.stringify(merged.ingredients),
+        JSON.stringify(merged.steps),
+        merged.sourceUrl ?? null,
+        merged.category ?? '',
+        merged.isFavorite ? 1 : 0,
+        merged.imageUri ?? null,
+        now,
+        id,
+      ],
+    );
+  },
+
+  async delete(db: SQLiteDatabase, id: string): Promise<void> {
+    const recipe = await RecipeRepository.getById(db, id);
+    if (recipe?.imageUri) {
+      await deleteRecipeImage(recipe.imageUri);
+    }
+    await db.runAsync('DELETE FROM recipes WHERE id = ?', [id]);
+  },
+};

@@ -1,17 +1,21 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
+import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../components/ui/colors';
+import { useTheme } from '../../components/ui/ThemeContext';
 
 export default function TabLayout() {
+  const { colors } = useTheme();
+  const router = useRouter();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          borderTopColor: Colors.border,
+          borderTopColor: colors.border,
           borderTopWidth: 0.5,
-          backgroundColor: Colors.surface,
+          backgroundColor: colors.surface,
           height: 60,
           paddingBottom: 10,
         },
@@ -19,18 +23,26 @@ export default function TabLayout() {
           fontSize: 11,
           fontWeight: '600',
         },
-        headerStyle: { 
-          backgroundColor: Colors.surface,
-          borderBottomColor: Colors.border,
-          borderBottomWidth: 0.5,
+        headerStyle: {
+          backgroundColor: colors.surface,
         },
-        headerTitleStyle: { 
-          fontWeight: '500', 
-          fontSize: 16, 
-          color: Colors.text 
+        headerTitleStyle: {
+          fontWeight: '600',
+          fontSize: 17,
+          color: colors.text,
         },
         headerShadowVisible: false,
-        headerTintColor: Colors.text,
+        headerTintColor: colors.text,
+        // Settings knop rechts in elke header
+        headerRight: () => (
+          <TouchableOpacity
+            onPress={() => router.push('/settings')}
+            hitSlop={8}
+            style={{ paddingRight: 16 }}
+          >
+            <Ionicons name="settings-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        ),
       }}
     >
       <Tabs.Screen

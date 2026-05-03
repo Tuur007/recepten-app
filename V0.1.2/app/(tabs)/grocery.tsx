@@ -21,8 +21,18 @@ import { Recipe } from '../../types/recipe';
 import { generateId } from '../../utils/id';
 
 export default function GroceryScreen() {
-  const { items, uncheckedItems, checkedItems, isLoading, toggleChecked, remove, clearChecked, addFromRecipe, addManual } =
-    useGrocery();
+  const {
+    items,
+    uncheckedItems,
+    checkedItems,
+    isLoading,
+    toggleChecked,
+    remove,
+    clearChecked,
+    addFromRecipe,
+    addManual,
+    removeSource,
+  } = useGrocery();
   const { recipes } = useRecipes();
   const [modalVisible, setModalVisible] = useState(false);
   const [manualInput, setManualInput] = useState('');
@@ -65,20 +75,16 @@ export default function GroceryScreen() {
   if (isLoading) return <LoadingScreen />;
 
   const hasItems = items.length > 0;
+  const allItems = [...uncheckedItems, ...checkedItems];
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>Boodschappen</Text>
-          <TouchableOpacity style={styles.iconBtn} hitSlop={8}>
-            <Ionicons name="sunny-outline" size={20} color={Colors.primary} />
-          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Add input */}
       <View style={styles.addRow}>
         <Ionicons name="add-outline" size={18} color={Colors.textSecondary} />
         <TextInput
@@ -101,10 +107,9 @@ export default function GroceryScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Toolbar */}
       <View style={styles.toolbar}>
-        <TouchableOpacity 
-          style={styles.toolbarBtn} 
+        <TouchableOpacity
+          style={styles.toolbarBtn}
           onPress={() => setModalVisible(true)}
           activeOpacity={0.7}
         >
@@ -112,8 +117,8 @@ export default function GroceryScreen() {
           <Text style={styles.toolbarBtnText}>Van recept</Text>
         </TouchableOpacity>
         {checkedItems.length > 0 ? (
-          <TouchableOpacity 
-            style={styles.toolbarBtn} 
+          <TouchableOpacity
+            style={styles.toolbarBtn}
             onPress={handleClearChecked}
             activeOpacity={0.7}
           >
@@ -125,15 +130,13 @@ export default function GroceryScreen() {
         ) : null}
       </View>
 
-      {/* Items list */}
       <FlatList
-        data={[...uncheckedItems, ...checkedItems]}
+        data={allItems}
         keyExtractor={(i) => i.id}
         contentContainerStyle={[styles.list, !hasItems && { flex: 1 }]}
         renderItem={({ item, index }) => {
-          const allItems = [...uncheckedItems, ...checkedItems];
           const isFirstChecked =
-            item.checked && (index === 0 || !(allItems[index - 1]?.checked ?? false));
+            item.checked && (index === 0 || !allItems[index - 1]?.checked);
 
           return (
             <>
@@ -144,6 +147,7 @@ export default function GroceryScreen() {
                 item={item}
                 onToggle={() => toggleChecked(item.id)}
                 onDelete={() => remove(item.id)}
+                onRemoveSource={(sourceId) => removeSource(sourceId)}
               />
             </>
           );
@@ -174,7 +178,6 @@ export default function GroceryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-
   header: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -192,15 +195,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.text,
   },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -231,7 +225,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addBtnDisabled: { opacity: 0.4 },
-
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -256,7 +249,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.primary,
   },
-
   list: { padding: 12, gap: 8 },
   sectionHeader: {
     fontSize: 11,

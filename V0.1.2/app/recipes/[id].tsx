@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useGrocery } from '../../features/grocery/hooks';
 import { useRecipeForm } from '../../features/recipes/hooks/useRecipeForm';
+import { RecipeImagePicker } from '../../features/recipes/components/RecipeImagePicker';
 import { IngredientInput } from '../../features/recipes/components/IngredientInput';
 import { StepInput } from '../../features/recipes/components/StepInput';
 import { CategoryPicker } from '../../features/recipes/components/CategoryPicker';
@@ -36,7 +38,6 @@ export default function RecipeDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [addingToList, setAddingToList] = useState(false);
 
-  // Set of selected ingredient IDs for grocery
   const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set());
   const allSelected =
     recipe ? selectedIngredients.size === recipe.ingredients.filter((i) => i.name.trim()).length : false;
@@ -52,8 +53,8 @@ export default function RecipeDetailScreen() {
       category: recipe.category ?? '',
       ingredients: recipe.ingredients,
       steps: recipe.steps,
+      imageUri: recipe.imageUri,
     });
-    // Pre-select all valid ingredients by default
     const validIds = new Set(recipe.ingredients.filter((i) => i.name.trim()).map((i) => i.id));
     setSelectedIngredients(validIds);
   }, [recipe]);
@@ -88,6 +89,7 @@ export default function RecipeDetailScreen() {
       category: recipe.category ?? '',
       ingredients: recipe.ingredients,
       steps: recipe.steps,
+      imageUri: recipe.imageUri,
     });
     setIsEditing(false);
   };
@@ -104,6 +106,7 @@ export default function RecipeDetailScreen() {
         category: form.category,
         ingredients: form.validIngredients,
         steps: form.validSteps,
+        imageUri: form.imageUri,
       });
       setIsEditing(false);
     } catch {
@@ -147,7 +150,6 @@ export default function RecipeDetailScreen() {
     }
   };
 
-  // ─── Edit mode ──────────────────────────────────────────────────────────────
   if (isEditing) {
     return (
       <SafeAreaView style={styles.container}>
@@ -161,6 +163,13 @@ export default function RecipeDetailScreen() {
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <RecipeImagePicker
+              imageUri={form.imageUri}
+              onImageSelect={form.setImageUri}
+              onImageRemove={() => form.setImageUri(undefined)}
+              loading={saving}
+            />
+
             <AppTextInput
               label="Titel"
               value={form.title}
@@ -221,7 +230,6 @@ export default function RecipeDetailScreen() {
     );
   }
 
-  // ─── Read-only view ──────────────────────────────────────────────────────────
   const selectedCount = selectedIngredients.size;
 
   return (
@@ -237,7 +245,12 @@ export default function RecipeDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Meta row */}
+        {recipe.imageUri ? (
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: recipe.imageUri }} style={styles.recipeImage} />
+          </View>
+        ) : null}
+
         <View style={styles.metaRow}>
           {recipe.category ? (
             <View style={styles.categoryBadge}>
@@ -252,14 +265,12 @@ export default function RecipeDetailScreen() {
           ) : null}
         </View>
 
-        {/* Ingredients section with checkboxes */}
         {validIngredients.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>
                 Ingrediënten ({validIngredients.length})
               </Text>
-              {/* Select all toggle */}
               <TouchableOpacity onPress={toggleAll} style={styles.selectAllBtn} activeOpacity={0.7}>
                 <View style={[styles.selectAllBox, allSelected && styles.selectAllBoxActive]}>
                   {allSelected ? <Ionicons name="checkmark" size={12} color="#fff" /> : null}
@@ -280,12 +291,10 @@ export default function RecipeDetailScreen() {
                     onPress={() => toggleIngredient(ing)}
                     activeOpacity={0.7}
                   >
-                    {/* Checkbox */}
                     <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
                       {checked ? <Ionicons name="checkmark" size={13} color="#fff" /> : null}
                     </View>
 
-                    {/* Text */}
                     <Text style={[styles.ingredientText, !checked && styles.ingredientTextMuted]}>
                       {ing.quantity > 0 && ing.quantity !== 1 ? `${ing.quantity} ` : ''}
                       {ing.unit ? `${ing.unit} ` : ''}
@@ -296,7 +305,6 @@ export default function RecipeDetailScreen() {
               })}
             </View>
 
-            {/* Add to grocery button */}
             <TouchableOpacity
               style={[styles.groceryBtn, selectedCount === 0 && styles.groceryBtnDisabled]}
               onPress={handleAddToGrocery}
@@ -319,7 +327,6 @@ export default function RecipeDetailScreen() {
           </View>
         ) : null}
 
-        {/* Steps section */}
         {recipe.steps.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Stappen ({recipe.steps.length})</Text>
@@ -346,7 +353,6 @@ export default function RecipeDetailScreen() {
         ) : null}
       </ScrollView>
 
-      {/* Floating edit button */}
       <View style={styles.editBtnContainer}>
         <TouchableOpacity style={styles.editBtn} onPress={() => setIsEditing(true)} activeOpacity={0.85}>
           <Ionicons name="pencil" size={20} color="#fff" />
@@ -372,6 +378,8 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.text, flex: 1, marginHorizontal: 12 },
   editHeaderBtn: { padding: 4 },
   content: { padding: 16, gap: 20, paddingBottom: 100 },
+  imageContainer: { width: '100%', height: 240, borderRadius: 16, overflow: 'hidden', marginBottom: 8 },
+  recipeImage: { width: '100%', height: '100%' },
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryBadge: {
     backgroundColor: Colors.accentLight,
@@ -392,8 +400,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   sourceText: { fontSize: 12, color: Colors.textSecondary, flex: 1 },
-
-  // Section
   section: { gap: 10 },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -402,8 +408,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
   sectionContent: { gap: 8 },
-
-  // Select all
   selectAllBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -428,8 +432,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontWeight: '500',
   },
-
-  // Ingredient rows with checkbox
   readonlyList: { gap: 8 },
   ingredientRow: {
     flexDirection: 'row',
@@ -472,8 +474,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontWeight: '400',
   },
-
-  // Grocery button
   groceryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -498,8 +498,6 @@ const styles = StyleSheet.create({
   groceryBtnTextMuted: {
     color: Colors.textSecondary,
   },
-
-  // Steps
   readonlyStepRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -521,16 +519,10 @@ const styles = StyleSheet.create({
   },
   stepNumberText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   readonlyStepText: { fontSize: 15, color: Colors.text, flex: 1, lineHeight: 22 },
-
-  // Empty state
   emptyRecipe: { alignItems: 'center', gap: 16, paddingVertical: 24 },
   emptyRecipeText: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
-
-  // Edit + add row buttons (edit mode)
   addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
   addRowBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '500' },
-
-  // Floating edit button
   editBtnContainer: {
     position: 'absolute',
     bottom: 24,

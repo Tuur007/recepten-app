@@ -1,52 +1,65 @@
 import React from 'react';
 import {
-  StyleSheet,
-  Text,
   TextInput,
   TextInputProps,
+  StyleSheet,
   View,
+  Text,
 } from 'react-native';
-import { Colors } from './colors';
+import { colors, spacing, typography } from '../../constants/Designsystem'; // ✅ FIXED
 
 interface AppTextInputProps extends TextInputProps {
   label?: string;
   error?: string;
 }
 
-export function AppTextInput({ label, error, style, ...rest }: AppTextInputProps) {
+export function AppTextInput({
+  label,
+  error,
+  style,
+  ...props
+}: AppTextInputProps) {
   return (
-    <View style={styles.wrapper}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+    <View style={styles.container}>
+      {label && <Text style={[typography.body16Medium, styles.label]}>{label}</Text>}
       <TextInput
-        style={[styles.input, error ? styles.inputError : null, style]}
-        placeholderTextColor={Colors.textSecondary}
-        {...rest}
+        style={[
+          styles.input,
+          error && styles.inputError,
+          style,
+        ]}
+        placeholderTextColor={colors.textLight}
+        {...props}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: { gap: 6 },
+  container: {
+    marginVertical: spacing.sm,
+  },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: colors.textDark,
+    marginBottom: spacing.xs,
   },
   input: {
-    backgroundColor: Colors.surface,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
+    backgroundColor: colors.backgroundLight, // ✅ #F5F5F0
     borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: Colors.text,
-    minHeight: 48,
+    borderWidth: 1,
+    borderColor: colors.borderColor, // ✅ #D1D1D1
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 16,
+    color: colors.textDark,
   },
-  inputError: { borderColor: Colors.danger },
-  error: { fontSize: 12, color: Colors.danger, marginTop: 2 },
+  inputError: {
+    borderColor: colors.error,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 12,
+    marginTop: spacing.xs,
+  },
 });

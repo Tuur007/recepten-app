@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../components/ui/colors';
+import { colors, spacing, typography } from '../../../constants/Designsystem';
 
 interface StepInputProps {
   index: number;
@@ -21,12 +21,12 @@ export function StepInput({ index, value, onChange, onRemove }: StepInputProps) 
         value={value}
         onChangeText={onChange}
         placeholder={`Stap ${index + 1}…`}
-        placeholderTextColor={Colors.textSecondary}
+        placeholderTextColor={colors.textSecondary}
         multiline
         textAlignVertical="top"
       />
       <TouchableOpacity onPress={onRemove} hitSlop={8} style={styles.removeBtn}>
-        <Ionicons name="close-circle" size={20} color={Colors.danger} />
+        <Ionicons name="close-circle" size={20} color={colors.danger} />
       </TouchableOpacity>
     </View>
   );
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 7,
@@ -47,14 +47,14 @@ const styles = StyleSheet.create({
   stepNumberText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   input: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
     minHeight: 64,
   },
   removeBtn: { padding: 2, marginTop: 7 },

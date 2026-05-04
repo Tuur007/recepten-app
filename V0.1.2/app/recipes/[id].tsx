@@ -17,7 +17,8 @@ import { useRecipes } from '../../features/recipes/hooks';
 import { useGrocery } from '../../features/grocery/hooks';
 import { useRecipeForm } from '../../features/recipes/hooks/useRecipeForm';
 import { safeOpenUrl } from '../../utils/linking';
-// ... other imports ...
+import { LoadingScreen } from '../../components/LoadingScreen';
+import { AppTextInput } from '../../components/ui/AppTextInput';
 
 export default function RecipeDetailScreen() {
   const router = useRouter();
@@ -51,7 +52,7 @@ export default function RecipeDetailScreen() {
     });
     const validIds = new Set(recipe.ingredients.filter((i) => i.name.trim()).map((i) => i.id));
     setSelectedIngredients(validIds);
-  }, [recipe?.id]);
+ }, [recipe?.id, form]);
 
   if (!recipe) return <LoadingScreen />;
 

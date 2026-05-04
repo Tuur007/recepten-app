@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../components/ui/colors';
+import { colors, spacing, typography } from '../../../constants/Designsystem';
 import { Button } from '../../../components/ui/Button';
 import { Recipe } from '../../../types/recipe';
 
@@ -37,7 +37,7 @@ export function AddFromRecipeModal({ visible, recipes, onConfirm, onClose }: Add
         <View style={styles.header}>
           <Text style={styles.title}>Van recept toevoegen</Text>
           <TouchableOpacity onPress={onClose} hitSlop={8}>
-            <Ionicons name="close" size={24} color={Colors.text} />
+            <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
 
@@ -69,7 +69,7 @@ export function AddFromRecipeModal({ visible, recipes, onConfirm, onClose }: Add
                 </View>
               </View>
               {selected === item.id ? (
-                <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
+                <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
               ) : (
                 <View style={styles.unselected} />
               )}
@@ -94,7 +94,7 @@ export function AddFromRecipeModal({ visible, recipes, onConfirm, onClose }: Add
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -102,13 +102,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    backgroundColor: Colors.surface,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  title: { fontSize: 18, fontWeight: '700', color: Colors.text },
+  title: { fontSize: 18, fontWeight: '700', color: colors.text },
   subtitle: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
@@ -116,42 +116,42 @@ const styles = StyleSheet.create({
   recipeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 14,
     borderWidth: 2,
     borderColor: 'transparent',
     gap: 12,
   },
-  selectedRow: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  selectedRow: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
   recipeInfo: { flex: 1, gap: 4 },
-  recipeName: { fontSize: 15, fontWeight: '600', color: Colors.text },
+  recipeName: { fontSize: 15, fontWeight: '600', color: colors.text },
   recipeMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  recipeMetaText: { fontSize: 13, color: Colors.textSecondary },
+  recipeMetaText: { fontSize: 13, color: colors.textSecondary },
   catBadge: {
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.accentLight,
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  catBadgeText: { fontSize: 11, fontWeight: '600', color: Colors.accent },
+  catBadgeText: { fontSize: 11, fontWeight: '600', color: colors.accent },
   unselected: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   empty: {
     textAlign: 'center',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 40,
     fontSize: 14,
   },
   footer: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    backgroundColor: Colors.surface,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
   },
 });

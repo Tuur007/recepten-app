@@ -6,12 +6,12 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          borderTopColor: Colors.border,
+          borderTopColor: colors.border,
           borderTopWidth: 0.5,
-          backgroundColor: Colors.surface,
+          backgroundColor: colors.surface,
           height: 60,
           paddingBottom: 10,
         },
@@ -20,17 +20,17 @@ export default function TabLayout() {
           fontWeight: '600',
         },
         headerStyle: { 
-          backgroundColor: Colors.surface,
-          borderBottomColor: Colors.border,
+          backgroundColor: colors.surface,
+          borderBottomColor: colors.border,
           borderBottomWidth: 0.5,
         },
         headerTitleStyle: { 
           fontWeight: '500', 
           fontSize: 16, 
-          color: Colors.text 
+          color: colors.text 
         },
         headerShadowVisible: false,
-        headerTintColor: Colors.text,
+        headerTintColor: colors.text,
       }}
     >
       <Tabs.Screen

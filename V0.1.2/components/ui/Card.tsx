@@ -1,10 +1,14 @@
 import React from 'react';
-import { StyleSheet, View, ViewProps } from 'react-native';
-import { Colors } from './colors';
+import { View, ViewProps, StyleSheet } from 'react-native';
+import { colors, spacing, shadows } from '../../constants/Designsystem'; // ✅ FIXED
 
-export function Card({ style, children, ...rest }: ViewProps) {
+interface CardProps extends ViewProps {
+  children: React.ReactNode;
+}
+
+export function Card({ children, style, ...props }: CardProps) {
   return (
-    <View style={[styles.card, style]} {...rest}>
+    <View style={[styles.card, style]} {...props}>
       {children}
     </View>
   );
@@ -12,10 +16,10 @@ export function Card({ style, children, ...rest }: ViewProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.backgroundCard, // ✅ #FFF8DC CREAM
     borderRadius: 16,
-    padding: 16,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
+    padding: spacing.md,
+    marginVertical: spacing.sm,
+    ...shadows.medium,
   },
 });

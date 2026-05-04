@@ -21,7 +21,7 @@ import { StepInput } from '../../features/recipes/components/StepInput';
 import { CategoryPicker } from '../../features/recipes/components/CategoryPicker';
 import { AppTextInput } from '../../components/ui/AppTextInput';
 import { Button } from '../../components/ui/Button';
-import { Colors } from '../../components/ui/colors';
+import { colors, spacing, typography, shadows } from '../../constants/Designsystem';
 import { generateId } from '../../utils/id';
 
 export default function ImportRecipeScreen() {
@@ -102,7 +102,7 @@ export default function ImportRecipeScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="close" size={24} color={Colors.text} />
+            <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Importeer recept</Text>
           <View style={{ width: 32 }} />
@@ -117,7 +117,7 @@ export default function ImportRecipeScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.urlCard}>
-              <Ionicons name="link-outline" size={36} color={Colors.primary} style={styles.urlIcon} />
+              <Ionicons name="link-outline" size={36} color={colors.primary} style={styles.urlIcon} />
               <Text style={styles.urlHint}>
                 Plak een link van een receptenwebsite, zoals Dagelijkse Kost, Marley Spoon of een andere kooksite.
               </Text>
@@ -134,14 +134,14 @@ export default function ImportRecipeScreen() {
 
               {fetchError ? (
                 <View style={styles.errorBox}>
-                  <Ionicons name="alert-circle-outline" size={16} color={Colors.danger} />
+                  <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
                   <Text style={styles.errorText}>{fetchError}</Text>
                 </View>
               ) : null}
 
               {fetching ? (
                 <View style={styles.loadingRow}>
-                  <ActivityIndicator color={Colors.primary} />
+                  <ActivityIndicator color={colors.primary} />
                   <Text style={styles.loadingText}>Recept ophalen…</Text>
                 </View>
               ) : (
@@ -159,7 +159,7 @@ export default function ImportRecipeScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setStep('url')} hitSlop={8}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Recept bewerken</Text>
         <Button label="Opslaan" onPress={handleSave} loading={saving} />
@@ -175,7 +175,7 @@ export default function ImportRecipeScreen() {
         >
           {parsedSourceUrl.current ? (
             <View style={styles.sourceBadge}>
-              <Ionicons name="link-outline" size={13} color={Colors.primary} />
+              <Ionicons name="link-outline" size={13} color={colors.primary} />
               <Text style={styles.sourceText} numberOfLines={1}>
                 {parsedSourceUrl.current}
               </Text>
@@ -211,7 +211,7 @@ export default function ImportRecipeScreen() {
                 />
               ))}
               <TouchableOpacity style={styles.addRowBtn} onPress={form.addIngredient}>
-                <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
                 <Text style={styles.addRowBtnText}>Ingrediënt toevoegen</Text>
               </TouchableOpacity>
             </View>
@@ -230,7 +230,7 @@ export default function ImportRecipeScreen() {
                 />
               ))}
               <TouchableOpacity style={styles.addRowBtn} onPress={form.addStep}>
-                <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
                 <Text style={styles.addRowBtnText}>Stap toevoegen</Text>
               </TouchableOpacity>
             </View>
@@ -242,32 +242,32 @@ export default function ImportRecipeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.text },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
   content: { padding: 16, gap: 20, paddingBottom: 40 },
 
   urlCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 20,
     gap: 16,
     borderWidth: 0.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   urlIcon: { alignSelf: 'center' },
   urlHint: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -276,11 +276,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.dangerLight,
+    backgroundColor: colors.dangerLight,
     borderRadius: 8,
     padding: 10,
   },
-  errorText: { fontSize: 13, color: Colors.danger, flex: 1 },
+  errorText: { fontSize: 13, color: colors.danger, flex: 1 },
 
   loadingRow: {
     flexDirection: 'row',
@@ -289,24 +289,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 4,
   },
-  loadingText: { fontSize: 14, color: Colors.textSecondary },
+  loadingText: { fontSize: 14, color: colors.textSecondary },
 
   sourceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
-  sourceText: { fontSize: 12, color: Colors.primary, flex: 1 },
+  sourceText: { fontSize: 12, color: colors.primary, flex: 1 },
 
   section: { gap: 10 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   sectionContent: { gap: 8 },
   addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
-  addRowBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '500' },
+  addRowBtnText: { fontSize: 14, color: colors.primary, fontWeight: '500' },
 });

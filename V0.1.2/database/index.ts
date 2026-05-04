@@ -1,7 +1,10 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
 import { CREATE_GROCERY_ITEMS_TABLE, CREATE_RECIPES_TABLE, MIGRATIONS } from './schema';
+import { initImageDirectory } from '../utils/imageStorage';
 
 export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
+  await initImageDirectory();
+
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;

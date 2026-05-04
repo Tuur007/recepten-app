@@ -349,7 +349,7 @@ export function SplashScreenModern({
  * VARIANT 3: Food-Focused (With emoji animation)
  */
 export function SplashScreenFood({ isLoading = true }: Omit<SplashScreenProps, 'progress'>) {
-  const rotateAnim = useState(new Animated.Value(0))[0]
+  const [rotateAnim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     if (isLoading) {
@@ -359,14 +359,14 @@ export function SplashScreenFood({ isLoading = true }: Omit<SplashScreenProps, '
           duration: 3000,
           useNativeDriver: true,
         })
-      ).start()
+      ).start();
     }
-  }, [isLoading, rotateAnim])
+  }, [isLoading, rotateAnim]);
 
   const rotation = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
-  })
+  });
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -385,7 +385,7 @@ export function SplashScreenFood({ isLoading = true }: Omit<SplashScreenProps, '
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.lg }} />
       )}
     </View>
-  )
+  );
 }
 
 // ============================================================================

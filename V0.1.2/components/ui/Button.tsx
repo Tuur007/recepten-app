@@ -7,7 +7,7 @@ import {
   TouchableOpacityProps,
   ViewStyle,
 } from 'react-native';
-import { Colors } from './colors';
+import { colors, spacing, shadows } from '../../constants/Designsystem'; // ✅ FIXED
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -20,22 +20,22 @@ interface ButtonProps extends TouchableOpacityProps {
 
 const variantContainerStyle: Record<Variant, object> = {
   primary: {
-    backgroundColor: '#8B7B6B',
+    backgroundColor: colors.primary, // ✅ #FF6B35 ORANGE
   },
   secondary: { 
-    backgroundColor: Colors.primaryLight, 
+    backgroundColor: colors.backgroundLight,
     borderWidth: 1.5, 
-    borderColor: Colors.primary 
+    borderColor: colors.primary,
   },
-  danger: { backgroundColor: Colors.danger },
+  danger: { backgroundColor: colors.error },
   ghost: { backgroundColor: 'transparent' },
 };
 
 const variantLabelStyle: Record<Variant, object> = {
   primary: { color: '#fff' },
-  secondary: { color: Colors.primary },
+  secondary: { color: colors.primary },
   danger: { color: '#fff' },
-  ghost: { color: Colors.primary },
+  ghost: { color: colors.primary },
 };
 
 export function Button({
@@ -65,7 +65,7 @@ export function Button({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' || variant === 'danger' ? '#fff' : Colors.primary}
+          color={variant === 'primary' || variant === 'danger' ? '#fff' : colors.primary}
         />
       ) : (
         <Text style={[styles.label, variantLabelStyle[variant]]}>{label}</Text>
@@ -76,14 +76,14 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 20,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
   },
   fullWidth: { width: '100%' },
   disabled: { opacity: 0.45 },
-  label: { fontSize: 15, fontWeight: '700', letterSpacing: 0.1 },
+  label: { fontSize: 16, fontWeight: '600', letterSpacing: 0.1 },
 });

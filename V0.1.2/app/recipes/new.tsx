@@ -20,7 +20,7 @@ import { StepInput } from '../../features/recipes/components/StepInput';
 import { CategoryPicker } from '../../features/recipes/components/CategoryPicker';
 import { AppTextInput } from '../../components/ui/AppTextInput';
 import { Button } from '../../components/ui/Button';
-import { Colors } from '../../components/ui/colors';
+import { colors, spacing, typography, shadows } from '../../constants/Designsystem';
 
 export default function NewRecipeScreen() {
   const router = useRouter();
@@ -56,7 +56,7 @@ export default function NewRecipeScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="close" size={24} color={Colors.text} />
+          <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nieuw recept</Text>
         <Button label="Opslaan" onPress={handleSave} loading={saving} />
@@ -93,7 +93,7 @@ export default function NewRecipeScreen() {
                 />
               ))}
               <TouchableOpacity style={styles.addRowBtn} onPress={form.addIngredient}>
-                <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
                 <Text style={styles.addRowBtnText}>Ingrediënt toevoegen</Text>
               </TouchableOpacity>
             </View>
@@ -112,7 +112,7 @@ export default function NewRecipeScreen() {
                 />
               ))}
               <TouchableOpacity style={styles.addRowBtn} onPress={form.addStep}>
-                <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
                 <Text style={styles.addRowBtnText}>Stap toevoegen</Text>
               </TouchableOpacity>
             </View>
@@ -124,22 +124,22 @@ export default function NewRecipeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: Colors.text },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
   content: { padding: 16, gap: 20, paddingBottom: 40 },
   section: { gap: 10 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   sectionContent: { gap: 8 },
   addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
-  addRowBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '500' },
+  addRowBtnText: { fontSize: 14, color: colors.primary, fontWeight: '500' },
 });

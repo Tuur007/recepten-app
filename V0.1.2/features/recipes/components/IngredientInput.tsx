@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../components/ui/colors';
+import { colors, spacing, typography } from '../../../constants/Designsystem';
 import { Ingredient } from '../../../types/recipe';
 
 interface IngredientInputProps {
@@ -18,7 +18,7 @@ export function IngredientInput({ ingredient, onChange, onRemove }: IngredientIn
         value={ingredient.quantity > 0 ? String(ingredient.quantity) : ''}
         onChangeText={(text) => onChange({ ...ingredient, quantity: parseFloat(text) || 0 })}
         placeholder="Hv."
-        placeholderTextColor={Colors.textSecondary}
+        placeholderTextColor={colors.textSecondary}
         keyboardType="decimal-pad"
       />
       <TextInput
@@ -26,7 +26,7 @@ export function IngredientInput({ ingredient, onChange, onRemove }: IngredientIn
         value={ingredient.unit}
         onChangeText={(text) => onChange({ ...ingredient, unit: text })}
         placeholder="Eenheid"
-        placeholderTextColor={Colors.textSecondary}
+        placeholderTextColor={colors.textSecondary}
         autoCapitalize="none"
       />
       <TextInput
@@ -34,10 +34,10 @@ export function IngredientInput({ ingredient, onChange, onRemove }: IngredientIn
         value={ingredient.name}
         onChangeText={(text) => onChange({ ...ingredient, name: text })}
         placeholder="Ingrediëntnaam"
-        placeholderTextColor={Colors.textSecondary}
+        placeholderTextColor={colors.textSecondary}
       />
       <TouchableOpacity onPress={onRemove} hitSlop={8} style={styles.removeBtn}>
-        <Ionicons name="close-circle" size={20} color={Colors.danger} />
+        <Ionicons name="close-circle" size={20} color={colors.danger} />
       </TouchableOpacity>
     </View>
   );
@@ -46,14 +46,14 @@ export function IngredientInput({ ingredient, onChange, onRemove }: IngredientIn
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   input: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 9,
     fontSize: 14,
-    color: Colors.text,
+    color: colors.text,
     minHeight: 42,
   },
   quantityInput: { width: 56 },

@@ -1,7 +1,7 @@
 import { GroceryItem, SourceLineage, computeTotalQuantity } from '../types/grocery';
 import { Ingredient } from '../types/recipe';
 import { generateId } from './id';
-import { areUnitsCompatible, normalizeUnit } from './units';
+import { normalizeIngredientName, normalizeUnit, areUnitsCompatible } from './normalize';
 
 /**
  * Merges recipe ingredients into the existing grocery list.
@@ -24,12 +24,12 @@ export function mergeIngredientsIntoGrocery(
   }));
 
   for (const ingredient of ingredients) {
-    const normalizedName = ingredient.name.toLowerCase().trim();
+    const normalizedName = normalizeIngredientName(ingredient.name);
     const normalizedUnit = normalizeUnit(ingredient.unit);
 
     const matchIndex = result.findIndex(
       (item) =>
-        item.name.toLowerCase().trim() === normalizedName &&
+        normalizeIngredientName(item.name) === normalizedName &&
         areUnitsCompatible(item.unit, normalizedUnit),
     );
 

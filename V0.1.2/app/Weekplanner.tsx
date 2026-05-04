@@ -25,7 +25,7 @@ import {
   Modal,
   SafeAreaView,
 } from 'react-native'
-import { colors, spacing, typography, shadows, borderRadius } from '../designSystem'
+import { colors, spacing, typography, shadows, borderRadius } from '../constants/Designsystem'
 
 // Types
 export interface MealPlan {

@@ -24,7 +24,7 @@ export default function RecipesScreen() {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancel', 'Add Manually', 'Import from URL'],
+          options: ['Annuleer', 'Handmatig toevoegen', 'Importeer via URL'],
           cancelButtonIndex: 0,
         },
         (index) => {
@@ -33,10 +33,10 @@ export default function RecipesScreen() {
         },
       );
     } else {
-      Alert.alert('Add Recipe', undefined, [
-        { text: 'Add Manually', onPress: () => router.push('/recipes/new') },
-        { text: 'Import from URL', onPress: () => router.push('/recipes/import') },
-        { text: 'Cancel', style: 'cancel' },
+      Alert.alert('Recept toevoegen', undefined, [
+        { text: 'Handmatig toevoegen', onPress: () => router.push('/recipes/new') },
+        { text: 'Importeer via URL', onPress: () => router.push('/recipes/import') },
+        { text: 'Annuleer', style: 'cancel' },
       ]);
     }
   };
@@ -59,8 +59,8 @@ export default function RecipesScreen() {
         ListEmptyComponent={
           <EmptyState
             icon="📖"
-            title="No recipes yet"
-            message="Tap the + button to add your first recipe manually or import one from a URL."
+            title="Nog geen recepten"
+            message="Tik op de + knop om je eerste recept handmatig toe te voegen of te importeren via URL."
           />
         }
       />

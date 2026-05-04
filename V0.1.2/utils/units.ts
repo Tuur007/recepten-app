@@ -56,8 +56,6 @@ export const KNOWN_UNITS: string[] = [
   'tablespoon',
   'teaspoons',
   'teaspoon',
-  'kilograms',
-  'kilogram',
   'ounces',
   'ounce',
   'pounds',

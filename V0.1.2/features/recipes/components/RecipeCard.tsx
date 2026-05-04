@@ -49,8 +49,8 @@ export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProp
             <Text style={styles.metaText}>{recipe.ingredients.length}</Text>
           </View>
           <View style={styles.metaItem}>
-            <Ionicons name="timer-outline" size={12} color={Colors.primary} />
-            <Text style={styles.metaText}>30m</Text>
+            <Ionicons name="list-outline" size={12} color={Colors.primary} />
+            <Text style={styles.metaText}>{recipe.steps.length} stap{recipe.steps.length !== 1 ? 'pen' : ''}</Text>
           </View>
         </View>
 

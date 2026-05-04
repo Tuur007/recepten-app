@@ -13,7 +13,12 @@ interface GroceryRow {
 }
 
 function rowToItem(row: GroceryRow): GroceryItem {
-  const sources = JSON.parse(row.sources ?? '[]');
+  let sources: unknown[];
+  try {
+    sources = JSON.parse(row.sources ?? '[]');
+  } catch {
+    sources = [];
+  }
   return {
     id: row.id,
     name: row.name,
@@ -91,7 +96,7 @@ export const GroceryRepository = {
 
     await db.runAsync(
       `UPDATE grocery_items SET ${fields.join(', ')} WHERE id = ?`,
-      values as string[],
+      values as unknown[],
     );
   },
 

@@ -19,9 +19,8 @@ interface ButtonProps extends TouchableOpacityProps {
 }
 
 const variantContainerStyle: Record<Variant, object> = {
-  primary: { 
-    background: 'linear-gradient(135deg, #d4a574 0%, #8B7B6B 100%)',
-    backgroundColor: '#8B7B6B'
+  primary: {
+    backgroundColor: '#8B7B6B',
   },
   secondary: { 
     backgroundColor: Colors.primaryLight, 

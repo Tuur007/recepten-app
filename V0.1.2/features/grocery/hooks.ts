@@ -44,7 +44,6 @@ export function useGrocery() {
     [db, addItem],
   );
 
-  // FIX: Use UPSERT instead of DELETE-ALL
   const addFromRecipe = useCallback(
     async (ingredients: Ingredient[], recipeId: string, recipeName: string): Promise<void> => {
       const merged = mergeIngredientsIntoGrocery(items, ingredients, recipeId, recipeName);
@@ -58,7 +57,6 @@ export function useGrocery() {
     [db, items, setItems],
   );
 
-  // FIX: Use UPSERT instead of DELETE-ALL
   const removeSource = useCallback(
     async (sourceId: string): Promise<void> => {
       const updated = removeSourceFromGrocery(items, sourceId);

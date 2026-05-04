@@ -14,6 +14,7 @@ import { useRecipes } from '../../features/recipes/hooks';
 import { RecipeCard } from '../../features/recipes/components/RecipeCard';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { LoadingScreen } from '../../components/LoadingScreen';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { Colors } from '../../components/ui/colors';
 
 export default function RecipesScreen() {
@@ -44,31 +45,33 @@ export default function RecipesScreen() {
   if (isLoading) return <LoadingScreen />;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <FlatList
-        data={recipes}
-        keyExtractor={(r) => r.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <RecipeCard
-            recipe={item}
-            onPress={() => router.push(`/recipes/${item.id}`)}
-            onToggleFavorite={() => update(item.id, { isFavorite: !item.isFavorite })}
-          />
-        )}
-        ListEmptyComponent={
-          <EmptyState
-            icon="📖"
-            title="Nog geen recepten"
-            message="Tik op de + knop om je eerste recept handmatig toe te voegen of te importeren via URL."
-          />
-        }
-      />
+    <ErrorBoundary>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <FlatList
+          data={recipes}
+          keyExtractor={(r) => r.id}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => (
+            <RecipeCard
+              recipe={item}
+              onPress={() => router.push(`/recipes/${item.id}`)}
+              onToggleFavorite={() => update(item.id, { isFavorite: !item.isFavorite })}
+            />
+          )}
+          ListEmptyComponent={
+            <EmptyState
+              icon="📖"
+              title="Nog geen recepten"
+              message="Tik op de + knop om je eerste recept handmatig toe te voegen of te importeren via URL."
+            />
+          }
+        />
 
-      <TouchableOpacity style={styles.fab} onPress={handleFab} activeOpacity={0.85}>
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
-    </SafeAreaView>
+        <TouchableOpacity style={styles.fab} onPress={handleFab} activeOpacity={0.85}>
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      </SafeAreaView>
+    </ErrorBoundary>
   );
 }
 

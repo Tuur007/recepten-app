@@ -19,6 +19,7 @@ import { useRecipeForm } from '../../features/recipes/hooks/useRecipeForm';
 import { safeOpenUrl } from '../../utils/linking';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { AppTextInput } from '../../components/ui/AppTextInput';
+import { Button } from '../../components/ui/Button';
 import { Colors } from '../../components/ui/colors';
 
 export default function RecipeDetailScreen() {
@@ -32,14 +33,14 @@ export default function RecipeDetailScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [addingToList, setAddingToList] = useState(false);
-
   const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set());
+
   const allSelected =
     recipe ? selectedIngredients.size === recipe.ingredients.filter((i) => i.name.trim()).length : false;
 
   const form = useRecipeForm();
-
   const initialised = useRef(false);
+
   useEffect(() => {
     if (!recipe || initialised.current) return;
     initialised.current = true;
@@ -53,11 +54,9 @@ export default function RecipeDetailScreen() {
     });
     const validIds = new Set(recipe.ingredients.filter((i) => i.name.trim()).map((i) => i.id));
     setSelectedIngredients(validIds);
- }, [recipe?.id, form]);
+  }, [recipe?.id]);
 
   if (!recipe) return <LoadingScreen />;
-
-  // ... existing handlers ...
 
   const handleSave = async () => {
     if (!form.title.trim()) {
@@ -82,164 +81,208 @@ export default function RecipeDetailScreen() {
     }
   };
 
-const handleAddToGroceryList = async () => {
-  const selectedForGrocery = recipe.ingredients.filter((ing) =>
-    selectedIngredients.has(ing.id)
-  );
+  const handleAddToGroceryList = async () => {
+    const selectedForGrocery = recipe.ingredients.filter((ing) =>
+      selectedIngredients.has(ing.id)
+    );
+    if (!selectedForGrocery.length) {
+      Alert.alert('Niets geselecteerd', 'Selecteer minstens één ingrediënt.');
+      return;
+    }
+    setAddingToList(true);
+    try {
+      await addFromRecipe(selectedForGrocery, recipe.id, recipe.title);
+      Alert.alert('Succes', 'Ingrediënten toegevoegd aan boodschappenlijst.');
+    } catch {
+      Alert.alert('Fout', 'Kon ingrediënten niet toevoegen.');
+    } finally {
+      setAddingToList(false);
+    }
+  };
 
-  if (!selectedForGrocery.length) {
-    Alert.alert('Niets geselecteerd', 'Selecteer minstens één ingrediënt.');
-    return;
-  }
+  const toggleIngredient = (ingId: string) => {
+    setSelectedIngredients((prev) => {
+      const next = new Set(prev);
+      next.has(ingId) ? next.delete(ingId) : next.add(ingId);
+      return next;
+    });
+  };
 
-  setAddingToList(true);
-  try {
-    await addFromRecipe(selectedForGrocery, recipe.id, recipe.title);
-    Alert.alert('Succes', 'Ingrediënten toegevoegd aan boodschappenlijst.');
-  } catch {
-    Alert.alert('Fout', 'Kon ingrediënten niet toevoegen.');
-  } finally {
-    setAddingToList(false);
-  }
-};
+  const toggleAllIngredients = () => {
+    if (allSelected) {
+      setSelectedIngredients(new Set());
+    } else {
+      const validIds = new Set(recipe.ingredients.filter((i) => i.name.trim()).map((i) => i.id));
+      setSelectedIngredients(validIds);
+    }
+  };
 
-return (
-  <SafeAreaView style={styles.container} edges={['top']}>
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1 }}
-    >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {!isEditing ? (
-          <>
-            {/* Read-only view */}
-            {recipe.imageUri && (
-              <Image source={{ uri: recipe.imageUri }} style={styles.image} />
-            )}
-
-            <View style={styles.header}>
-              <Text style={styles.title}>{recipe.title}</Text>
-              {recipe.category && (
-                <Text style={styles.category}>{recipe.category}</Text>
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {!isEditing ? (
+            <>
+              {recipe.imageUri && (
+                <Image source={{ uri: recipe.imageUri }} style={styles.image} />
               )}
-            </View>
 
-            {recipe.duration ? (
-              <View style={styles.durationBadge}>
-                <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
-                <Text style={styles.durationText}>{recipe.duration} min</Text>
+              <View style={styles.header}>
+                <Text style={styles.title}>{recipe.title}</Text>
+                {recipe.category ? (
+                  <Text style={styles.category}>{recipe.category}</Text>
+                ) : null}
               </View>
-            ) : null}
 
-            {recipe.sourceUrl ? (
-              <TouchableOpacity
-                style={styles.sourceBadge}
-                onPress={() => safeOpenUrl(recipe.sourceUrl!)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="link-outline" size={13} color={Colors.primary} />
-                <Text style={styles.sourceText} numberOfLines={1}>{recipe.sourceUrl}</Text>
-              </TouchableOpacity>
-            ) : null}
-
-            {/* Ingredients */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Ingrediënten</Text>
-              {recipe.ingredients.map((ing) => (
-                <View key={ing.id} style={styles.ingredient}>
-                  <Text>{ing.name} {ing.quantity} {ing.unit}</Text>
+              {recipe.duration ? (
+                <View style={styles.durationBadge}>
+                  <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
+                  <Text style={styles.durationText}>{recipe.duration} min</Text>
                 </View>
-              ))}
-            </View>
+              ) : null}
 
-            {/* Steps */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Stappen</Text>
-              {recipe.steps.map((step, index) => (
-                <Text key={index} style={styles.step}>
-                  {index + 1}. {step}
-                </Text>
-              ))}
-            </View>
+              {recipe.sourceUrl ? (
+                <TouchableOpacity
+                  style={styles.sourceBadge}
+                  onPress={() => safeOpenUrl(recipe.sourceUrl!)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="link-outline" size={13} color={Colors.primary} />
+                  <Text style={styles.sourceText} numberOfLines={1}>{recipe.sourceUrl}</Text>
+                </TouchableOpacity>
+              ) : null}
 
-            <View style={styles.actions}>
-              <Button label="Bewerken" onPress={() => setIsEditing(true)} />
-              <Button
-                label="Toevoegen aan boodschappen"
-                onPress={handleAddToGroceryList}
-                loading={addingToList}
-              />
-              <Button
-                label="Verwijderen"
-                style={{ backgroundColor: Colors.danger }}
-                onPress={() => {
-                  Alert.alert('Verwijderen', 'Weet je het zeker?', [
-                    { text: 'Annuleer', style: 'cancel' },
-                    {
-                      text: 'Verwijder',
-                      style: 'destructive',
-                      onPress: async () => {
-                        await remove(id);
-                        router.back();
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Ingrediënten</Text>
+                  <TouchableOpacity onPress={toggleAllIngredients}>
+                    <Text style={styles.selectAll}>
+                      {allSelected ? 'Deselecteer alle' : 'Selecteer alle'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {recipe.ingredients.map((ing) => (
+                  <TouchableOpacity
+                    key={ing.id}
+                    style={styles.ingredient}
+                    onPress={() => toggleIngredient(ing.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={selectedIngredients.has(ing.id) ? 'checkbox' : 'square-outline'}
+                      size={18}
+                      color={selectedIngredients.has(ing.id) ? Colors.primary : Colors.textSecondary}
+                    />
+                    <Text style={styles.ingredientText}>
+                      {ing.name}{ing.quantity ? ` ${ing.quantity}` : ''}{ing.unit ? ` ${ing.unit}` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Stappen</Text>
+                {recipe.steps.map((step, index) => (
+                  <Text key={index} style={styles.step}>
+                    {index + 1}. {step}
+                  </Text>
+                ))}
+              </View>
+
+              <View style={styles.actions}>
+                <Button label="Bewerken" onPress={() => setIsEditing(true)} />
+                <Button
+                  label="Toevoegen aan boodschappen"
+                  onPress={handleAddToGroceryList}
+                  loading={addingToList}
+                />
+                <Button
+                  label="Verwijderen"
+                  variant="danger"
+                  onPress={() => {
+                    Alert.alert('Verwijderen', 'Weet je het zeker?', [
+                      { text: 'Annuleer', style: 'cancel' },
+                      {
+                        text: 'Verwijder',
+                        style: 'destructive',
+                        onPress: async () => {
+                          await remove(id);
+                          router.back();
+                        },
                       },
-                    },
-                  ]);
-                }}
+                    ]);
+                  }}
+                />
+              </View>
+            </>
+          ) : (
+            <>
+              <AppTextInput
+                label="Titel"
+                value={form.title}
+                onChangeText={form.setTitle}
+                placeholder="Recepttitel"
               />
-            </View>
-          </>
-        ) : (
-          <>
-            {/* Edit view */}
-            <AppTextInput
-              label="Titel"
-              value={form.title}
-              onChangeText={form.setTitle}
-              placeholder="Recepttitel"
-            />
 
-            <AppTextInput
-              label="Kooktijd (minuten)"
-              value={form.duration?.toString() ?? ''}
-              onChangeText={(text) => form.setDuration(text ? parseInt(text, 10) : undefined)}
-              placeholder="30"
-              keyboardType="number-pad"
-            />
-
-            {recipe.sourceUrl ? (
-              <TouchableOpacity
-                style={styles.sourceBadgeEditing}
-                onPress={() => safeOpenUrl(recipe.sourceUrl!)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="link-outline" size={13} color={Colors.primary} />
-                <Text style={styles.sourceTextEditing} numberOfLines={1}>{recipe.sourceUrl}</Text>
-                <Ionicons name="open-outline" size={12} color={Colors.primary} />
-              </TouchableOpacity>
-            ) : null}
-
-            <View style={styles.actions}>
-              <Button
-                label="Opslaan"
-                onPress={handleSave}
-                loading={saving}
+              <AppTextInput
+                label="Kooktijd (minuten)"
+                value={form.duration?.toString() ?? ''}
+                onChangeText={(text) => form.setDuration(text ? parseInt(text, 10) : undefined)}
+                placeholder="30"
+                keyboardType="number-pad"
               />
-              <Button
-                label="Annuleer"
-                onPress={() => setIsEditing(false)}
-                style={{ backgroundColor: Colors.textSecondary }}
-              />
-            </View>
-          </>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
-  </SafeAreaView>
-);
 
-// Styles for duration & clickable URL:
+              {recipe.sourceUrl ? (
+                <TouchableOpacity
+                  style={styles.sourceBadgeEditing}
+                  onPress={() => safeOpenUrl(recipe.sourceUrl!)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="link-outline" size={13} color={Colors.primary} />
+                  <Text style={styles.sourceTextEditing} numberOfLines={1}>{recipe.sourceUrl}</Text>
+                  <Ionicons name="open-outline" size={12} color={Colors.primary} />
+                </TouchableOpacity>
+              ) : null}
+
+              <View style={styles.actions}>
+                <Button label="Opslaan" onPress={handleSave} loading={saving} />
+                <Button
+                  label="Annuleer"
+                  variant="secondary"
+                  onPress={() => setIsEditing(false)}
+                />
+              </View>
+            </>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
 const styles = StyleSheet.create({
-  // ... existing styles ...
+  container: { flex: 1, backgroundColor: Colors.background },
+  content: { padding: 16, paddingBottom: 40 },
+  image: { width: '100%', height: 220, borderRadius: 12, marginBottom: 16 },
+  header: { marginBottom: 8 },
+  title: { fontSize: 22, fontWeight: '700', color: Colors.text, marginBottom: 4 },
+  category: { fontSize: 13, color: Colors.textSecondary },
+  section: { marginTop: 20 },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, marginBottom: 8 },
+  selectAll: { fontSize: 13, color: Colors.primary },
+  ingredient: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
+  ingredientText: { fontSize: 14, color: Colors.text, flex: 1 },
+  step: { fontSize: 14, color: Colors.text, lineHeight: 22, marginBottom: 6 },
+  actions: { marginTop: 24, gap: 12 },
   sourceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -250,6 +293,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderWidth: 1,
     borderColor: Colors.primary,
+    marginBottom: 8,
   },
   sourceText: { fontSize: 12, color: Colors.primary, flex: 1 },
   sourceBadgeEditing: {
@@ -262,18 +306,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: Colors.primary,
+    marginBottom: 16,
   },
   sourceTextEditing: { fontSize: 12, color: Colors.primary, flex: 1 },
   durationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    alignSelf: 'flex-start',
     backgroundColor: Colors.background,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: Colors.border,
+    marginBottom: 8,
   },
   durationText: { fontSize: 12, color: Colors.textSecondary },
 });

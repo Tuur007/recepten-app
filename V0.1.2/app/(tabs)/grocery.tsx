@@ -1,266 +1,268 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import {
-  Alert,
-  FlatList,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View,
+  StyleSheet,
+  FlatList,
+  Text,
+  Pressable,
+  Modal,
+  SafeAreaView,
+  Alert,
+  TextInput,
+  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGrocery } from '../../features/grocery/hooks';
-import { useRecipes } from '../../features/recipes/hooks';
 import { GroceryItem } from '../../features/grocery/components/GroceryItem';
 import { AddFromRecipeModal } from '../../features/grocery/components/AddFromRecipeModal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
-import { Colors } from '../../components/ui/colors';
-import { Recipe } from '../../types/recipe';
-import { generateId } from '../../utils/id';
+import { colors, spacing, typography, shadows } from '../../constants/Designsystem';
 
 export default function GroceryScreen() {
   const {
     items,
-    uncheckedItems,
-    checkedItems,
     isLoading,
-    toggleChecked,
-    remove,
+    toggleItem,
+    deleteItem,
+    addItem,
+    updateItem,
     clearChecked,
-    addFromRecipe,
-    addManual,
-    removeSource,
-    removeSingleSource,
   } = useGrocery();
-  const { recipes } = useRecipes();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [manualInput, setManualInput] = useState('');
-  const [adding, setAdding] = useState(false);
 
-  const handleClearChecked = () => {
-    if (checkedItems.length === 0) return;
-    Alert.alert(
-      'Afgevinkte items verwijderen',
-      `${checkedItems.length} afgevinkt${checkedItems.length !== 1 ? 'e items' : ' item'} verwijderen?`,
-      [
-        { text: 'Annuleer', style: 'cancel' },
-        { text: 'Verwijder', style: 'destructive', onPress: clearChecked },
-      ],
-    );
-  };
+  const [showAddFromRecipe, setShowAddFromRecipe] = useState(false);
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemUnit, setNewItemUnit] = useState('');
 
-  const handleAddFromRecipe = async (recipe: Recipe) => {
-    setModalVisible(false);
-    await addFromRecipe(recipe.ingredients, recipe.id, recipe.title);
-  };
-
-  const handleManualAdd = async () => {
-    const name = manualInput.trim();
-    if (!name) return;
-    setAdding(true);
-    try {
-      await addManual({
-        name,
-        unit: '',
-        sources: [{ sourceId: generateId(), sourceType: 'manual', sourceName: name, quantity: 1 }],
-        checked: false,
-      });
-      setManualInput('');
-    } finally {
-      setAdding(false);
+  const handleAddManual = useCallback(async () => {
+    if (!newItemName.trim()) {
+      Alert.alert('Fout', 'Voer een artikel in');
+      return;
     }
-  };
+    await addItem({
+      name: newItemName,
+      unit: newItemUnit || 'stuk',
+      sources: [],
+      checked: false,
+    });
+    setNewItemName('');
+    setNewItemUnit('');
+    setShowManualAdd(false);
+  }, [newItemName, newItemUnit, addItem]);
+
+  const checkedCount = useMemo(() => items.filter((i) => i.checked).length, [items]);
 
   if (isLoading) return <LoadingScreen />;
 
-  const hasItems = items.length > 0;
-  const allItems = [...uncheckedItems, ...checkedItems];
-
   return (
     <ErrorBoundary>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <View style={styles.titleRow}>
-            <Text style={styles.title}>Boodschappen</Text>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+        {/* Header with stats */}
+        <View style={[styles.header, { backgroundColor: colors.surface }]}>
+          <View>
+            <Text style={[typography.title20, { color: colors.text }]}>Boodschappen</Text>
+            <Text style={[typography.caption14, { color: colors.textSecondary }]}>
+              {items.length} artikelen · {checkedCount} afgevinkt
+            </Text>
           </View>
         </View>
 
-        <View style={styles.addRow}>
-          <Ionicons name="add-outline" size={18} color={Colors.textSecondary} />
-          <TextInput
-            style={styles.addInput}
-            value={manualInput}
-            onChangeText={setManualInput}
-            placeholder="Item toevoegen..."
-            placeholderTextColor={Colors.textSecondary}
-            returnKeyType="done"
-            onSubmitEditing={handleManualAdd}
-            editable={!adding}
-          />
-          <TouchableOpacity
-            style={[styles.addBtn, (!manualInput.trim() || adding) && styles.addBtnDisabled]}
-            onPress={handleManualAdd}
-            disabled={!manualInput.trim() || adding}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="add" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.toolbar}>
-          <TouchableOpacity
-            style={styles.toolbarBtn}
-            onPress={() => setModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="book-outline" size={16} color={Colors.primary} />
-            <Text style={styles.toolbarBtnText}>Van recept</Text>
-          </TouchableOpacity>
-          {checkedItems.length > 0 ? (
-            <TouchableOpacity
-              style={styles.toolbarBtn}
-              onPress={handleClearChecked}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trash-outline" size={16} color={Colors.danger} />
-              <Text style={[styles.toolbarBtnText, { color: Colors.danger }]}>
-                Verwijder ({checkedItems.length})
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
+        {/* Items list */}
         <FlatList
-          data={allItems}
-          keyExtractor={(i) => i.id}
-          contentContainerStyle={[styles.list, !hasItems && { flex: 1 }]}
-          renderItem={({ item, index }) => {
-            const isFirstChecked =
-              item.checked && (index === 0 || !allItems[index - 1]?.checked);
-
-            return (
-              <>
-                {isFirstChecked && uncheckedItems.length > 0 ? (
-                  <Text style={styles.sectionHeader}>Afgevinkt</Text>
-                ) : null}
-                <GroceryItem
-                  item={item}
-                  onToggle={() => toggleChecked(item.id)}
-                  onDelete={() => remove(item.id)}
-                  onRemoveSource={(sourceId) => removeSingleSource(item.id, sourceId)}
-                />
-              </>
-            );
-          }}
-          ListHeaderComponent={
-            uncheckedItems.length > 0 ? (
-              <Text style={styles.sectionHeader}>Te kopen</Text>
-            ) : null
-          }
+          data={items}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => (
+            <GroceryItem
+              item={item}
+              onToggle={() => toggleItem(item.id)}
+              onDelete={() => deleteItem(item.id)}
+              onUpdate={(updates) => updateItem(item.id, updates)}
+            />
+          )}
           ListEmptyComponent={
             <EmptyState
               icon="🛒"
-              title="Je lijst is leeg"
-              message="Typ een item hierboven, of tap 'Van recept' om ingrediënten toe te voegen."
+              title="Geen artikelen"
+              message="Voeg recepten toe of voeg handmatig items in."
             />
           }
         />
 
+        {/* Action buttons */}
+        <View style={[styles.actionBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          {checkedCount > 0 && (
+            <Pressable
+              style={[styles.button, { backgroundColor: colors.success }]}
+              onPress={clearChecked}
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={[typography.body16Medium, { color: '#fff', marginLeft: spacing.sm }]}>
+                Afgevinkt wissen ({checkedCount})
+              </Text>
+            </Pressable>
+          )}
+
+          <View style={styles.buttonRow}>
+            <Pressable
+              style={[styles.fabButton, { backgroundColor: colors.primary }]}
+              onPress={() => setShowAddFromRecipe(true)}
+            >
+              <Ionicons name="add-circle" size={24} color="#fff" />
+            </Pressable>
+            <Pressable
+              style={[styles.fabButton, { backgroundColor: colors.secondary }]}
+              onPress={() => setShowManualAdd(true)}
+            >
+              <Ionicons name="create" size={24} color="#fff" />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Add from recipe modal */}
         <AddFromRecipeModal
-          visible={modalVisible}
-          recipes={recipes}
-          onConfirm={handleAddFromRecipe}
-          onClose={() => setModalVisible(false)}
+          visible={showAddFromRecipe}
+          onClose={() => setShowAddFromRecipe(false)}
+          onSelectRecipe={(recipeId) => {
+            // Handle recipe selection
+            setShowAddFromRecipe(false);
+          }}
         />
+
+        {/* Manual add modal */}
+        <Modal visible={showManualAdd} transparent animationType="slide">
+          <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+            <View style={[styles.modalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+              <Pressable onPress={() => setShowManualAdd(false)}>
+                <Ionicons name="close" size={24} color={colors.primary} />
+              </Pressable>
+              <Text style={[typography.title18, { color: colors.text }]}>Artikel toevoegen</Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            <ScrollView style={styles.modalContent} contentContainerStyle={{ gap: spacing.md }}>
+              <View>
+                <Text style={[typography.body16Medium, { color: colors.text, marginBottom: spacing.sm }]}>
+                  Artikel
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.backgroundLight,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
+                  placeholder="bijv. Melk, Brood, Kaas"
+                  placeholderTextColor={colors.textSecondary}
+                  value={newItemName}
+                  onChangeText={setNewItemName}
+                />
+              </View>
+
+              <View>
+                <Text style={[typography.body16Medium, { color: colors.text, marginBottom: spacing.sm }]}>
+                  Eenheid (optioneel)
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.backgroundLight,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
+                  placeholder="bijv. stuks, liter, kg"
+                  placeholderTextColor={colors.textSecondary}
+                  value={newItemUnit}
+                  onChangeText={setNewItemUnit}
+                />
+              </View>
+
+              <Pressable
+                style={[styles.submitButton, { backgroundColor: colors.primary }]}
+                onPress={handleAddManual}
+              >
+                <Text style={[typography.body16Medium, { color: '#fff' }]}>Toevoegen</Text>
+              </Pressable>
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
       </SafeAreaView>
     </ErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.border,
+  container: {
+    flex: 1,
   },
-  titleRow: {
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  list: {
+    padding: spacing.md,
+    gap: spacing.sm,
+    flexGrow: 1,
+  },
+  actionBar: {
+    padding: spacing.md,
+    borderTopWidth: 1,
+    gap: spacing.md,
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    justifyContent: 'flex-end',
+  },
+  fabButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '500',
-    color: Colors.text,
-  },
-  addRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 10,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.border,
-  },
-  addInput: {
+  modalContent: {
+    padding: spacing.lg,
     flex: 1,
-    height: 40,
-    backgroundColor: Colors.background,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: Colors.text,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
   },
-  addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: Colors.green,
+  input: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 16,
+  },
+  submitButton: {
+    paddingVertical: spacing.md,
+    borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtnDisabled: { opacity: 0.4 },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.border,
-    backgroundColor: Colors.surface,
-  },
-  toolbarBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    backgroundColor: Colors.background,
-  },
-  toolbarBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.primary,
-  },
-  list: { padding: 12, gap: 8 },
-  sectionHeader: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-    marginTop: 4,
+    marginTop: spacing.lg,
   },
 });

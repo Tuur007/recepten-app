@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
   FlatList,
   Platform,
+  ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,10 +19,26 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { Colors } from '../../components/ui/colors';
+import { RecipeCategory } from '../../types/recipe';
 
 export default function RecipesScreen() {
   const router = useRouter();
   const { recipes, isLoading, update } = useRecipes();
+  const [activeCategory, setActiveCategory] = useState<RecipeCategory | ''>('');
+
+  // Only show categories that have at least one recipe
+  const availableCategories = useMemo<RecipeCategory[]>(() => {
+    const seen = new Set<RecipeCategory>();
+    for (const r of recipes) {
+      if (r.category) seen.add(r.category);
+    }
+    return Array.from(seen);
+  }, [recipes]);
+
+  const filteredRecipes = useMemo(
+    () => (activeCategory ? recipes.filter((r) => r.category === activeCategory) : recipes),
+    [recipes, activeCategory],
+  );
 
   const handleFab = () => {
     if (Platform.OS === 'ios') {
@@ -47,8 +66,41 @@ export default function RecipesScreen() {
   return (
     <ErrorBoundary>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        {availableCategories.length > 0 && (
+          <View style={styles.filterBar}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScroll}
+            >
+              <TouchableOpacity
+                style={[styles.chip, !activeCategory && styles.chipActive]}
+                onPress={() => setActiveCategory('')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.chipText, !activeCategory && styles.chipTextActive]}>
+                  Alles
+                </Text>
+              </TouchableOpacity>
+
+              {availableCategories.map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.chip, activeCategory === cat && styles.chipActive]}
+                  onPress={() => setActiveCategory(activeCategory === cat ? '' : cat)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.chipText, activeCategory === cat && styles.chipTextActive]}>
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         <FlatList
-          data={recipes}
+          data={filteredRecipes}
           keyExtractor={(r) => r.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
@@ -59,11 +111,19 @@ export default function RecipesScreen() {
             />
           )}
           ListEmptyComponent={
-            <EmptyState
-              icon="📖"
-              title="Nog geen recepten"
-              message="Tik op de + knop om je eerste recept handmatig toe te voegen of te importeren via URL."
-            />
+            activeCategory ? (
+              <EmptyState
+                icon="🔍"
+                title={`Geen ${activeCategory} recepten`}
+                message="Er zijn nog geen recepten in deze categorie."
+              />
+            ) : (
+              <EmptyState
+                icon="📖"
+                title="Nog geen recepten"
+                message="Tik op de + knop om je eerste recept handmatig toe te voegen of te importeren via URL."
+              />
+            )
           }
         />
 
@@ -77,6 +137,39 @@ export default function RecipesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+
+  filterBar: {
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  filterScroll: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    flexDirection: 'row',
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: Colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  chipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  chipTextActive: {
+    color: '#fff',
+  },
+
   list: { padding: 16, gap: 10, flexGrow: 1 },
   fab: {
     position: 'absolute',

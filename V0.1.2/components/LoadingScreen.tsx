@@ -1,12 +1,19 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { Colors } from './ui/colors';
+import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { colors, typography, spacing } from '../constants/Designsystem'; // ✅ FIXED
 
-export function LoadingScreen({ message = 'Loading…' }: { message?: string }) {
+interface LoadingScreenProps {
+  message?: string;
+}
+
+export function LoadingScreen({ message = 'Laden...' }: LoadingScreenProps) {
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color={Colors.primary} />
-      <Text style={styles.text}>{message}</Text>
+      <ActivityIndicator 
+        size="large" 
+        color={colors.primary} // ✅ ORANGE
+      />
+      <Text style={[typography.body16, styles.message]}>{message}</Text>
     </View>
   );
 }
@@ -14,10 +21,13 @@ export function LoadingScreen({ message = 'Loading…' }: { message?: string }) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
+    backgroundColor: colors.background, // ✅ WARM CREAM
     justifyContent: 'center',
-    backgroundColor: Colors.background,
-    gap: 12,
+    alignItems: 'center',
+    gap: spacing.md,
   },
-  text: { fontSize: 15, color: Colors.textSecondary },
+  message: {
+    color: colors.textMedium,
+    marginTop: spacing.md,
+  },
 });

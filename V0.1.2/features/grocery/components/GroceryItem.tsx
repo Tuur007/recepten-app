@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../components/ui/colors';
+import { colors, spacing, typography } from '../../../constants/Designsystem';
 import { GroceryItem as GroceryItemType } from '../../../types/grocery';
 import { GrocerySourceTag } from './GrocerySourceTag';
 
@@ -53,7 +53,7 @@ export function GroceryItem({ item, onToggle, onDelete, onRemoveSource }: Grocer
             <Ionicons
               name={expanded ? 'chevron-up' : 'chevron-down'}
               size={12}
-              color={Colors.textSecondary}
+              color={colors.textSecondary}
             />
           ) : null}
         </View>
@@ -85,13 +85,13 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 12,
     borderWidth: 0.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   checkedRow: { opacity: 0.55 },
   checkbox: {
@@ -99,15 +99,15 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
     marginTop: 2,
   },
   checkboxChecked: {
-    backgroundColor: Colors.green,
-    borderColor: Colors.green,
+    backgroundColor: colors.green,
+    borderColor: colors.green,
   },
   content: { flex: 1, gap: 6 },
   nameRow: {
@@ -115,10 +115,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  name: { fontSize: 15, fontWeight: '500', color: Colors.text, flex: 1 },
+  name: { fontSize: 15, fontWeight: '500', color: colors.text, flex: 1 },
   checkedText: {
     textDecorationLine: 'line-through',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   sources: {
     flexDirection: 'row',
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   moreLabel: {
     fontSize: 11,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     alignSelf: 'center',
   },
   deleteBtn: {
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   },
   deleteIcon: {
     fontSize: 20,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '300',
   },
 });

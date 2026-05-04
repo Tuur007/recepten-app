@@ -30,6 +30,6 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE recipes ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE grocery_items ADD COLUMN sources TEXT NOT NULL DEFAULT '[]'`,
   `ALTER TABLE grocery_items ADD COLUMN total_quantity REAL NOT NULL DEFAULT 0`,
-  `UPDATE grocery_items SET total_quantity = quantity WHERE total_quantity = 0 AND quantity > 0`,
+  // REMOVED: Migration that referenced non-existent 'quantity' column
   `ALTER TABLE recipes ADD COLUMN image_uri TEXT`,
 ];

@@ -1,21 +1,19 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Colors } from './colors';
+import { View, Text, StyleSheet } from 'react-native';
+import { colors, spacing, typography } from '../../constants/Designsystem'; // ✅ FIXED
 
 interface EmptyStateProps {
   icon?: string;
   title: string;
-  message?: string;
-  action?: React.ReactNode;
+  message: string;
 }
 
-export function EmptyState({ icon = '🍽️', title, message, action }: EmptyStateProps) {
+export function EmptyState({ icon, title, message }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.icon}>{icon}</Text>
-      <Text style={styles.title}>{title}</Text>
-      {message ? <Text style={styles.message}>{message}</Text> : null}
-      {action ? <View style={styles.action}>{action}</View> : null}
+      {icon && <Text style={styles.icon}>{icon}</Text>}
+      <Text style={[typography.title18, styles.title]}>{title}</Text>
+      <Text style={[typography.body16, styles.message]}>{message}</Text>
     </View>
   );
 }
@@ -23,23 +21,23 @@ export function EmptyState({ icon = '🍽️', title, message, action }: EmptySt
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
-    gap: 8,
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
-  icon: { fontSize: 52, marginBottom: 4 },
+  icon: {
+    fontSize: 64,
+    marginBottom: spacing.lg,
+  },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.text,
+    color: colors.textDark,
     textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   message: {
-    fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textLight,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
   },
-  action: { marginTop: 12 },
 });

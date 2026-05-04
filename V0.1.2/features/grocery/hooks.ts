@@ -30,7 +30,7 @@ export function useGrocery() {
       })
       .catch((err) => {
         console.error('[useGrocery] Load error:', err);
-        setLoaded(true); // Still mark loaded on error to prevent retry loop
+        setLoaded(true);
       })
       .finally(() => setLoading(false));
   }, [db, hasLoaded, setLoading, setItems, setLoaded]);
@@ -62,7 +62,6 @@ export function useGrocery() {
       const updated = removeSourceFromGrocery(items, sourceId);
 
       await db.withTransactionAsync(async () => {
-        // Delete items that have no sources left
         const toDelete = items.filter(item => 
           !updated.find(u => u.id === item.id)
         );
@@ -70,7 +69,6 @@ export function useGrocery() {
           await GroceryRepository.delete(db, item.id);
         }
         
-        // Upsert remaining items
         await GroceryRepository.upsertMany(db, updated);
       });
 
@@ -85,18 +83,33 @@ export function useGrocery() {
       if (!item) return;
 
       const filteredSources = item.sources.filter((s) => s.sourceId !== sourceId);
+      const totalQuantity = filteredSources.reduce((sum, s) => sum + s.quantity, 0);
 
       if (filteredSources.length === 0) {
-        await GroceryRepository.delete(db, item.id);
+        // Optimistic: remove immediately
         removeItem(item.id);
-        return;
+        try {
+          await GroceryRepository.delete(db, item.id);
+        } catch (err) {
+          console.error('[removeSingleSource] Delete error:', err);
+          // Rollback: re-add item
+          addItem(item);
+          throw err;
+        }
+      } else {
+        // Optimistic: update immediately
+        updateItemInStore(item.id, { sources: filteredSources, totalQuantity });
+        try {
+          await GroceryRepository.update(db, item.id, { sources: filteredSources });
+        } catch (err) {
+          console.error('[removeSingleSource] Update error:', err);
+          // Rollback: restore old value
+          updateItemInStore(item.id, { sources: item.sources, totalQuantity: item.totalQuantity });
+          throw err;
+        }
       }
-
-      const totalQuantity = filteredSources.reduce((sum, s) => sum + s.quantity, 0);
-      await GroceryRepository.update(db, item.id, { sources: filteredSources });
-      updateItemInStore(item.id, { sources: filteredSources, totalQuantity });
     },
-    [db, items, removeItem, updateItemInStore],
+    [db, items, removeItem, updateItemInStore, addItem],
   );
 
   const toggleChecked = useCallback(

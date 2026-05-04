@@ -26,7 +26,10 @@ export function useRecipes() {
         setRecipes(data);
         setLoaded(true);
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error('[useRecipes] Load error:', err);
+        setLoaded(true);
+      })
       .finally(() => setLoading(false));
   }, [db, hasLoaded, setLoading, setRecipes, setLoaded]);
 

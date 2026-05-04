@@ -1,0 +1,289 @@
+🍽️ 1. Core cooking experience (de basis, maar perfect uitgevoerd)
+
+🔹 Recept detail (pro-level)
+	•	Ingrediënten met:
+	•	automatische schaal (2 → 4 personen)
+	•	eenheden conversie (g ↔ cups)
+	•	Stappen:
+	•	duidelijk gescheiden
+	•	visueel (icons, timers, media)
+
+⸻
+
+🔹 Kookmodus (🔥 must-have)
+	•	Fullscreen, geen afleiding
+	•	Grote tekst
+	•	Swipe → volgende stap
+	•	Screen blijft aan
+
+⸻
+
+🔹 Slimme timers (zoals je zei, maar beter)
+	•	Detecteer automatisch:
+	•	“bak 10 minuten”
+	•	“laat rusten 30 min”
+	•	Toon knop:
+👉 “Start timer 10 min”
+
+Extra:
+	•	meerdere timers tegelijk
+	•	push notificatie bij einde
+	•	visuele progress bar per stap
+
+⸻
+
+🧠 2. Intelligente features
+
+🔹 Context-aware stappen
+	•	“Verwarm oven op 180°C”
+→ app stelt automatisch voor:
+👉 “Oven timer starten”
+
+⸻
+
+🔹 Dynamische stappen
+	•	Ingrediënten highlighten per stap
+	•	“Gebruik 2/3 van saus hier”
+
+⸻
+
+🔹 Slim schalen
+	•	Niet lineair:
+	•	1 ei → 2 eieren (correct afronden)
+	•	AI-based aanpassing van kooktijd
+
+⸻
+
+🔹 Wat kan ik maken (next level)
+	•	Input:
+	•	ingrediënten thuis
+	•	Output:
+	•	matchscore (%)
+	•	suggesties wat ontbreekt
+
+⸻
+
+🛒 3. Boodschappen (super belangrijk)
+
+🔹 Auto lijst generatie
+	•	Vanuit:
+	•	1 recept
+	•	weekmenu
+
+⸻
+
+🔹 Slimme groepering
+	•	categorie:
+	•	groenten
+	•	vlees
+	•	zuivel
+
+⸻
+
+🔹 Realtime sync (multi-user)
+	•	gezin kan samen lijst bewerken
+	•	live updates
+
+⸻
+
+🔹 Winkelmodus
+	•	sorteren op winkelindeling
+	•	checkbox + haptic feedback
+
+⸻
+
+📅 4. Planning & organisatie
+
+🔹 Weekmenu planner
+	•	drag & drop recepten
+	•	herhaalbare schema’s
+
+⸻
+
+🔹 Meal prep modus
+	•	combineer meerdere recepten
+	•	optimaliseer volgorde:
+	•	snijden → koken → oven
+
+⸻
+
+🔹 Kalender integratie
+	•	sync met agenda
+	•	reminders:
+👉 “Begin koken om 17:45”
+
+⸻
+
+📥 5. Recept input & import
+
+🔹 URL import (must)
+	•	scrape JSON-LD
+	•	fallback parsing
+
+⸻
+
+🔹 Foto → recept (🔥)
+	•	scan kookboek
+	•	OCR → ingrediënten + stappen
+
+⸻
+
+🔹 Spraak input
+	•	“Voeg toe: pasta met kip en room”
+
+⸻
+
+❤️ 6. Personalisatie
+
+🔹 Favorieten + tags
+	•	snel filteren
+
+⸻
+
+🔹 Dieet voorkeuren
+	•	vegan / keto / glutenvrij
+
+⸻
+
+🔹 Allergieën
+	•	waarschuwing bij recepten
+
+⸻
+
+🔹 AI aanbevelingen
+	•	gebaseerd op:
+	•	wat je kookt
+	•	wat je koopt
+
+⸻
+
+🧑‍🍳 7. AI cooking assistant (next level)
+
+🔹 Live hulp tijdens koken
+	•	“Mijn saus is te dun”
+	•	“Hoe vervang ik room?”
+
+⸻
+
+🔹 Automatische substituties
+	•	ontbrekend ingrediënt → alternatief
+
+⸻
+
+🔹 Recept genereren
+	•	input:
+	•	“kip, rijst, paprika”
+	•	output:
+	•	volledig recept
+
+⸻
+
+🔊 8. Voice & hands-free
+
+🔹 Spraakbesturing
+	•	“Volgende stap”
+	•	“Start timer”
+	•	“Herhaal”
+
+⸻
+
+🔹 Audio modus
+	•	app leest stappen voor
+
+⸻
+
+🌐 9. Social & sharing
+
+🔹 Recept delen
+	•	link / QR
+
+⸻
+
+🔹 Samen koken
+	•	realtime sync tussen gebruikers
+
+⸻
+
+🔹 Community
+	•	reviews
+	•	ratings
+
+⸻
+
+📊 10. Data & insights
+
+🔹 Voedingswaarden
+	•	kcal, eiwitten, vetten
+
+⸻
+
+🔹 Geschiedenis
+	•	wat heb je gekookt
+
+⸻
+
+🔹 Budget tracking
+	•	kost per recept
+
+⸻
+
+🧊 11. Voorraadbeheer (killer feature)
+
+🔹 Pantry tracking
+	•	wat heb je thuis
+
+⸻
+
+🔹 Houdbaarheidsdata
+	•	“gebruik dit binnenkort”
+
+⸻
+
+🔹 Barcode scanner
+	•	voeg producten toe
+
+⸻
+
+🔔 12. Notificaties (slim, niet irritant)
+	•	timer alerts
+	•	kook reminders
+	•	“je hebt alles in huis voor X”
+
+⸻
+
+🎨 13. UX polish (maakt het verschil)
+	•	dark mode
+	•	micro-animaties
+	•	haptics bij interacties
+	•	skeleton loaders
+
+⸻
+
+🔐 14. Accounts & sync
+	•	login (Supabase)
+	•	cloud sync
+	•	offline-first support
+
+⸻
+
+🚀 15. Future / crazy ideas
+
+🔹 AR koken
+	•	camera → overlay stappen op je keuken
+
+⸻
+
+🔹 Smart home integratie
+	•	oven automatisch voorverwarmen
+
+⸻
+
+🔹 Wearables
+	•	Apple Watch:
+	•	timers
+	•	stappen
+
+⸻
+
+🔹 Auto boodschappen bestellen
+	•	integratie met supermarkten

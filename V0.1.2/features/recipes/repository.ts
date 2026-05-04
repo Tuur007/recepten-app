@@ -9,6 +9,7 @@ interface RecipeRow {
   ingredients: string;
   steps: string;
   source_url: string | null;
+  duration: number | null;
   category: string;
   is_favorite: number;
   image_uri: string | null;
@@ -23,6 +24,7 @@ function rowToRecipe(row: RecipeRow): Recipe {
     ingredients: JSON.parse(row.ingredients),
     steps: JSON.parse(row.steps),
     sourceUrl: row.source_url ?? undefined,
+    duration: row.duration ?? undefined,
     category: (row.category ?? '') as Recipe['category'],
     isFavorite: row.is_favorite === 1,
     imageUri: row.image_uri ?? undefined,
@@ -51,14 +53,15 @@ export const RecipeRepository = {
     const id = generateId();
     const now = new Date().toISOString();
     await db.runAsync(
-      `INSERT INTO recipes (id, title, ingredients, steps, source_url, category, is_favorite, image_uri, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO recipes (id, title, ingredients, steps, source_url, duration, category, is_favorite, image_uri, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         input.title,
         JSON.stringify(input.ingredients),
         JSON.stringify(input.steps),
         input.sourceUrl ?? null,
+        input.duration ?? null,
         input.category ?? '',
         input.isFavorite ? 1 : 0,
         input.imageUri ?? null,
@@ -92,13 +95,14 @@ export const RecipeRepository = {
 
     await db.runAsync(
       `UPDATE recipes
-         SET title = ?, ingredients = ?, steps = ?, source_url = ?, category = ?, is_favorite = ?, image_uri = ?, updated_at = ?
+         SET title = ?, ingredients = ?, steps = ?, source_url = ?, duration = ?, category = ?, is_favorite = ?, image_uri = ?, updated_at = ?
        WHERE id = ?`,
       [
         merged.title,
         JSON.stringify(merged.ingredients),
         JSON.stringify(merged.steps),
         merged.sourceUrl ?? null,
+        merged.duration ?? null,
         merged.category ?? '',
         merged.isFavorite ? 1 : 0,
         merged.imageUri ?? null,

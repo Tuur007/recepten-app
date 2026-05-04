@@ -18,7 +18,7 @@ import { RecipeCard } from '../../features/recipes/components/RecipeCard';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
-import { Colors } from '../../components/ui/colors';
+import { colors, spacing, shadows } from '../../constants/Designsystem'; // ✅ FIXED
 import { RecipeCategory } from '../../types/recipe';
 
 export default function RecipesScreen() {
@@ -26,7 +26,6 @@ export default function RecipesScreen() {
   const { recipes, isLoading, update } = useRecipes();
   const [activeCategory, setActiveCategory] = useState<RecipeCategory | ''>('');
 
-  // Only show categories that have at least one recipe
   const availableCategories = useMemo<RecipeCategory[]>(() => {
     const seen = new Set<RecipeCategory>();
     for (const r of recipes) {
@@ -136,41 +135,48 @@ export default function RecipesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.background, // ✅ WARM CREAM #FEF9E7
+  },
 
   filterBar: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.borderColor,
   },
   filterScroll: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
     flexDirection: 'row',
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     borderRadius: 20,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.backgroundLight,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.borderColor,
   },
   chipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary, // ✅ ORANGE #FF6B35
+    borderColor: colors.primary,
   },
   chipText: {
     fontSize: 13,
     fontWeight: '500',
-    color: Colors.textSecondary,
+    color: colors.textLight,
   },
   chipTextActive: {
     color: '#fff',
   },
 
-  list: { padding: 16, gap: 10, flexGrow: 1 },
+  list: { 
+    padding: spacing.md, 
+    gap: spacing.sm, 
+    flexGrow: 1 
+  },
   fab: {
     position: 'absolute',
     bottom: 24,
@@ -178,13 +184,9 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary, // ✅ ORANGE
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
+    ...shadows.medium,
   },
 });

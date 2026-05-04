@@ -18,14 +18,14 @@ export function GrocerySourceTag({ source, onRemove }: GrocerySourceTagProps) {
       <Ionicons
         name={isManual ? 'pencil-outline' : 'book-outline'}
         size={10}
-        color={isManual ? Colors.blue : Colors.accent}
+        color={isManual ? colors.blue : colors.accent}
       />
       <Text style={[styles.label, isManual && styles.labelManual]} numberOfLines={1}>
         {label}
       </Text>
       {onRemove ? (
         <TouchableOpacity onPress={() => onRemove(source.sourceId)} hitSlop={8}>
-          <Ionicons name="close" size={10} color={isManual ? Colors.blue : Colors.accent} />
+          <Ionicons name="close" size={10} color={isManual ? colors.blue : colors.accent} />
         </TouchableOpacity>
       ) : null}
     </View>
@@ -37,25 +37,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.accentLight,
     borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderWidth: 0.5,
-    borderColor: Colors.accent,
+    borderColor: colors.accent,
     maxWidth: 160,
   },
   tagManual: {
-    backgroundColor: Colors.blueLight,
-    borderColor: Colors.blue,
+    backgroundColor: colors.blueLight,
+    borderColor: colors.blue,
   },
   label: {
     fontSize: 11,
     fontWeight: '500',
-    color: Colors.accent,
+    color: colors.accent,
     flexShrink: 1,
   },
   labelManual: {
-    color: Colors.blue,
+    color: colors.blue,
   },
 });

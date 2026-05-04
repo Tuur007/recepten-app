@@ -53,32 +53,31 @@ export function SplashScreen({
   }, [fadeAnim, scaleAnim])
 
   // Handle completion with minimum duration
-  useEffect(() => {
-    if (!isLoading && progress >= 100) {
-      const elapsed = Date.now() - startTime
-      const remaining = Math.max(0, minDuration - elapsed)
+useEffect(() => {
+  if (!isLoading && progress >= 100) {
+    const elapsed = Date.now() - startTime
+    const remaining = Math.max(0, minDuration - elapsed)
 
-      const timer = setTimeout(() => {
-        // Fade out
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleAnim, {
-            toValue: 1.1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          onComplete?.()
-        })
-      }, remaining)
+    const timer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1.1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        onComplete?.()
+      })
+    }, remaining)
 
-      return () => clearTimeout(timer)
-    }
-  }, [isLoading, progress, fadeAnim, scaleAnim, startTime, minDuration, onComplete])
+    return () => clearTimeout(timer)
+  }
+}, [isLoading, progress, minDuration, onComplete, fadeAnim, scaleAnim, startTime])
 
   return (
     <Animated.View

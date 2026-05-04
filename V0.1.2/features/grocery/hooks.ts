@@ -29,7 +29,8 @@ export function useGrocery() {
         setLoaded(true);
       })
       .catch((err) => {
-        console.error('[useGrocery] Fout bij laden:', err);
+        console.error('[useGrocery] Load error:', err);
+        setLoaded(true); // Still mark loaded on error to prevent retry loop
       })
       .finally(() => setLoading(false));
   }, [db, hasLoaded, setLoading, setItems, setLoaded]);
@@ -43,27 +44,13 @@ export function useGrocery() {
     [db, addItem],
   );
 
+  // FIX: Use UPSERT instead of DELETE-ALL
   const addFromRecipe = useCallback(
     async (ingredients: Ingredient[], recipeId: string, recipeName: string): Promise<void> => {
       const merged = mergeIngredientsIntoGrocery(items, ingredients, recipeId, recipeName);
 
       await db.withTransactionAsync(async () => {
-        await db.runAsync('DELETE FROM grocery_items');
-        for (const item of merged) {
-          await db.runAsync(
-            `INSERT INTO grocery_items (id, name, unit, sources, total_quantity, checked, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-              item.id,
-              item.name,
-              item.unit,
-              JSON.stringify(item.sources),
-              item.totalQuantity,
-              item.checked ? 1 : 0,
-              item.createdAt,
-            ],
-          );
-        }
+        await GroceryRepository.upsertMany(db, merged);
       });
 
       setItems(merged);
@@ -71,27 +58,22 @@ export function useGrocery() {
     [db, items, setItems],
   );
 
+  // FIX: Use UPSERT instead of DELETE-ALL
   const removeSource = useCallback(
     async (sourceId: string): Promise<void> => {
       const updated = removeSourceFromGrocery(items, sourceId);
 
       await db.withTransactionAsync(async () => {
-        await db.runAsync('DELETE FROM grocery_items');
-        for (const item of updated) {
-          await db.runAsync(
-            `INSERT INTO grocery_items (id, name, unit, sources, total_quantity, checked, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-              item.id,
-              item.name,
-              item.unit,
-              JSON.stringify(item.sources),
-              item.totalQuantity,
-              item.checked ? 1 : 0,
-              item.createdAt,
-            ],
-          );
+        // Delete items that have no sources left
+        const toDelete = items.filter(item => 
+          !updated.find(u => u.id === item.id)
+        );
+        for (const item of toDelete) {
+          await GroceryRepository.delete(db, item.id);
         }
+        
+        // Upsert remaining items
+        await GroceryRepository.upsertMany(db, updated);
       });
 
       setItems(updated);
@@ -140,7 +122,7 @@ export function useGrocery() {
 
   const clearChecked = useCallback(async (): Promise<void> => {
     await db.withTransactionAsync(async () => {
-      await db.runAsync('DELETE FROM grocery_items WHERE checked = 1');
+      await GroceryRepository.clearChecked(db);
     });
     const updated = await GroceryRepository.getAll(db);
     setItems(updated);

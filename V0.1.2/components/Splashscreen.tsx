@@ -17,7 +17,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native'
-import { colors, spacing, typography, animations } from '../designSystem'
+import { colors, spacing, typography, animations } from '../constants/Designsystem'
 
 interface SplashScreenProps {
   isLoading?: boolean

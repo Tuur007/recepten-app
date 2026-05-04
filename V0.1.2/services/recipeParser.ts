@@ -473,7 +473,7 @@ export function parseIngredientString(raw: string): ParsedIngredient {
   let quantity = 1;
 
   // Handle range "1-2" or "1 à 2" → take the maximum value
-  const rangeMatch = remaining.match(/^(\d*\.?\d+)\s*[-à]\s*(\d*\.?\d+)\s*/);
+  const rangeMatch = remaining.match(/^(\d*\.?\d+)\s*[-–—à]\s*(\d*\.?\d+)\s*/);
   if (rangeMatch) {
     quantity = parseFloat(rangeMatch[2]); // take max of range
     remaining = remaining.slice(rangeMatch[0].length);

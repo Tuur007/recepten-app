@@ -98,7 +98,7 @@ export function removeSourceFromGrocery(
       const sources = item.sources.filter((s) => s.sourceId !== sourceId);
       return { ...item, sources, totalQuantity: computeTotalQuantity(sources) };
     })
-    .filter((item) => item.totalQuantity > 0 || item.sources.length > 0);
+    .filter((item) => item.sources.length > 0);
 }
 
 /** Human-readable label showing recipe origins, e.g. "(Lasagna, Spaghetti)" */

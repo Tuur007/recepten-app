@@ -1,8 +1,3 @@
-bash
-
-cat "/home/claude/recepten-app-sprint-11/V0.1.2/utils/imageStorage.ts"
-Output
-
 import * as FileSystem from 'expo-file-system';
 import { generateId } from './id';
 

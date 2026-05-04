@@ -128,7 +128,11 @@ export default function RecipeDetailScreen() {
     }
     setAddingToList(true);
     try {
-      await addFromRecipe(recipe, selectedIngredients);
+      await addFromRecipe(
+        recipe.ingredients.filter((i) => selectedIngredients.has(i.id)),
+        recipe.id,
+        recipe.title,
+      );
       Alert.alert('Toegevoegd', 'Ingrediënten zijn toegevoegd aan je boodschappenlijst.');
     } catch {
       Alert.alert('Fout', 'Kon ingrediënten niet toevoegen. Probeer opnieuw.');

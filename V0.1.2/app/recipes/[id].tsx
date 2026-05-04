@@ -139,7 +139,7 @@ export default function RecipeDetailScreen() {
 
               {recipe.duration ? (
                 <View style={styles.durationBadge}>
-                  <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
+                  <Ionicons name="time-outline" size={13} color={colors.textSecondary} />
                   <Text style={styles.durationText}>{recipe.duration} min</Text>
                 </View>
               ) : null}
@@ -150,7 +150,7 @@ export default function RecipeDetailScreen() {
                   onPress={() => safeOpenUrl(recipe.sourceUrl!)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="link-outline" size={13} color={Colors.primary} />
+                  <Ionicons name="link-outline" size={13} color={colors.primary} />
                   <Text style={styles.sourceText} numberOfLines={1}>{recipe.sourceUrl}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -174,7 +174,7 @@ export default function RecipeDetailScreen() {
                     <Ionicons
                       name={selectedIngredients.has(ing.id) ? 'checkbox' : 'square-outline'}
                       size={18}
-                      color={selectedIngredients.has(ing.id) ? Colors.primary : Colors.textSecondary}
+                      color={selectedIngredients.has(ing.id) ? colors.primary : colors.textSecondary}
                     />
                     <Text style={styles.ingredientText}>
                       {ing.name}{ing.quantity ? ` ${ing.quantity}` : ''}{ing.unit ? ` ${ing.unit}` : ''}
@@ -241,9 +241,9 @@ export default function RecipeDetailScreen() {
                   onPress={() => safeOpenUrl(recipe.sourceUrl!)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="link-outline" size={13} color={Colors.primary} />
+                  <Ionicons name="link-outline" size={13} color={colors.primary} />
                   <Text style={styles.sourceTextEditing} numberOfLines={1}>{recipe.sourceUrl}</Text>
-                  <Ionicons name="open-outline" size={12} color={Colors.primary} />
+                  <Ionicons name="open-outline" size={12} color={colors.primary} />
                 </TouchableOpacity>
               ) : null}
 
@@ -264,12 +264,12 @@ export default function RecipeDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 40 },
   image: { width: '100%', height: 220, borderRadius: 12, marginBottom: 16 },
   header: { marginBottom: 8 },
-  title: { fontSize: 22, fontWeight: '700', color: Colors.text, marginBottom: 4 },
-  category: { fontSize: 13, color: Colors.textSecondary },
+  title: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  category: { fontSize: 13, color: colors.textSecondary },
   section: { marginTop: 20 },
   sectionHeader: {
     flexDirection: 'row',
@@ -277,50 +277,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, marginBottom: 8 },
-  selectAll: { fontSize: 13, color: Colors.primary },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 8 },
+  selectAll: { fontSize: 13, color: colors.primary },
   ingredient: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
-  ingredientText: { fontSize: 14, color: Colors.text, flex: 1 },
-  step: { fontSize: 14, color: Colors.text, lineHeight: 22, marginBottom: 6 },
+  ingredientText: { fontSize: 14, color: colors.text, flex: 1 },
+  step: { fontSize: 14, color: colors.text, lineHeight: 22, marginBottom: 6 },
   actions: { marginTop: 24, gap: 12 },
   sourceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
     marginBottom: 8,
   },
-  sourceText: { fontSize: 12, color: Colors.primary, flex: 1 },
+  sourceText: { fontSize: 12, color: colors.primary, flex: 1 },
   sourceBadgeEditing: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
     marginBottom: 16,
   },
-  sourceTextEditing: { fontSize: 12, color: Colors.primary, flex: 1 },
+  sourceTextEditing: { fontSize: 12, color: colors.primary, flex: 1 },
   durationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     marginBottom: 8,
   },
-  durationText: { fontSize: 12, color: Colors.textSecondary },
+  durationText: { fontSize: 12, color: colors.textSecondary },
 });

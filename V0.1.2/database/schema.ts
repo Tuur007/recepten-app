@@ -5,6 +5,7 @@ export const CREATE_RECIPES_TABLE = `
     ingredients TEXT NOT NULL DEFAULT '[]',
     steps       TEXT NOT NULL DEFAULT '[]',
     source_url  TEXT,
+    duration    INTEGER,
     category    TEXT NOT NULL DEFAULT '',
     is_favorite INTEGER NOT NULL DEFAULT 0,
     image_uri   TEXT,
@@ -38,4 +39,6 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE grocery_items ADD COLUMN total_quantity REAL NOT NULL DEFAULT 0`,
   // v5: recipe image support
   `ALTER TABLE recipes ADD COLUMN image_uri TEXT`,
+  // v6: recipe duration
+  `ALTER TABLE recipes ADD COLUMN duration INTEGER`,
 ];

@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../components/ui/colors';
+import { colors, shadows } from '../../../constants/Designsystem';
 import { Recipe } from '../../../types/recipe';
 
 interface RecipeCardProps {
@@ -35,7 +35,7 @@ export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProp
           <Ionicons
             name={recipe.isFavorite ? 'heart' : 'heart-outline'}
             size={20}
-            color={recipe.isFavorite ? Colors.danger : '#fff'}
+            color={recipe.isFavorite ? colors.danger : '#fff'}
           />
         </TouchableOpacity>
       </View>
@@ -45,11 +45,11 @@ export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProp
 
         <View style={styles.meta}>
           <View style={styles.metaItem}>
-            <Ionicons name="restaurant-outline" size={12} color={Colors.primary} />
+            <Ionicons name="restaurant-outline" size={12} color={colors.primary} />
             <Text style={styles.metaText}>{recipe.ingredients.length}</Text>
           </View>
           <View style={styles.metaItem}>
-            <Ionicons name="list-outline" size={12} color={Colors.primary} />
+            <Ionicons name="list-outline" size={12} color={colors.primary} />
             <Text style={styles.metaText}>{recipe.steps.length} stap{recipe.steps.length !== 1 ? 'pen' : ''}</Text>
           </View>
         </View>
@@ -67,11 +67,11 @@ export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProp
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 0.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   imageContainer: {
     position: 'relative',
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   title: { 
     fontSize: 14, 
     fontWeight: '600', 
-    color: Colors.text,
+    color: colors.text,
     lineHeight: 18,
   },
   meta: {
@@ -118,12 +118,12 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   date: { 
     fontSize: 11, 
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
 });

@@ -2,8 +2,8 @@ import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../components/ui/colors';
-import { saveRecipeImage } from '../../../utils/imageStorage';
+import { Colors } from '../../components/ui/colors';
+import { saveRecipeImage } from '../../utils/imageStorage';
 
 interface RecipeImagePickerProps {
   imageUri?: string;

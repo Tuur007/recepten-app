@@ -1,47 +1,41 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors } from './ui/colors';
+import { View, Text, StyleSheet } from 'react-native';
+import { colors, typography, spacing } from '../constants/Designsystem'; // ✅ FIXED
 
-interface Props {
+interface ErrorBoundaryProps {
   children: React.ReactNode;
-  onReset?: () => void;
 }
 
 interface State {
-  error: Error | null;
   hasError: boolean;
+  error?: Error;
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
-  constructor(props: Props) {
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, State> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { error: null, hasError: false };
+    this.state = { hasError: false };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { error, hasError: true };
+    return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+  componentDidCatch(error: Error) {
+    console.error('Error caught:', error);
   }
-
-  handleReset = () => {
-    this.setState({ error: null, hasError: false });
-    this.props.onReset?.();
-  };
 
   render() {
     if (this.state.hasError) {
       return (
         <View style={styles.container}>
-          <Ionicons name="alert-circle" size={48} color={Colors.danger} />
-          <Text style={styles.title}>Er is iets fout gegaan</Text>
-          <Text style={styles.message}>{this.state.error?.message || 'Onbekende fout'}</Text>
-          <TouchableOpacity style={styles.button} onPress={this.handleReset} activeOpacity={0.75}>
-            <Text style={styles.buttonText}>Opnieuw proberen</Text>
-          </TouchableOpacity>
+          <Text style={[typography.title18, styles.title]}>⚠️ Oops!</Text>
+          <Text style={[typography.body16, styles.message]}>
+            Er is iets misgegaan.
+          </Text>
+          <Text style={[typography.caption14, styles.error]}>
+            {this.state.error?.message}
+          </Text>
         </View>
       );
     }
@@ -53,34 +47,23 @@ export class ErrorBoundary extends React.Component<Props, State> {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
+    backgroundColor: colors.background, // ✅ WARM CREAM
     justifyContent: 'center',
-    padding: 24,
-    gap: 16,
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.text,
-    textAlign: 'center',
+    color: colors.textDark,
+    marginBottom: spacing.md,
   },
   message: {
-    fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textMedium,
     textAlign: 'center',
-    lineHeight: 20,
+    marginBottom: spacing.lg,
   },
-  button: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
+  error: {
+    color: colors.error,
+    textAlign: 'center',
+    fontFamily: 'monospace',
   },
 });

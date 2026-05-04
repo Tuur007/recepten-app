@@ -20,7 +20,7 @@ import { safeOpenUrl } from '../../utils/linking';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { AppTextInput } from '../../components/ui/AppTextInput';
 import { Button } from '../../components/ui/Button';
-import { Colors } from '../../components/ui/colors';
+import { colors, spacing, typography, shadows } from '../../constants/Designsystem';
 
 export default function RecipeDetailScreen() {
   const router = useRouter();

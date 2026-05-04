@@ -12,6 +12,7 @@ export interface RecipeFormState {
   ingredients: Ingredient[];
   steps: string[];
   imageUri?: string;
+  duration?: number;
 }
 
 export function useRecipeForm(initial?: Partial<RecipeFormState>) {
@@ -24,6 +25,7 @@ export function useRecipeForm(initial?: Partial<RecipeFormState>) {
     initial?.steps?.length ? initial.steps : [''],
   );
   const [imageUri, setImageUri] = useState<string | undefined>(initial?.imageUri);
+  const [duration, setDuration] = useState<number | undefined>(initial?.duration);
 
   const updateIngredient = (index: number, updated: Ingredient) =>
     setIngredients((prev) => prev.map((ing, i) => (i === index ? updated : ing)));
@@ -48,6 +50,7 @@ export function useRecipeForm(initial?: Partial<RecipeFormState>) {
     setIngredients(values.ingredients.length > 0 ? values.ingredients : [emptyIngredient()]);
     setSteps(values.steps.length > 0 ? values.steps : ['']);
     setImageUri(values.imageUri);
+    setDuration(values.duration);
   };
 
   const validIngredients = ingredients.filter((i) => i.name.trim());
@@ -58,6 +61,7 @@ export function useRecipeForm(initial?: Partial<RecipeFormState>) {
     category, setCategory,
     ingredients, steps,
     imageUri, setImageUri,
+    duration, setDuration,
     updateIngredient, removeIngredient, addIngredient,
     updateStep, removeStep, addStep,
     reset,

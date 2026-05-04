@@ -48,8 +48,6 @@ export const RecipeRepository = {
   },
 
   async create(db: SQLiteDatabase, input: RecipeInput): Promise<Recipe> {
-    if (!input.title?.trim()) throw new Error('Recipe title is required');
-    
     const id = generateId();
     const now = new Date().toISOString();
     await db.runAsync(
@@ -68,7 +66,14 @@ export const RecipeRepository = {
         now,
       ],
     );
-    return { id, ...input, category: input.category ?? '', isFavorite: input.isFavorite ?? false, createdAt: now, updatedAt: now };
+    return {
+      id,
+      ...input,
+      category: input.category ?? '',
+      isFavorite: input.isFavorite ?? false,
+      createdAt: now,
+      updatedAt: now,
+    };
   },
 
   async update(db: SQLiteDatabase, id: string, changes: RecipeUpdate): Promise<void> {
@@ -78,14 +83,9 @@ export const RecipeRepository = {
     const merged = { ...current, ...changes };
     const now = new Date().toISOString();
 
-    // FIX: Handle image changes (new image, remove image)
-    if (changes.imageUri !== undefined) {
-      // Image changed to new one: delete old
-      if (changes.imageUri && current.imageUri !== changes.imageUri && current.imageUri) {
-        await deleteRecipeImage(current.imageUri);
-      }
-      // Image removed (set to undefined): delete old
-      if (changes.imageUri === undefined && current.imageUri) {
+    // Delete old image file when image is replaced or removed
+    if ('imageUri' in changes && current.imageUri) {
+      if (changes.imageUri !== current.imageUri) {
         await deleteRecipeImage(current.imageUri);
       }
     }

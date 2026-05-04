@@ -16,6 +16,7 @@ import { GroceryItem } from '../../features/grocery/components/GroceryItem';
 import { AddFromRecipeModal } from '../../features/grocery/components/AddFromRecipeModal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { LoadingScreen } from '../../components/LoadingScreen';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { Colors } from '../../components/ui/colors';
 import { Recipe } from '../../types/recipe';
 import { generateId } from '../../utils/id';
@@ -79,101 +80,103 @@ export default function GroceryScreen() {
   const allItems = [...uncheckedItems, ...checkedItems];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>Boodschappen</Text>
+    <ErrorBoundary>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Boodschappen</Text>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.addRow}>
-        <Ionicons name="add-outline" size={18} color={Colors.textSecondary} />
-        <TextInput
-          style={styles.addInput}
-          value={manualInput}
-          onChangeText={setManualInput}
-          placeholder="Item toevoegen..."
-          placeholderTextColor={Colors.textSecondary}
-          returnKeyType="done"
-          onSubmitEditing={handleManualAdd}
-          editable={!adding}
-        />
-        <TouchableOpacity
-          style={[styles.addBtn, (!manualInput.trim() || adding) && styles.addBtnDisabled]}
-          onPress={handleManualAdd}
-          disabled={!manualInput.trim() || adding}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="add" size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
+        <View style={styles.addRow}>
+          <Ionicons name="add-outline" size={18} color={Colors.textSecondary} />
+          <TextInput
+            style={styles.addInput}
+            value={manualInput}
+            onChangeText={setManualInput}
+            placeholder="Item toevoegen..."
+            placeholderTextColor={Colors.textSecondary}
+            returnKeyType="done"
+            onSubmitEditing={handleManualAdd}
+            editable={!adding}
+          />
+          <TouchableOpacity
+            style={[styles.addBtn, (!manualInput.trim() || adding) && styles.addBtnDisabled]}
+            onPress={handleManualAdd}
+            disabled={!manualInput.trim() || adding}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="add" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.toolbar}>
-        <TouchableOpacity
-          style={styles.toolbarBtn}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="book-outline" size={16} color={Colors.primary} />
-          <Text style={styles.toolbarBtnText}>Van recept</Text>
-        </TouchableOpacity>
-        {checkedItems.length > 0 ? (
+        <View style={styles.toolbar}>
           <TouchableOpacity
             style={styles.toolbarBtn}
-            onPress={handleClearChecked}
+            onPress={() => setModalVisible(true)}
             activeOpacity={0.7}
           >
-            <Ionicons name="trash-outline" size={16} color={Colors.danger} />
-            <Text style={[styles.toolbarBtnText, { color: Colors.danger }]}>
-              Verwijder ({checkedItems.length})
-            </Text>
+            <Ionicons name="book-outline" size={16} color={Colors.primary} />
+            <Text style={styles.toolbarBtnText}>Van recept</Text>
           </TouchableOpacity>
-        ) : null}
-      </View>
+          {checkedItems.length > 0 ? (
+            <TouchableOpacity
+              style={styles.toolbarBtn}
+              onPress={handleClearChecked}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={16} color={Colors.danger} />
+              <Text style={[styles.toolbarBtnText, { color: Colors.danger }]}>
+                Verwijder ({checkedItems.length})
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
 
-      <FlatList
-        data={allItems}
-        keyExtractor={(i) => i.id}
-        contentContainerStyle={[styles.list, !hasItems && { flex: 1 }]}
-        renderItem={({ item, index }) => {
-          const isFirstChecked =
-            item.checked && (index === 0 || !allItems[index - 1]?.checked);
+        <FlatList
+          data={allItems}
+          keyExtractor={(i) => i.id}
+          contentContainerStyle={[styles.list, !hasItems && { flex: 1 }]}
+          renderItem={({ item, index }) => {
+            const isFirstChecked =
+              item.checked && (index === 0 || !allItems[index - 1]?.checked);
 
-          return (
-            <>
-              {isFirstChecked && uncheckedItems.length > 0 ? (
-                <Text style={styles.sectionHeader}>Afgevinkt</Text>
-              ) : null}
-              <GroceryItem
-                item={item}
-                onToggle={() => toggleChecked(item.id)}
-                onDelete={() => remove(item.id)}
-                onRemoveSource={(sourceId) => removeSingleSource(item.id, sourceId)}
-              />
-            </>
-          );
-        }}
-        ListHeaderComponent={
-          uncheckedItems.length > 0 ? (
-            <Text style={styles.sectionHeader}>Te kopen</Text>
-          ) : null
-        }
-        ListEmptyComponent={
-          <EmptyState
-            icon="🛒"
-            title="Je lijst is leeg"
-            message="Typ een item hierboven, of tap 'Van recept' om ingrediënten toe te voegen."
-          />
-        }
-      />
+            return (
+              <>
+                {isFirstChecked && uncheckedItems.length > 0 ? (
+                  <Text style={styles.sectionHeader}>Afgevinkt</Text>
+                ) : null}
+                <GroceryItem
+                  item={item}
+                  onToggle={() => toggleChecked(item.id)}
+                  onDelete={() => remove(item.id)}
+                  onRemoveSource={(sourceId) => removeSingleSource(item.id, sourceId)}
+                />
+              </>
+            );
+          }}
+          ListHeaderComponent={
+            uncheckedItems.length > 0 ? (
+              <Text style={styles.sectionHeader}>Te kopen</Text>
+            ) : null
+          }
+          ListEmptyComponent={
+            <EmptyState
+              icon="🛒"
+              title="Je lijst is leeg"
+              message="Typ een item hierboven, of tap 'Van recept' om ingrediënten toe te voegen."
+            />
+          }
+        />
 
-      <AddFromRecipeModal
-        visible={modalVisible}
-        recipes={recipes}
-        onConfirm={handleAddFromRecipe}
-        onClose={() => setModalVisible(false)}
-      />
-    </SafeAreaView>
+        <AddFromRecipeModal
+          visible={modalVisible}
+          recipes={recipes}
+          onConfirm={handleAddFromRecipe}
+          onClose={() => setModalVisible(false)}
+        />
+      </SafeAreaView>
+    </ErrorBoundary>
   );
 }
 

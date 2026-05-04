@@ -25,6 +25,7 @@ export interface Recipe {
   ingredients: Ingredient[];
   steps: string[];
   sourceUrl?: string;
+  duration?: number;
   category: RecipeCategory;
   isFavorite: boolean;
   imageUri?: string;

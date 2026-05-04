@@ -2,7 +2,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../components/ui/colors';
+import { colors } from '../../../constants/Designsystem';
 import { saveRecipeImage } from '../../../utils/imageStorage';
 
 interface RecipeImagePickerProps {
@@ -66,7 +66,7 @@ export function RecipeImagePicker({
             onPress={onImageRemove}
             disabled={loading}
           >
-            <Ionicons name="close-circle" size={28} color={Colors.danger} />
+            <Ionicons name="close-circle" size={28} color={colors.danger} />
           </TouchableOpacity>
         </View>
         <TouchableOpacity
@@ -74,7 +74,7 @@ export function RecipeImagePicker({
           onPress={handlePickImage}
           disabled={loading}
         >
-          <Ionicons name="images-outline" size={16} color={Colors.primary} />
+          <Ionicons name="images-outline" size={16} color={colors.primary} />
           <Text style={styles.changeBtnText}>Afbeelding wijzigen</Text>
         </TouchableOpacity>
       </View>
@@ -90,7 +90,7 @@ export function RecipeImagePicker({
           onPress={handleTakePhoto}
           disabled={loading}
         >
-          <Ionicons name="camera-outline" size={20} color={Colors.primary} />
+          <Ionicons name="camera-outline" size={20} color={colors.primary} />
           <Text style={styles.actionBtnText}>Foto maken</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -98,7 +98,7 @@ export function RecipeImagePicker({
           onPress={handlePickImage}
           disabled={loading}
         >
-          <Ionicons name="images-outline" size={20} color={Colors.primary} />
+          <Ionicons name="images-outline" size={20} color={colors.primary} />
           <Text style={styles.actionBtnText}>Uit gallerij</Text>
         </TouchableOpacity>
       </View>
@@ -111,25 +111,25 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   buttonRow: { gap: 8, flexDirection: 'row' },
   actionBtn: {
     flex: 1,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
     gap: 6,
     borderWidth: 1.5,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   actionBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.primary,
+    color: colors.primary,
   },
   imageWrapper: {
     position: 'relative',
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceAlt,
   },
   image: { width: '100%', height: '100%' },
   removeBtn: {
@@ -157,13 +157,13 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 10,
     justifyContent: 'center',
   },
   changeBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.primary,
+    color: colors.primary,
   },
 });

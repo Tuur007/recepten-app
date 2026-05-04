@@ -34,15 +34,42 @@ export const GroceryRepository = {
   },
 
   async create(db: SQLiteDatabase, input: GroceryItemInput): Promise<GroceryItem> {
+    if (!input.name?.trim()) throw new Error('Item name is required');
+    
     const id = generateId();
     const now = new Date().toISOString();
     const totalQuantity = computeTotalQuantity(input.sources);
+    
     await db.runAsync(
       `INSERT INTO grocery_items (id, name, unit, sources, total_quantity, checked, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, input.name, input.unit, JSON.stringify(input.sources), totalQuantity, input.checked ? 1 : 0, now],
     );
     return { id, ...input, totalQuantity, createdAt: now };
+  },
+
+  async upsertMany(db: SQLiteDatabase, items: GroceryItem[]): Promise<void> {
+    for (const item of items) {
+      await db.runAsync(
+        `INSERT INTO grocery_items (id, name, unit, sources, total_quantity, checked, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name,
+           unit = excluded.unit,
+           sources = excluded.sources,
+           total_quantity = excluded.total_quantity,
+           checked = excluded.checked`,
+        [
+          item.id,
+          item.name,
+          item.unit,
+          JSON.stringify(item.sources),
+          item.totalQuantity,
+          item.checked ? 1 : 0,
+          item.createdAt,
+        ],
+      );
+    }
   },
 
   async update(db: SQLiteDatabase, id: string, changes: GroceryItemUpdate): Promise<void> {

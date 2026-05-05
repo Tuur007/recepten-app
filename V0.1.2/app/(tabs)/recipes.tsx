@@ -8,7 +8,7 @@ import {
   FlatList,
   TextInput,
 } from 'react-native'
-import { useRouter, useLocalSearchParams } from 'expo-router'
+import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useRecipes } from '../../features/recipes/hooks'
@@ -27,12 +27,9 @@ import {
 
 export default function RecipesScreen() {
   const router = useRouter()
-  const { filter } = useLocalSearchParams()
   const { recipes, isLoading, update } = useRecipes()
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-
-  const isFavoritesMode = filter === 'favorites'
 
   const categories = useMemo(() => {
     const cats = new Set(recipes.map((r) => r.category).filter(Boolean))
@@ -77,7 +74,7 @@ export default function RecipesScreen() {
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <Text style={typography.hero32Bold}>
-            {isFavoritesMode ? '❤️ Favorieten' : '📖 Recepten'}
+            📖 Recepten
           </Text>
           {filteredRecipes.length > 0 && (
             <Text style={[typography.caption14, { color: colors.textLight }]}>
@@ -179,8 +176,8 @@ export default function RecipesScreen() {
                 <RecipeCard
                   recipe={item}
                   onPress={() => router.push(`/recipes/${item.id}`)}
-                  onToggleFavorite={() =>
-                    update(item.id, { isFavorite: !item.isFavorite })
+                  onToggleFavorite={(newFavorite) =>
+                    update(item.id, { isFavorite: newFavorite })
                   }
                 />
               )}
@@ -190,14 +187,12 @@ export default function RecipesScreen() {
           ) : (
             <View style={styles.emptyContainer}>
               <EmptyState
-                icon={isFavoritesMode ? '❤️' : '📖'}
-                title={isFavoritesMode ? 'Geen favorieten' : 'Geen recepten'}
+                icon="📖"
+                title="Geen recepten"
                 description={
-                  isFavoritesMode
-                    ? 'Markeer recepten als favoriet'
-                    : searchTerm || selectedCategory
-                      ? 'Geen recepten gevonden'
-                      : 'Voeg je eerste recept toe'
+                  searchTerm || selectedCategory
+                    ? 'Geen recepten gevonden'
+                    : 'Voeg je eerste recept toe'
                 }
               />
             </View>
@@ -240,12 +235,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     gap: spacing.sm,
-  },
-
-  searchPlaceholder: {
-    flex: 1,
-    ...typography.caption14,
-    color: colors.textSecondary,
   },
 
   searchTextInput: {

@@ -45,7 +45,6 @@ export default function RecipesScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Folio */}
         <View style={styles.folio}>
-          <Text style={typography.folio}>p. 1</Text>
           <Text style={typography.folio}>recepten · {recipes.length}</Text>
         </View>
 

@@ -68,7 +68,6 @@ export default function HomeScreen() {
         >
           {/* Folio header */}
           <View style={styles.folio}>
-            <Text style={typography.folio}>p. 287</Text>
             <Text style={typography.folio}>{dateLabel}</Text>
           </View>
 

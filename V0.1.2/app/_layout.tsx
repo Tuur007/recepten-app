@@ -39,6 +39,7 @@ export default function RootLayout() {
             <Stack.Screen name="recipes/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="recipes/new" options={{ title: 'Nieuw recept' }} />
             <Stack.Screen name="recipes/import" options={{ title: 'Importeren' }} />
+            <Stack.Screen name="recipes/edit/[id]" options={{ headerShown: false }} />
           </Stack>
         </SQLiteProvider>
       </Suspense>

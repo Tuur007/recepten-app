@@ -78,7 +78,6 @@ export default function GroceryScreen() {
         >
           {/* Folio */}
           <View style={styles.folio}>
-            <Text style={typography.folio}>p. 72</Text>
             <Text style={typography.folio}>lijst · {totalCount}</Text>
           </View>
 

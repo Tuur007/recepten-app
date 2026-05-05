@@ -14,8 +14,10 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../features/recipes/hooks';
+import { useRecipeStore } from '../../store/recipeStore';
 import { useRecipeForm } from '../../features/recipes/hooks/useRecipeForm';
 import { parseRecipeFromUrl } from '../../services/recipeParser';
+import { extractImageFromUrl } from '../../services/imageExtractor';
 import { IngredientInput } from '../../features/recipes/components/IngredientInput';
 import { StepInput } from '../../features/recipes/components/StepInput';
 import { CategoryPicker } from '../../features/recipes/components/CategoryPicker';
@@ -27,6 +29,7 @@ import { generateId } from '../../utils/id';
 export default function ImportRecipeScreen() {
   const router = useRouter();
   const { create } = useRecipes();
+  const recipeExists = useRecipeStore((state) => state.recipeExists);
 
   const [step, setStep] = useState<'url' | 'edit'>('url');
   const [url, setUrl] = useState('');
@@ -34,9 +37,7 @@ export default function ImportRecipeScreen() {
   const [fetchError, setFetchError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Preserve the sourceUrl from the parsed recipe across the edit step
   const parsedSourceUrl = useRef<string>('');
-
   const form = useRecipeForm();
 
   const handleFetch = async () => {
@@ -55,13 +56,29 @@ export default function ImportRecipeScreen() {
 
     try {
       const parsed = await parseRecipeFromUrl(trimmedUrl);
+
+      if (recipeExists(parsed.title, trimmedUrl)) {
+        setFetchError('Dit recept bestaat al in je verzameling.');
+        setFetching(false);
+        return;
+      }
+
       parsedSourceUrl.current = parsed.sourceUrl;
+
+      let imageUri: string | undefined;
+      try {
+        imageUri = await extractImageFromUrl(trimmedUrl);
+      } catch {
+        imageUri = undefined;
+      }
+
       form.reset({
         title: parsed.title,
         category: '',
         ingredients: parsed.ingredients.map((ing) => ({ ...ing, id: generateId() })),
         steps: parsed.steps,
         duration: parsed.duration,
+        imageUri,
       });
       setStep('edit');
     } catch (err: unknown) {
@@ -77,6 +94,12 @@ export default function ImportRecipeScreen() {
       Alert.alert('Titel ontbreekt', 'Voer een recepttitel in.');
       return;
     }
+
+    if (recipeExists(form.title.trim(), parsedSourceUrl.current)) {
+      Alert.alert('Recept bestaat al', 'Dit recept is al in je verzameling opgeslagen.');
+      return;
+    }
+
     setSaving(true);
     try {
       await create({
@@ -154,7 +177,6 @@ export default function ImportRecipeScreen() {
     );
   }
 
-  // step === 'edit'
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>

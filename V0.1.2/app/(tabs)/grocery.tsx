@@ -18,18 +18,21 @@ import { AddFromRecipeModal } from '../../features/grocery/components/AddFromRec
 import { EmptyState } from '../../components/ui/EmptyState';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
+import { useRecipes } from '../../features/recipes/hooks';
 import { colors, spacing, typography, shadows } from '../../constants/Designsystem';
 
 export default function GroceryScreen() {
   const {
     items,
     isLoading,
-    toggleItem,
-    deleteItem,
-    addItem,
-    updateItem,
+    toggleChecked,
+    remove,
+    addManual,
+    addFromRecipe,
     clearChecked,
   } = useGrocery();
+
+  const { recipes } = useRecipes();
 
   const [showAddFromRecipe, setShowAddFromRecipe] = useState(false);
   const [showManualAdd, setShowManualAdd] = useState(false);
@@ -41,16 +44,35 @@ export default function GroceryScreen() {
       Alert.alert('Fout', 'Voer een artikel in');
       return;
     }
-    await addItem({
-      name: newItemName,
-      unit: newItemUnit || 'stuk',
-      sources: [],
-      checked: false,
-    });
-    setNewItemName('');
-    setNewItemUnit('');
-    setShowManualAdd(false);
-  }, [newItemName, newItemUnit, addItem]);
+    try {
+      await addManual({
+        name: newItemName.trim(),
+        unit: newItemUnit.trim() || 'stuk',
+        sources: [],
+        checked: false,
+      });
+      setNewItemName('');
+      setNewItemUnit('');
+      setShowManualAdd(false);
+    } catch (err) {
+      Alert.alert('Fout', 'Kon artikel niet toevoegen');
+      console.error('[GroceryScreen] Add manual error:', err);
+    }
+  }, [newItemName, newItemUnit, addManual]);
+
+  const handleAddFromRecipe = useCallback(
+    async (recipe: any) => {
+      try {
+        await addFromRecipe(recipe.ingredients, recipe.id, recipe.title);
+        Alert.alert('Succes', 'Ingrediënten toegevoegd aan boodschappenlijst');
+        setShowAddFromRecipe(false);
+      } catch (err) {
+        Alert.alert('Fout', 'Kon ingrediënten niet toevoegen');
+        console.error('[GroceryScreen] Add from recipe error:', err);
+      }
+    },
+    [addFromRecipe]
+  );
 
   const checkedCount = useMemo(() => items.filter((i) => i.checked).length, [items]);
 
@@ -75,9 +97,8 @@ export default function GroceryScreen() {
           renderItem={({ item }) => (
             <GroceryItem
               item={item}
-              onToggle={() => toggleItem(item.id)}
-              onDelete={() => deleteItem(item.id)}
-              onRemoveSource={() => {}}
+              onToggle={() => toggleChecked(item.id)}
+              onDelete={() => remove(item.id)}
             />
           )}
           ListEmptyComponent={
@@ -120,10 +141,9 @@ export default function GroceryScreen() {
 
         <AddFromRecipeModal
           visible={showAddFromRecipe}
+          recipes={recipes}
           onClose={() => setShowAddFromRecipe(false)}
-          onSelectRecipe={() => {
-            setShowAddFromRecipe(false);
-          }}
+          onConfirm={handleAddFromRecipe}
         />
 
         <Modal visible={showManualAdd} transparent animationType="slide">

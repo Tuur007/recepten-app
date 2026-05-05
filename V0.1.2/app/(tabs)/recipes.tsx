@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  FlatList,
   Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';

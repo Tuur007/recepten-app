@@ -175,6 +175,7 @@ const styles = StyleSheet.create({
   heroImage: {
     width: 240,
     height: 300,
+    borderRadius: 12,
     backgroundColor: colors.backgroundLight,
   },
 

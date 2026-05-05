@@ -1,23 +1,27 @@
-import React from 'react';
+import React from 'react'
 import {
   Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, shadows } from '../../../constants/Designsystem';
-import { Recipe } from '../../../types/recipe';
+} from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { colors, shadows } from '../../../constants/Designsystem'
+import { Recipe } from '../../../types/recipe'
 
 interface RecipeCardProps {
-  recipe: Recipe;
-  onPress: () => void;
-  onToggleFavorite: () => void;
+  recipe: Recipe
+  onPress: () => void
+  onToggleFavorite: (isFavorite: boolean) => void
 }
 
-export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProps) {
-  const bgColor = recipe.isFavorite ? '#d4a574' : '#9dd4c3';
+export function RecipeCard({
+  recipe,
+  onPress,
+  onToggleFavorite,
+}: RecipeCardProps) {
+  const bgColor = recipe.isFavorite ? '#d4a574' : '#9dd4c3'
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
@@ -27,10 +31,14 @@ export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProp
         ) : (
           <View style={[styles.imagePlaceholder, { backgroundColor: bgColor }]} />
         )}
-        <TouchableOpacity 
-          onPress={onToggleFavorite} 
-          hitSlop={10} 
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation()
+            onToggleFavorite(!recipe.isFavorite)
+          }}
+          hitSlop={10}
           style={styles.favoriteBtn}
+          activeOpacity={0.7}
         >
           <Ionicons
             name={recipe.isFavorite ? 'heart' : 'heart-outline'}
@@ -68,7 +76,7 @@ export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProp
         </Text>
       </View>
     </TouchableOpacity>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -104,13 +112,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  body: { 
+  body: {
     padding: 12,
     gap: 6,
   },
-  title: { 
-    fontSize: 14, 
-    fontWeight: '600', 
+  title: {
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.text,
     lineHeight: 18,
   },
@@ -129,9 +137,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '500',
   },
-  date: { 
-    fontSize: 11, 
+  date: {
+    fontSize: 11,
     color: colors.textSecondary,
     marginTop: 2,
   },
-});
+})

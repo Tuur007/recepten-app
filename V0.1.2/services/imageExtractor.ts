@@ -1,11 +1,16 @@
-import * as FileSystem from 'expo-file-system';
-
 interface ImageCandidate {
   url: string;
   width?: number;
   height?: number;
   size?: number;
   score: number;
+}
+
+let FS: typeof import('expo-file-system') | null = null;
+try {
+  FS = require('expo-file-system');
+} catch {
+  // Native module not available
 }
 
 export async function extractImageFromUrl(url: string): Promise<string | undefined> {
@@ -34,7 +39,6 @@ export async function extractImageFromUrl(url: string): Promise<string | undefin
 function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[] {
   const candidates: Map<string, ImageCandidate> = new Map();
 
-  // JSON-LD image
   const jsonLdRegex = /"image":\s*"?([^"}\n]+)"?/gi;
   let match;
   while ((match = jsonLdRegex.exec(html)) !== null) {
@@ -47,13 +51,9 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     }
   }
 
-  // og:image
-  const ogMatch = html.match(
-    /<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i
-  ) ||
-    html.match(
-      /<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i
-    );
+  const ogMatch =
+    html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
+    html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i);
   if (ogMatch) {
     const url = normalizeUrl(ogMatch[1], baseUrl);
     if (isValidImageUrl(url)) {
@@ -64,13 +64,9 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     }
   }
 
-  // Twitter image
-  const twitterMatch = html.match(
-    /<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i
-  ) ||
-    html.match(
-      /<meta\s+content=["']([^"']+)["']\s+name=["']twitter:image["']/i
-    );
+  const twitterMatch =
+    html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i) ||
+    html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']twitter:image["']/i);
   if (twitterMatch) {
     const url = normalizeUrl(twitterMatch[1], baseUrl);
     if (isValidImageUrl(url)) {
@@ -81,7 +77,6 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     }
   }
 
-  // High-res img tags (likely recipe photos)
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   while ((match = imgRegex.exec(html)) !== null) {
     const url = normalizeUrl(match[1], baseUrl);
@@ -98,7 +93,7 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
         ) {
           score = 75;
         }
-        if (size && size.width && size.width >= 400 && size.height && size.height >= 300) {
+        if (size?.width && size.width >= 400 && size?.height && size.height >= 300) {
           score += 15;
         }
         candidates.set(key, { url, ...size, score });
@@ -143,19 +138,20 @@ function extractImageSize(imgTag: string): { width?: number; height?: number } {
 }
 
 async function downloadImage(imageUrl: string): Promise<string | undefined> {
+  if (!FS) return undefined;
   try {
     const filename = `recipe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
-    const filepath = `${FileSystem.documentDirectory}images/${filename}`;
+    const dir = `${FS.documentDirectory}images`;
+    const filepath = `${dir}/${filename}`;
 
-    const dir = `${FileSystem.documentDirectory}images`;
-    const dirInfo = await FileSystem.getInfoAsync(dir);
+    const dirInfo = await FS.getInfoAsync(dir);
     if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+      await FS.makeDirectoryAsync(dir, { intermediates: true });
     }
 
-    await FileSystem.downloadAsync(imageUrl, filepath);
+    await FS.downloadAsync(imageUrl, filepath);
 
-    const fileInfo = await FileSystem.getInfoAsync(filepath);
+    const fileInfo = await FS.getInfoAsync(filepath);
     if (fileInfo.exists) {
       return filepath;
     }

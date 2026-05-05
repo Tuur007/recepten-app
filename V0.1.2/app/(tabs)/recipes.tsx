@@ -54,9 +54,13 @@ export default function RecipesScreen() {
             <Text style={[typography.hero32Bold, { fontSize: 38 }]}>Het</Text>
             <Text style={[typography.heroItalic, { fontSize: 38 }]}>archief.</Text>
           </View>
-          <TouchableOpacity style={styles.searchBtn} activeOpacity={0.7}>
-            <Ionicons name="search" size={18} color={colors.textDark} />
-          </TouchableOpacity>
+         <TouchableOpacity 
+  style={styles.searchBtn} 
+  activeOpacity={0.7}
+  onPress={() => router.push('/recipes/search')}
+>
+  <Ionicons name="search" size={18} color={colors.textDark} />
+</TouchableOpacity>
         </View>
 
         {/* Categories */}

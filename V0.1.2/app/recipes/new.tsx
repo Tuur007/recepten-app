@@ -29,60 +29,32 @@ export default function NewRecipeScreen() {
 
   const form = useRecipeForm();
 
-const handleSave = async () => {
-  // Validatie
-  const titleTrimmed = form.title.trim();
-  if (!titleTrimmed) {
-    Alert.alert('Titel ontbreekt', 'Voer een recepttitel in.');
-    return;
-  }
-
-  if (form.validIngredients.length === 0) {
-    Alert.alert('Ingrediënten ontbreken', 'Voeg minstens 1 ingrediënt toe.');
-    return;
-  }
-
-  if (form.validSteps.length === 0) {
-    Alert.alert('Stappen ontbreken', 'Voeg minstens 1 stap toe.');
-    return;
-  }
-
-  setSaving(true);
-  try {
-    const recipe = await create({
-      title: titleTrimmed,
-      category: form.category,
-      isFavorite: false,
-      ingredients: form.validIngredients,
-      steps: form.validSteps,
-      imageUri: form.imageUri,
-    });
-    
-    if (!recipe?.id) {
-      Alert.alert('Fout', 'Recept kon niet worden aangemaakt.');
+  const handleSave = async () => {
+    if (!form.title.trim()) {
+      Alert.alert('Titel ontbreekt', 'Voer een recepttitel in.');
       return;
     }
-
-    // Success
-    Alert.alert('Succes!', 'Recept opgeslagen.', [
-      { text: 'OK', onPress: () => router.back() },
-    ]);
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Kon recept niet opslaan';
-    Alert.alert('Fout', errorMsg);
-    console.error('[NewRecipeScreen] Save error:', error);
-  } finally {
-    setSaving(false);
-  }
-};
+    setSaving(true);
+    try {
+      await create({
+        title: form.title.trim(),
+        category: form.category,
+        isFavorite: false,
+        ingredients: form.validIngredients,
+        steps: form.validSteps,
+        imageUri: form.imageUri,
+      });
+      router.back();
+    } catch {
+      Alert.alert('Fout', 'Kon recept niet opslaan. Probeer opnieuw.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="close" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nieuw recept</Text>
         <Button label="Opslaan" onPress={handleSave} loading={saving} />
       </View>
 
@@ -152,14 +124,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
   content: { padding: 16, gap: 20, paddingBottom: 40 },
   section: { gap: 10 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },

@@ -1,7 +1,10 @@
 /**
  * 🎨 RECEPTEN ARCHIEF — magazine browse
- *
- * Vervang: V0.1.2/app/(tabs)/recipes.tsx
+ * 
+ * ✅ FIXED:
+ * - Search button → search scherm
+ * - Add button → new recipe
+ * - Import button → import from URL
  */
 
 import React, { useMemo, useState } from 'react';
@@ -48,19 +51,35 @@ export default function RecipesScreen() {
           <Text style={typography.folio}>recepten · {recipes.length}</Text>
         </View>
 
-        {/* Title + search */}
+        {/* Title + search + add + import */}
         <View style={styles.titleRow}>
           <View>
             <Text style={[typography.hero32Bold, { fontSize: 38 }]}>Het</Text>
             <Text style={[typography.heroItalic, { fontSize: 38 }]}>archief.</Text>
           </View>
-         <TouchableOpacity 
-  style={styles.searchBtn} 
-  activeOpacity={0.7}
-  onPress={() => router.push('/recipes/search')}
->
-  <Ionicons name="search" size={18} color={colors.textDark} />
-</TouchableOpacity>
+          <View style={styles.actionBtns}>
+            <TouchableOpacity 
+              style={styles.searchBtn} 
+              activeOpacity={0.7} 
+              onPress={() => router.push('/recipes/search')}
+            >
+              <Ionicons name="search" size={18} color={colors.textDark} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.addBtn} 
+              activeOpacity={0.7} 
+              onPress={() => router.push('/recipes/new')}
+            >
+              <Ionicons name="add" size={20} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.importBtn} 
+              activeOpacity={0.7} 
+              onPress={() => router.push('/recipes/import')}
+            >
+              <Ionicons name="link" size={18} color={colors.textDark} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Categories */}
@@ -171,7 +190,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
   },
+  actionBtns: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
   searchBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.borderColor,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  importBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,

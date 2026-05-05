@@ -20,7 +20,6 @@ export async function extractImageFromUrl(url: string): Promise<string | undefin
           'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
       },
     });
-
     if (!response.ok) return undefined;
 
     const html = await response.text();
@@ -51,35 +50,29 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
   };
 
   // JSON-LD blocks
-  const jsonLdBlocks = html.matchAll(
+  for (const block of html.matchAll(
     /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
-  );
-  for (const block of jsonLdBlocks) {
+  )) {
     try {
-      const data = JSON.parse(block[1].trim());
-      extractJsonLdImages(data).forEach((u) => addCandidate(u, 90));
-    } catch {
-      // malformed — skip
-    }
+      extractJsonLdImages(JSON.parse(block[1].trim())).forEach((u) => addCandidate(u, 90));
+    } catch { /* malformed */ }
   }
 
-  // og:image — use a robust extractor that handles apostrophes in URLs
-  const ogUrl = extractMetaImageUrl(html, 'og:image', 'property');
+  // og:image and twitter:image — robust extraction that handles apostrophes in URLs
+  const ogUrl = extractMetaUrl(html, 'og:image', 'property');
   if (ogUrl) addCandidate(ogUrl, 95);
 
-  // twitter:image
-  const twitterUrl = extractMetaImageUrl(html, 'twitter:image', 'name');
+  const twitterUrl = extractMetaUrl(html, 'twitter:image', 'name');
   if (twitterUrl) addCandidate(twitterUrl, 88);
 
   // <img> tags
-  const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   let match: RegExpExecArray | null;
+  const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   while ((match = imgRegex.exec(html)) !== null) {
     const url = normalizeUrl(match[1], baseUrl);
     if (!isValidImageUrl(url)) continue;
     const key = canonicalKey(url);
     if (candidates.has(key)) continue;
-
     const size = extractImageSize(match[0]);
     let score = 50;
     if (/recipe|food|dish|recept/i.test(url)) score = 70;
@@ -91,66 +84,45 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
 }
 
 /**
- * Extracts the content of a <meta> tag where the URL may contain apostrophes.
- *
- * The standard regex `content=["']([^"']+)["']` breaks when the URL itself
- * contains an apostrophe (e.g. "pinda's"). Instead we:
- * 1. Find the full <meta ...> tag that contains the property/name attribute.
- * 2. Extract the content attribute from that tag using a delimiter-aware parser
- *    that reads until the same delimiter that opened content="..." or content='...'.
- *    For double-quoted content (the common case) apostrophes are fine.
- * 3. If the tag uses single-quote delimiters and the URL has apostrophes, we
- *    fall back to reading until the next `>` and stripping the closing `'`.
+ * Extracts content= from a <meta> tag robustly.
+ * Standard regex breaks when the URL contains apostrophes (e.g. "pinda's").
+ * Strategy: find the full <meta> tag by its property/name, then parse
+ * the content attribute using the actual opening delimiter so apostrophes
+ * inside double-quoted values are never an issue.
  */
-function extractMetaImageUrl(html: string, metaKey: string, attr: 'property' | 'name'): string | null {
-  // Match the entire <meta> tag that has the right property/name value
-  const tagRe = new RegExp(
-    `<meta\\s[^>]*(?:${attr})=["']${metaKey}["'][^>]*>`,
+function extractMetaUrl(html: string, key: string, attr: 'property' | 'name'): string | null {
+  // Match whole <meta> tag — use [^>]* but allow > inside quoted attrs via [\s\S] on a small window
+  // Two orderings: property first, content second — and reversed
+  const patterns = [
+    new RegExp(`<meta\\s[^>]*${attr}=["']${key}["'][^>]*>`, 'i'),
+    new RegExp(`<meta\\s[^>]*content=[^>]*${attr}=["']${key}["'][^>]*>`, 'i'),
+  ];
+
+  for (const re of patterns) {
+    const tagMatch = html.match(re);
+    if (!tagMatch) continue;
+    const tag = tagMatch[0];
+
+    // Find content= in the tag and extract with delimiter-awareness
+    const contentRe = /\bcontent\s*=\s*(["'])([\s\S]*?)\1/i;
+    const cm = tag.match(contentRe);
+    if (cm && cm[2]) return cm[2];
+
+    // Fallback: content attribute delimited by the same char but URL has that char —
+    // read from after content=" until the next whitespace+attr or end of tag
+    const fallbackRe = /\bcontent\s*=\s*["']([^>]+?)(?:\s+\w+=|>)/i;
+    const fm = tag.match(fallbackRe);
+    if (fm && fm[1]) return fm[1].replace(/["']$/, '').trim();
+  }
+
+  // Last resort: scan for og:image / twitter:image in raw text between <meta and >
+  // covering cases where the tag spans multiple lines or has unusual formatting
+  const rawRe = new RegExp(
+    `<meta[^>]*${attr}=["']${key}["'][^>]*content=["']([^"'>]+(?:'[^"'>]*)*)["']`,
     'i',
   );
-  const tagMatch = html.match(tagRe);
-
-  if (!tagMatch) {
-    // Also try reversed attribute order: content first, then property/name
-    const tagReReversed = new RegExp(
-      `<meta\\s[^>]*content=[^>]*(?:${attr})=["']${metaKey}["'][^>]*>`,
-      'i',
-    );
-    const reversed = html.match(tagReReversed);
-    if (!reversed) return null;
-    return extractContentFromMetaTag(reversed[0]);
-  }
-
-  return extractContentFromMetaTag(tagMatch[0]);
-}
-
-function extractContentFromMetaTag(tag: string): string | null {
-  // Find content=" or content=' inside the tag
-  const contentIdx = tag.search(/\bcontent\s*=/i);
-  if (contentIdx === -1) return null;
-
-  const afterEquals = tag.slice(contentIdx).replace(/^content\s*=\s*/i, '');
-  const delimiter = afterEquals[0];
-
-  if (delimiter === '"') {
-    // Read until next double-quote — apostrophes inside are fine
-    const end = afterEquals.indexOf('"', 1);
-    if (end === -1) return null;
-    return afterEquals.slice(1, end) || null;
-  }
-
-  if (delimiter === "'") {
-    // Read until next single-quote — but the URL may contain apostrophes.
-    // Heuristic: a real closing quote is followed by whitespace or > or /
-    const rest = afterEquals.slice(1);
-    const closeRe = /'(?=\s|>|\/)/;
-    const closeMatch = rest.match(closeRe);
-    if (closeMatch && closeMatch.index !== undefined) {
-      return rest.slice(0, closeMatch.index) || null;
-    }
-    // Last resort: take everything up to >
-    return rest.replace(/[>].*$/, '').replace(/['"]$/, '').trim() || null;
-  }
+  const rawMatch = html.match(rawRe);
+  if (rawMatch) return rawMatch[1];
 
   return null;
 }
@@ -158,32 +130,25 @@ function extractContentFromMetaTag(tag: string): string | null {
 function extractJsonLdImages(data: unknown): string[] {
   if (!data || typeof data !== 'object') return [];
   if (Array.isArray(data)) return data.flatMap(extractJsonLdImages);
-
   const obj = data as Record<string, unknown>;
   const results: string[] = [];
-
   const image = obj['image'];
-  if (typeof image === 'string') {
-    results.push(image);
-  } else if (Array.isArray(image)) {
+  if (typeof image === 'string') results.push(image);
+  else if (Array.isArray(image)) {
     for (const item of image) {
       if (typeof item === 'string') results.push(item);
       else if (item && typeof item === 'object') {
-        const imgObj = item as Record<string, unknown>;
-        if (typeof imgObj.url === 'string') results.push(imgObj.url);
-        if (typeof imgObj.contentUrl === 'string') results.push(imgObj.contentUrl);
+        const o = item as Record<string, unknown>;
+        if (typeof o.url === 'string') results.push(o.url);
+        if (typeof o.contentUrl === 'string') results.push(o.contentUrl);
       }
     }
   } else if (image && typeof image === 'object') {
-    const imgObj = image as Record<string, unknown>;
-    if (typeof imgObj.url === 'string') results.push(imgObj.url);
-    if (typeof imgObj.contentUrl === 'string') results.push(imgObj.contentUrl);
+    const o = image as Record<string, unknown>;
+    if (typeof o.url === 'string') results.push(o.url);
+    if (typeof o.contentUrl === 'string') results.push(o.contentUrl);
   }
-
-  if (Array.isArray(obj['@graph'])) {
-    results.push(...obj['@graph'].flatMap(extractJsonLdImages));
-  }
-
+  if (Array.isArray(obj['@graph'])) results.push(...obj['@graph'].flatMap(extractJsonLdImages));
   return results;
 }
 
@@ -191,40 +156,24 @@ function normalizeUrl(url: string, baseUrl: string): string {
   url = url.trim();
   if (url.startsWith('//')) return 'https:' + url;
   if (url.startsWith('/')) {
-    try {
-      const base = new URL(baseUrl);
-      return base.origin + url;
-    } catch {
-      return url;
-    }
+    try { return new URL(baseUrl).origin + url; } catch { return url; }
   }
   if (url.startsWith('http')) return url;
-  try {
-    return new URL(url, baseUrl).toString();
-  } catch {
-    return url;
-  }
+  try { return new URL(url, baseUrl).toString(); } catch { return url; }
 }
 
 function canonicalKey(url: string): string {
-  try {
-    const u = new URL(url);
-    return u.origin + u.pathname;
-  } catch {
-    return url.split('?')[0];
-  }
+  try { const u = new URL(url); return u.origin + u.pathname; } catch { return url.split('?')[0]; }
 }
 
 function isValidImageUrl(url: string): boolean {
   if (!url) return false;
   const lower = url.toLowerCase();
   if (lower.includes('javascript:') || lower.startsWith('data:')) return false;
-
   try {
     const { pathname, hostname } = new URL(url);
     if (/\.(jpg|jpeg|png|webp|gif|avif|bmp)$/i.test(pathname)) return true;
-
-    const imageCdnHosts = new Set([
+    const cdnHosts = new Set([
       'recipe-service.prod.cloud.jumbo.com',
       'images.ctfassets.net',
       'res.cloudinary.com',
@@ -237,72 +186,63 @@ function isValidImageUrl(url: string): boolean {
       'images.immediate.co.uk',
       'img.youtube.com',
       'i.ytimg.com',
-      'assets.jumbo.com',
     ]);
-
-    if (imageCdnHosts.has(hostname)) return true;
+    if (cdnHosts.has(hostname)) return true;
     if (/^(?:img|images?|cdn|media|photos?|static|assets)\./i.test(hostname)) return true;
     if (/\/(?:photos?|images?|imgs?|pictures?|fotos?|media)\//i.test(pathname)) return true;
-  } catch {
-    return false;
-  }
-
+  } catch { return false; }
   return false;
 }
 
 function extractImageSize(imgTag: string): { width?: number; height?: number } {
-  const widthMatch = imgTag.match(/width=["']?(\d+)["']?/i);
-  const heightMatch = imgTag.match(/height=["']?(\d+)["']?/i);
+  const w = imgTag.match(/width=["']?(\d+)["']?/i);
+  const h = imgTag.match(/height=["']?(\d+)["']?/i);
   return {
-    width: widthMatch ? parseInt(widthMatch[1], 10) : undefined,
-    height: heightMatch ? parseInt(heightMatch[1], 10) : undefined,
+    width: w ? parseInt(w[1], 10) : undefined,
+    height: h ? parseInt(h[1], 10) : undefined,
   };
 }
 
+/**
+ * Downloads an image by fetching it as a blob and writing it manually.
+ * This avoids expo-file-system downloadAsync failures on extensionless CDN
+ * URLs that return application/octet-stream instead of image/jpeg.
+ */
 async function downloadImage(imageUrl: string): Promise<string | undefined> {
   if (!FS) return undefined;
   try {
     const safeUrl = encodeImageUrl(imageUrl);
-    let ext = guessExtFromUrl(imageUrl);
 
-    try {
-      const probe = await fetch(safeUrl, {
-        headers: {
-          Range: 'bytes=0-511',
-          'User-Agent':
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-        },
-      });
-      const ct = probe.headers.get('content-type') ?? '';
-      if (ct.includes('png')) ext = 'png';
-      else if (ct.includes('webp')) ext = 'webp';
-      else if (ct.includes('gif')) ext = 'gif';
-      else if (ct.includes('avif')) ext = 'avif';
-      else if (ct.includes('jpeg') || ct.includes('jpg')) ext = 'jpg';
-    } catch {
-      // keep guessed ext
-    }
+    const response = await fetch(safeUrl, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+        Accept: 'image/*,*/*',
+      },
+    });
 
-    const filename = `recipe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+    if (!response.ok) return undefined;
+
+    const ct = response.headers.get('content-type') ?? '';
+    const ext = contentTypeToExt(ct) ?? guessExtFromUrl(imageUrl);
+
+    const arrayBuffer = await response.arrayBuffer();
+    if (arrayBuffer.byteLength === 0) return undefined;
+
+    const base64 = arrayBufferToBase64(arrayBuffer);
+
     const dir = `${FS.documentDirectory}images`;
-    const filepath = `${dir}/${filename}`;
-
     const dirInfo = await FS.getInfoAsync(dir);
     if (!dirInfo.exists) {
       await FS.makeDirectoryAsync(dir, { intermediates: true });
     }
 
-    const result = await FS.downloadAsync(safeUrl, filepath, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-      },
-    });
+    const filename = `recipe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+    const filepath = `${dir}/${filename}`;
 
-    if (result.status !== 200) {
-      try { await FS.deleteAsync(filepath, { idempotent: true }); } catch { /* ignore */ }
-      return undefined;
-    }
+    await FS.writeAsStringAsync(filepath, base64, {
+      encoding: FS.EncodingType.Base64,
+    });
 
     const fileInfo = await FS.getInfoAsync(filepath);
     return fileInfo.exists ? filepath : undefined;
@@ -311,33 +251,41 @@ async function downloadImage(imageUrl: string): Promise<string | undefined> {
   }
 }
 
-/**
- * Percent-encodes characters in the URL path that are technically invalid
- * in URLs but commonly appear in CDN filenames (apostrophes, commas, spaces).
- * Preserves already-encoded sequences to avoid double-encoding.
- */
-function encodeImageUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    u.pathname = u.pathname
-      .split('/')
-      .map((segment) => {
-        try {
-          // Decode first to avoid double-encoding, then re-encode
-          return encodeURIComponent(decodeURIComponent(segment));
-        } catch {
-          return encodeURIComponent(segment);
-        }
-      })
-      .join('/');
-    return u.toString();
-  } catch {
-    return url;
-  }
+function contentTypeToExt(ct: string): string | null {
+  if (ct.includes('png')) return 'png';
+  if (ct.includes('webp')) return 'webp';
+  if (ct.includes('gif')) return 'gif';
+  if (ct.includes('avif')) return 'avif';
+  if (ct.includes('jpeg') || ct.includes('jpg')) return 'jpg';
+  return null;
 }
 
 function guessExtFromUrl(url: string): string {
   const m = url.match(/\.(jpg|jpeg|png|webp|gif|avif)/i);
   if (!m) return 'jpg';
   return m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase();
+}
+
+function encodeImageUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    u.pathname = u.pathname
+      .split('/')
+      .map((seg) => {
+        try { return encodeURIComponent(decodeURIComponent(seg)); }
+        catch { return encodeURIComponent(seg); }
+      })
+      .join('/');
+    return u.toString();
+  } catch { return url; }
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }

@@ -29,7 +29,7 @@ import {
 } from '@expo-google-fonts/jetbrains-mono';
 
 export function useEditorialFonts(): boolean {
-  const [loaded] = useFraunces({
+  const [loaded, error] = useFraunces({
     Fraunces_400Regular,
     Fraunces_400Italic,
     Fraunces_500Medium,
@@ -39,5 +39,7 @@ export function useEditorialFonts(): boolean {
     JetBrainsMono_400Regular,
     JetBrainsMono_500Medium,
   });
-  return loaded;
+  // Treat a load error as "ready" so the app never stays stuck on the
+  // loading screen — it will render with system fonts as fallback.
+  return loaded || error != null;
 }

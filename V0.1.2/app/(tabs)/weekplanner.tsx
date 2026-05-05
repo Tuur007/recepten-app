@@ -1,419 +1,211 @@
-import React, { useState, useMemo } from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  FlatList,
-  Modal,
-  SafeAreaView,
-  Dimensions,
-} from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
+/**
+ * 🎨 WEEKPLANNER — typografische lijst, dotted leaders voor lege dagen
+ *
+ * Vervang: V0.1.2/app/(tabs)/weekplanner.tsx
+ */
 
-import { useRecipes } from '../../features/recipes/hooks'
-import { useWeekPlannerStore } from '../../store/weekPlannerStore'
+import React, { useMemo } from 'react';
 import {
-  colors,
-  spacing,
-  typography,
-  shadows,
-  borderRadius,
-} from '../../constants/Designsystem'
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+
+import { useRecipes } from '../../features/recipes/hooks';
+import { LoadingScreen } from '../../components/LoadingScreen';
+import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
+
+const PAPER = colors.background;
 
 const DAYS = [
-  { key: 'MON', label: 'Maandag' },
-  { key: 'TUE', label: 'Dinsdag' },
-  { key: 'WED', label: 'Woensdag' },
-  { key: 'THU', label: 'Donderdag' },
-  { key: 'FRI', label: 'Vrijdag' },
-  { key: 'SAT', label: 'Zaterdag' },
-  { key: 'SUN', label: 'Zondag' },
-]
+  { d: 'maandag', date: 5 },
+  { d: 'dinsdag', date: 6 },
+  { d: 'woensdag', date: 7 },
+  { d: 'donderdag', date: 8 },
+  { d: 'vrijdag', date: 9 },
+  { d: 'zaterdag', date: 10 },
+  { d: 'zondag', date: 11 },
+];
 
-export default function WeekplannerScreen() {
-  const router = useRouter()
-  const { recipes } = useRecipes()
-  const { mealPlan, addMeal, removeMeal, clearDay } = useWeekPlannerStore()
-  const [selectedDay, setSelectedDay] = useState<string | null>(null)
-  const [modalVisible, setModalVisible] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
+export default function WeekPlannerScreen() {
+  const router = useRouter();
+  const { recipes, isLoading } = useRecipes();
 
-  const filteredRecipes = useMemo(() => {
-    if (!searchTerm) return recipes
-    return recipes.filter((r) =>
-      r.title.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  }, [recipes, searchTerm])
+  // Voor demo: koppel eerste 5 recepten aan dagen
+  const week = useMemo(() => {
+    return DAYS.map((d, i) => ({
+      ...d,
+      recipe: recipes[i] && i !== 2 && i !== 6 ? recipes[i] : null,
+    }));
+  }, [recipes]);
 
-  const handleAddMeal = (recipeId: string) => {
-    if (!selectedDay) return
-    setLoading(true)
-    try {
-      addMeal(selectedDay, recipeId)
-      setModalVisible(false)
-      setSearchTerm('')
-    } finally {
-      setLoading(false)
-    }
-  }
+  if (isLoading) return <LoadingScreen />;
 
-  const handleRemoveMeal = (day: string, recipeId: string) => {
-    removeMeal(day, recipeId)
-  }
+  const familyKeys = ['tuur', 'louise', 'basiel', 'jules'] as const;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={styles.header}>
-        <Text style={typography.hero32Bold}>📅 Week planner</Text>
-        <Text style={[typography.caption14, { color: colors.textLight }]}>
-          Plan je recepten in
-        </Text>
-      </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
+        {/* Folio */}
+        <View style={styles.folio}>
+          <Text style={typography.folio}>p. 19</Text>
+          <Text style={typography.folio}>week 19 · mei</Text>
+        </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {DAYS.map(({ key, label }) => (
-          <View key={key} style={styles.dayCard}>
-            <View style={styles.dayHeader}>
-              <View>
-                <Text style={styles.dayName}>{label}</Text>
-                <Text style={styles.daySubtext}>
-                  {(mealPlan[key] || []).length} recept
-                  {(mealPlan[key] || []).length !== 1 ? 'en' : ''}
-                </Text>
-              </View>
-              <View style={styles.dayActions}>
-                {(mealPlan[key] || []).length > 0 && (
-                  <Pressable
-                    onPress={() => clearDay(key)}
-                    hitSlop={10}
-                  >
-                    <Ionicons name="trash-outline" size={20} color={colors.error} />
-                  </Pressable>
-                )}
-                <Pressable
-                  onPress={() => {
-                    setSelectedDay(key)
-                    setModalVisible(true)
-                  }}
-                  hitSlop={10}
-                >
-                  <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
-                </Pressable>
-              </View>
-            </View>
+        {/* Title */}
+        <View style={{ alignItems: 'center', marginTop: spacing.xl }}>
+          <Text style={[typography.hero32Bold, { fontSize: 38 }]}>Een week</Text>
+          <Text style={[typography.heroItalic, { fontSize: 22, marginTop: 4 }]}>
+            op tafel.
+          </Text>
+          <View style={styles.divider} />
+        </View>
 
-            {(mealPlan[key] || []).length > 0 ? (
-              <View style={styles.mealList}>
-                {(mealPlan[key] || []).map((recipeId) => {
-                  const recipe = recipes.find((r) => r.id === recipeId)
-                  return recipe ? (
-                    <Pressable
-                      key={recipeId}
-                      style={styles.meal}
-                      onPress={() => router.push(`/recipes/${recipe.id}`)}
-                    >
-                      <View style={styles.mealContent}>
-                        <Text style={styles.mealTitle}>{recipe.title}</Text>
-                        {recipe.duration && (
-                          <View style={styles.mealMeta}>
-                            <Ionicons
-                              name="time-outline"
-                              size={12}
-                              color={colors.textSecondary}
-                            />
-                            <Text style={styles.mealMetaText}>{recipe.duration} min</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Pressable
-                        onPress={() => handleRemoveMeal(key, recipeId)}
-                        disabled={loading}
-                        hitSlop={10}
-                      >
-                        <Ionicons
-                          name="close-circle"
-                          size={20}
-                          color={colors.error}
-                        />
-                      </Pressable>
-                    </Pressable>
-                  ) : null
-                })}
-              </View>
-            ) : (
-              <Text style={styles.emptyText}>Geen recepten gepland</Text>
-            )}
-          </View>
-        ))}
-      </ScrollView>
-
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
-          setModalVisible(false)
-          setSearchTerm('')
-        }}
-      >
-        <SafeAreaView style={styles.modal} edges={['top', 'bottom']}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
-              {DAYS.find((d) => d.key === selectedDay)?.label}
-            </Text>
-            <Pressable
-              onPress={() => {
-                setModalVisible(false)
-                setSearchTerm('')
-              }}
-              hitSlop={10}
-            >
-              <Ionicons name="close" size={24} color={colors.text} />
-            </Pressable>
-          </View>
-
-          <View style={styles.modalSearchInput}>
-            <Ionicons name="search" size={18} color={colors.textSecondary} />
-            <Text
-              style={[
-                styles.modalSearchText,
-                !searchTerm && { color: colors.textSecondary },
-              ]}
-            >
-              {searchTerm || 'Zoek recepten...'}
-            </Text>
-            {searchTerm && (
-              <Pressable onPress={() => setSearchTerm('')} hitSlop={10}>
-                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-              </Pressable>
-            )}
-          </View>
-
-          <FlatList
-            data={filteredRecipes}
-            keyExtractor={(r) => r.id}
-            contentContainerStyle={styles.modalList}
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.recipeOption}
-                onPress={() => handleAddMeal(item.id)}
-                disabled={loading}
+        {/* Days */}
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
+          {week.map((day, i) => {
+            const who = familyKeys[i % familyKeys.length];
+            const recipe = day.recipe;
+            return (
+              <TouchableOpacity
+                key={day.d}
+                style={styles.dayRow}
+                activeOpacity={0.7}
+                onPress={() => recipe && router.push(`/recipes/${recipe.id}`)}
               >
-                <View style={styles.recipeOptionContent}>
-                  <Text style={styles.recipeOptionTitle}>{item.title}</Text>
-                  <View style={styles.recipeOptionMeta}>
-                    {item.category && (
-                      <Text style={styles.recipeOptionCategory}>{item.category}</Text>
+                <Text style={styles.dayName}>{day.d}</Text>
+
+                {recipe ? (
+                  <View style={styles.recipeRow}>
+                    {recipe.imageUri ? (
+                      <Image source={{ uri: recipe.imageUri }} style={styles.thumb} />
+                    ) : (
+                      <View style={[styles.thumb, styles.thumbPlaceholder]} />
                     )}
-                    {item.duration && (
-                      <Text style={styles.recipeOptionDuration}>{item.duration} min</Text>
-                    )}
+                    <Text style={styles.recipeTitle} numberOfLines={1}>
+                      {recipe.title}
+                    </Text>
                   </View>
+                ) : (
+                  <View style={styles.emptyRow}>
+                    <Ionicons name="add" size={12} color={colors.textFaint} />
+                    <Text style={styles.emptyText}>kies een recept</Text>
+                  </View>
+                )}
+
+                <View style={styles.metaCol}>
+                  {recipe && (
+                    <View
+                      style={[
+                        styles.familyDot,
+                        { backgroundColor: colors.family[who] },
+                      ]}
+                    />
+                  )}
+                  <Text style={styles.dateMono}>{day.date}</Text>
                 </View>
-                <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-              </Pressable>
-            )}
-            ListEmptyComponent={
-              <View style={styles.emptyList}>
-                <Text style={styles.emptyListText}>Geen recepten gevonden</Text>
-              </View>
-            }
-          />
-        </SafeAreaView>
-      </Modal>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Footer hint */}
+        <View style={styles.footerHint}>
+          <Ionicons name="sparkles-outline" size={12} color={colors.textLight} />
+          <Text style={styles.footerHintText}>laat ons de gaten vullen</Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  header: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-
-  content: {
-    padding: spacing.md,
-    gap: spacing.md,
-    paddingBottom: spacing.lg,
-  },
-
-  dayCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.sm,
-  },
-
-  dayHeader: {
+  container: { flex: 1, backgroundColor: PAPER },
+  folio: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
-
-  dayName: {
-    ...typography.title20,
-    color: colors.text,
+  divider: {
+    width: 32,
+    height: 1,
+    backgroundColor: colors.borderColor,
+    marginTop: spacing.sm,
   },
-
-  daySubtext: {
-    ...typography.small12,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-
-  dayActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    alignItems: 'center',
-  },
-
-  mealList: {
-    gap: spacing.sm,
-  },
-
-  meal: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F0F8F5',
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.secondary,
-  },
-
-  mealContent: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-
-  mealTitle: {
-    ...typography.caption14Medium,
-    color: colors.text,
-  },
-
-  mealMeta: {
+  dayRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-  },
-
-  mealMetaText: {
-    ...typography.small12,
-    color: colors.textSecondary,
-  },
-
-  emptyText: {
-    ...typography.caption14,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-
-  modal: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-
-  modalTitle: {
-    ...typography.title20,
-    color: colors.text,
-  },
-
-  modalSearchInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    marginHorizontal: spacing.md,
-    marginVertical: spacing.md,
-    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.sm,
   },
-
-  modalSearchText: {
+  dayName: {
+    width: 80,
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 14,
+    color: 'rgba(25,22,19,0.45)',
+  },
+  recipeRow: {
     flex: 1,
-    ...typography.caption14,
-    color: colors.text,
-  },
-
-  modalList: {
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-
-  recipeOption: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 10,
   },
-
-  recipeOptionContent: {
+  thumb: { width: 32, height: 32, borderRadius: 16 },
+  thumbPlaceholder: { backgroundColor: colors.backgroundLight },
+  recipeTitle: {
     flex: 1,
-    gap: spacing.xs,
+    fontFamily: fonts.display,
+    fontSize: 16,
+    color: colors.textDark,
   },
-
-  recipeOptionTitle: {
-    ...typography.caption14Medium,
-    color: colors.text,
-  },
-
-  recipeOptionMeta: {
+  emptyRow: {
+    flex: 1,
     flexDirection: 'row',
-    gap: spacing.sm,
-  },
-
-  recipeOptionCategory: {
-    ...typography.small12,
-    color: colors.textSecondary,
-  },
-
-  recipeOptionDuration: {
-    ...typography.small12,
-    color: colors.textSecondary,
-  },
-
-  emptyList: {
-    padding: spacing.lg,
     alignItems: 'center',
+    gap: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.disabled,
+    borderStyle: 'dashed',
+    paddingBottom: 4,
   },
-
-  emptyListText: {
-    ...typography.caption14,
-    color: colors.textSecondary,
+  emptyText: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.textFaint,
   },
-})
+  metaCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 8,
+  },
+  familyDot: { width: 6, height: 6, borderRadius: 3 },
+  dateMono: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    color: colors.textFaint,
+    width: 16,
+    textAlign: 'right',
+  },
+  footerHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.lg,
+  },
+  footerHintText: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 12,
+    color: colors.textLight,
+  },
+});

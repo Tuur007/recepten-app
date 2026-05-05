@@ -35,7 +35,7 @@ export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProp
           <Ionicons
             name={recipe.isFavorite ? 'heart' : 'heart-outline'}
             size={20}
-            color={recipe.isFavorite ? colors.danger : '#fff'}
+            color={recipe.isFavorite ? colors.error : '#fff'}
           />
         </TouchableOpacity>
       </View>
@@ -68,10 +68,11 @@ export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProp
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
-    borderWidth: 0.5,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.borderColor,
+    ...shadows.sm,
   },
   imageContainer: {
     position: 'relative',

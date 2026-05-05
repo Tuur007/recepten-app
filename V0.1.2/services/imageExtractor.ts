@@ -47,7 +47,7 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     }
   };
 
-  // JSON-LD: ImageObject with url field
+  // JSON-LD blocks
   const jsonLdBlocks = html.matchAll(
     /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
   );
@@ -60,7 +60,7 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     }
   }
 
-  // og:image
+  // og:image — highest priority
   const ogMatch =
     html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
     html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i);
@@ -144,12 +144,15 @@ function isValidImageUrl(url: string): boolean {
   const lower = url.toLowerCase();
   if (lower.includes('javascript:') || lower.startsWith('data:')) return false;
 
-  const knownImageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
-  const hasExtension = knownImageExtensions.some((ext) => lower.includes(ext));
-  if (hasExtension) return true;
+  // Known image extensions
+  if (/\.(jpg|jpeg|png|webp|gif|avif|bmp|tiff?)(\?|$)/i.test(url)) return true;
 
-  // Accept extensionless URLs from known image CDNs
-  const imageCdnPatterns = [
+  // Extensionless but clearly an image by path pattern
+  if (/\/(?:photos?|images?|imgs?|pictures?|fotos?|media)s?\//i.test(url)) return true;
+
+  // Known image CDN hostnames (extensionless URLs are normal here)
+  const imageCdnHosts = [
+    'recipe-service.prod.cloud.jumbo.com',
     'images.ctfassets.net',
     'res.cloudinary.com',
     'cdn.sanity.io',
@@ -158,18 +161,20 @@ function isValidImageUrl(url: string): boolean {
     'i.imgur.com',
     'static.ah.nl',
     'images.immediate.co.uk',
-    'www.leukerecepten.nl',
-    'img.',
-    'image.',
-    'cdn.',
-    'media.',
-    'photos.',
-    'picture.',
+    'cdn.ah.nl',
+    'assets.jumbo.com',
+    'img.youtube.com',
+    'i.ytimg.com',
   ];
-  if (imageCdnPatterns.some((p) => lower.includes(p))) return true;
 
-  // Accept if URL path suggests an image even without extension
-  if (/\/(?:photo|image|img|picture|foto)s?\//i.test(url)) return true;
+  try {
+    const { hostname } = new URL(url);
+    if (imageCdnHosts.includes(hostname)) return true;
+    // Generic CDN subdomain patterns: img.*, images.*, cdn.*, media.*, photos.*
+    if (/^(?:img|images?|cdn|media|photos?|static|assets)\./i.test(hostname)) return true;
+  } catch {
+    return false;
+  }
 
   return false;
 }
@@ -186,7 +191,21 @@ function extractImageSize(imgTag: string): { width?: number; height?: number } {
 async function downloadImage(imageUrl: string): Promise<string | undefined> {
   if (!FS) return undefined;
   try {
-    const ext = imageUrl.match(/\.(jpg|jpeg|png|webp|gif|avif)/i)?.[1] ?? 'jpg';
+    // Probe Content-Type to determine correct extension
+    let ext = 'jpg';
+    try {
+      const head = await fetch(imageUrl, { method: 'HEAD' });
+      const ct = head.headers.get('content-type') ?? '';
+      if (ct.includes('png')) ext = 'png';
+      else if (ct.includes('webp')) ext = 'webp';
+      else if (ct.includes('gif')) ext = 'gif';
+      else if (ct.includes('avif')) ext = 'avif';
+    } catch {
+      // fall back to guessing from URL
+      const urlExt = imageUrl.match(/\.(jpg|jpeg|png|webp|gif|avif)/i)?.[1];
+      if (urlExt) ext = urlExt.toLowerCase() === 'jpeg' ? 'jpg' : urlExt.toLowerCase();
+    }
+
     const filename = `recipe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
     const dir = `${FS.documentDirectory}images`;
     const filepath = `${dir}/${filename}`;

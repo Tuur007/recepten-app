@@ -1,250 +1,153 @@
 /**
- * 🎨 HOME SCREEN (DASHBOARD)
- * FILE: app/(tabs)/home.tsx
- * 
- * CHANGES:
- * - Removed FAB button (moved to recipes tab)
- * - Removed quick actions buttons
- * - Simplified to pure dashboard with stats only
- * - No "Snelle acties" section
+ * 🎨 HOME SCREEN — "Vanavond"
+ *
+ * Vervang: V0.1.2/app/(tabs)/home.tsx
+ *
+ * Editorial: één hero-foto, één recept, "verras me" als italic uitnodiging.
+ * Geen stat cards meer — die conflicten met de rust-filosofie.
  */
 
-import React, { useMemo } from 'react'
+import React, { useMemo } from 'react';
 import {
-  ScrollView,
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
-  FlatList,
-  Dimensions,
-  Platform,
-} from 'react-native'
-import { useRouter } from 'expo-router'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
+  Image,
+  ScrollView,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
-import { useRecipes } from '../../features/recipes/hooks'
-import { useRecipeStore } from '../../store/recipeStore'
-import { useGroceryStore } from '../../store/groceryStore'
-import { RecipeCard } from '../../features/recipes/components/RecipeCard'
-import { EmptyState } from '../../components/ui/EmptyState'
-import { LoadingScreen } from '../../components/LoadingScreen'
-import { ErrorBoundary } from '../../components/ErrorBoundary'
+import { useRecipes } from '../../features/recipes/hooks';
+import { LoadingScreen } from '../../components/LoadingScreen';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 
-import {
-  colors,
-  spacing,
-  shadows,
-  typography,
-  borderRadius,
-} from '../../constants/Designsystem'
+import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 
-const { width } = Dimensions.get('window')
-const STAT_CARD_WIDTH = (width - spacing.md * 2 - spacing.sm) / 2
+const PAPER = colors.background;
 
 export default function HomeScreen() {
-  const router = useRouter()
-  const { recipes, isLoading, update } = useRecipes()
-  const groceryItems = useGroceryStore((state) => state.items)
+  const router = useRouter();
+  const { recipes, isLoading } = useRecipes();
 
-  // ====== STATISTICS ======
+  // Pak vandaag's "voorgestelde" recept — eerste favoriet, anders eerste recept
+  const tonight = useMemo(() => {
+    if (!recipes.length) return null;
+    return recipes.find((r) => r.isFavorite) ?? recipes[0];
+  }, [recipes]);
 
-  const stats = useMemo(() => {
-    const now = new Date()
-    const thisWeekStart = new Date(now)
-    thisWeekStart.setDate(now.getDate() - now.getDay())
+  const dateLabel = useMemo(() => {
+    const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
+    const months = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+    const d = new Date();
+    return `${days[d.getDay()]} · ${d.getDate()} ${months[d.getMonth()]}`;
+  }, []);
 
-    const thisWeekRecipes = recipes.filter((r) => {
-      if (!r.createdAt) return false
-      const recipeDate = new Date(r.createdAt)
-      return recipeDate >= thisWeekStart && recipeDate <= now
-    }).length
+  if (isLoading) return <LoadingScreen />;
 
-    const newFavorites = recipes.filter(
-      (r) => r.isFavorite && r.createdAt && new Date(r.createdAt) >= thisWeekStart,
-    ).length
+  // Splits titel in 2 woorden: laatste = italic terracotta accent
+  const splitTitle = (title: string) => {
+    const words = title.trim().split(' ');
+    if (words.length === 1) return { lead: '', tail: title };
+    return { lead: words.slice(0, -1).join(' '), tail: words[words.length - 1] };
+  };
 
-    const ingredientsToBuy = groceryItems.filter((i) => !i.checked).length
-    const totalRecipes = recipes.length
-
-    return {
-      thisWeekRecipes: thisWeekRecipes || 0,
-      newFavorites: newFavorites || 0,
-      ingredientsToBuy: ingredientsToBuy || 0,
-      totalRecipes: totalRecipes || 0,
-    }
-  }, [recipes, groceryItems])
-
-  // ====== RECENT RECIPES ======
-
-  const recentRecipes = useMemo(() => {
-    return recipes
-      .sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-        return dateB - dateA
-      })
-      .slice(0, 4)
-  }, [recipes])
-
-  // ====== GREETING ======
-
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours()
-    if (hour < 12) return '🌅 Goedemorgen'
-    if (hour < 18) return '☀️ Goedemiddag'
-    return '🌙 Goedenavond'
-  }, [])
-
-  if (isLoading) {
-    return <LoadingScreen />
-  }
+  const { lead, tail } = tonight
+    ? splitTitle(tonight.title)
+    : { lead: 'Niets', tail: 'gepland' };
 
   return (
     <ErrorBoundary>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <ScrollView
-          showsVerticalScrollIndicator={false}
+          style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          {/* ====== GREETING ====== */}
-          <View style={styles.greeting}>
-            <Text style={typography.hero32Bold}>
-              {greeting}
-            </Text>
-            <Text
-              style={[
-                typography.caption14,
-                { color: colors.textLight, marginTop: spacing.xs },
-              ]}
-            >
-              Veel kookplezier!
-            </Text>
+          {/* Folio header */}
+          <View style={styles.folio}>
+            <Text style={typography.folio}>p. 287</Text>
+            <Text style={typography.folio}>{dateLabel}</Text>
           </View>
 
-          {/* ====== STATISTICS CARDS ====== */}
-          <View style={styles.section}>
-            <Text style={typography.title20}>Deze week</Text>
+          {/* Spacer */}
+          <View style={{ flex: 1, minHeight: 40 }} />
 
-            <View style={styles.statsGrid}>
-              <StatCard
-                icon="📖"
-                number={stats.thisWeekRecipes}
-                label="Recepten"
-                sublabel="gepland"
-                gradientStart={colors.primary}
-                gradientEnd={colors.primaryDark}
-              />
-
-              <StatCard
-                icon="❤️"
-                number={stats.newFavorites}
-                label="Favorieten"
-                sublabel="nieuw"
-                gradientStart={colors.secondary}
-                gradientEnd="#1B5E3F"
-              />
-
-              <StatCard
-                icon="🛒"
-                number={stats.ingredientsToBuy}
-                label="Ingrediënten"
-                sublabel="nog nodig"
-                gradientStart={colors.tertiary}
-                gradientEnd="#E6A500"
-              />
-
-              <StatCard
-                icon="📚"
-                number={stats.totalRecipes}
-                label="Recepten"
-                sublabel="totaal"
-                gradientStart="#5DADE2"
-                gradientEnd="#2874A6"
-              />
-            </View>
-          </View>
-
-          {/* ====== RECENT RECIPES ====== */}
-          {recentRecipes.length > 0 ? (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={typography.title20}>Recent toegevoegd</Text>
-                <TouchableOpacity onPress={() => router.push('/(tabs)/recipes')}>
-                  <Text style={[typography.caption14, { color: colors.primary }]}>
-                    Alles zien
-                  </Text>
-                </TouchableOpacity>
+          {/* Hero photo (round-cornered tall portrait) */}
+          <View style={styles.heroWrap}>
+            {tonight?.imageUri ? (
+              <Image source={{ uri: tonight.imageUri }} style={styles.heroImage} />
+            ) : (
+              <View style={[styles.heroImage, styles.heroPlaceholder]}>
+                <Text style={[typography.label12, { color: colors.textLight }]}>
+                  vanavond
+                </Text>
               </View>
+            )}
+          </View>
 
-              <FlatList
-                scrollEnabled={false}
-                data={recentRecipes}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <RecipeCard
-                    recipe={item}
-                    onPress={() => router.push(`/recipes/${item.id}`)}
-                    onToggleFavorite={(newFavorite) =>
-                      update(item.id, { isFavorite: newFavorite })
-                    }
-                  />
-                )}
-                contentContainerStyle={styles.recipeList}
-                gap={spacing.md}
-              />
+          {/* Kicker */}
+          <Text style={[typography.folio, styles.kicker]}>vanavond</Text>
+
+          {/* Title — Fraunces with italic terracotta accent */}
+          <View style={styles.titleBlock}>
+            {lead.length > 0 && (
+              <Text style={[typography.hero32Bold, styles.titleLine]}>{lead}</Text>
+            )}
+            <Text style={[typography.heroItalic, styles.titleLine]}>{tail}</Text>
+          </View>
+
+          {/* Meta row */}
+          {tonight && (
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
+                <Ionicons name="time-outline" size={13} color={colors.textLight} />
+                <Text style={styles.metaText}>{tonight.totalTime ?? 45} min</Text>
+              </View>
+              <View style={styles.metaDot} />
+              <View style={styles.metaItem}>
+                <Ionicons name="people-outline" size={13} color={colors.textLight} />
+                <Text style={styles.metaText}>voor {tonight.servings ?? 4}</Text>
+              </View>
             </View>
-          ) : (
-            <EmptyState
-              icon="📖"
-              title="Geen recepten"
-              description="Voeg je eerste recept toe om aan de slag te gaan"
-            />
           )}
+
+          {/* Spacer */}
+          <View style={{ flex: 1, minHeight: 40 }} />
+
+          {/* CTA stack */}
+          <View style={styles.ctaStack}>
+            {tonight && (
+              <TouchableOpacity
+                style={styles.cta}
+                onPress={() => router.push(`/recipes/${tonight.id}`)}
+                activeOpacity={0.85}
+              >
+                <Text style={typography.buttonLabel}>begin met koken</Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={14}
+                  color={PAPER}
+                  style={{ marginLeft: 10 }}
+                />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.surpriseLink}
+              onPress={() => router.push('/(tabs)/recipes')}
+              activeOpacity={0.6}
+            >
+              <Ionicons name="sparkles-outline" size={12} color={colors.textLight} />
+              <Text style={styles.surpriseText}>verras me met iets anders</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </ErrorBoundary>
-  )
-}
-
-// ============================================================================
-// STAT CARD COMPONENT
-// ============================================================================
-
-interface StatCardProps {
-  icon: string
-  number: number
-  label: string
-  sublabel: string
-  gradientStart: string
-  gradientEnd: string
-}
-
-function StatCard({
-  icon,
-  number,
-  label,
-  sublabel,
-  gradientStart,
-  gradientEnd,
-}: StatCardProps) {
-  return (
-    <View
-      style={[
-        styles.statCard,
-        {
-          backgroundColor: gradientStart,
-          borderColor: gradientEnd,
-        },
-      ]}
-    >
-      <Text style={styles.statIcon}>{icon}</Text>
-      <Text style={styles.statNumber}>{number}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statSublabel}>{sublabel}</Text>
-    </View>
-  )
+  );
 }
 
 // ============================================================================
@@ -252,71 +155,90 @@ function StatCard({
 // ============================================================================
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  container: { flex: 1, backgroundColor: PAPER },
 
   scrollContent: {
-    paddingHorizontal: spacing.md,
+    flexGrow: 1,
+    minHeight: '100%',
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
   },
 
-  greeting: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.sm,
-  },
-
-  section: {
-    marginVertical: spacing.lg,
-  },
-
-  sectionHeader: {
+  folio: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingTop: spacing.sm,
+  },
+
+  heroWrap: { alignItems: 'center', marginVertical: spacing.md },
+
+  heroImage: {
+    width: 240,
+    height: 300,
+    backgroundColor: colors.backgroundLight,
+  },
+
+  heroPlaceholder: {
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  kicker: { textAlign: 'center', marginTop: spacing.lg },
+
+  titleBlock: { alignItems: 'center', marginTop: spacing.sm },
+
+  titleLine: { textAlign: 'center', fontSize: 42, lineHeight: 44 },
+
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+
+  metaText: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.textLight,
+  },
+
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: colors.textFaint,
+  },
+
+  ctaStack: {
+    alignItems: 'center',
+    gap: 14,
     marginBottom: spacing.md,
   },
 
-  statsGrid: {
+  cta: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-
-  statCard: {
-    width: STAT_CARD_WIDTH,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderBottomWidth: 3,
     alignItems: 'center',
-    gap: spacing.xs,
-    ...shadows.medium,
+    backgroundColor: colors.textDark,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 999,
   },
 
-  statIcon: {
-    fontSize: 28,
-    marginBottom: spacing.xs,
+  surpriseLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
   },
 
-  statNumber: {
-    ...typography.hero32Bold,
-    color: colors.white,
+  surpriseText: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.textLight,
   },
-
-  statLabel: {
-    ...typography.caption14Medium,
-    color: colors.white,
-  },
-
-  statSublabel: {
-    ...typography.small12,
-    color: 'rgba(255, 255, 255, 0.75)',
-  },
-
-  recipeList: {
-    gap: spacing.md,
-  },
-})
+});

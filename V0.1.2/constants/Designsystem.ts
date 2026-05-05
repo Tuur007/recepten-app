@@ -6,7 +6,7 @@
  * import { colors, spacing, typography, shadows } from './designSystem'
  * 
  * In styles:
- * style={{ color: colors.primary, marginVertical: spacing.md }}
+ * style={{ color: colors.textDark, marginVertical: spacing.md }}
  */
 
 // ============================================================================
@@ -51,6 +51,15 @@ export const colors = {
   black: '#000000',
   shadow: 'rgba(0, 0, 0, 0.1)',
   shadowDark: 'rgba(0, 0, 0, 0.15)',
+
+  // ALIASES FOR CONVENIENCE (commonly used shortcuts)
+  text: '#1F1F1F',           // Same as textDark
+  textSecondary: '#8B8B8B',  // Same as textLight
+  surface: '#FFFFFF',        // Card/panel background
+  surfaceAlt: '#F5F5F0',     // Alternative surface (same as backgroundLight)
+  border: '#D1D1D1',         // Same as borderColor
+  green: '#2D6A4F',          // Same as secondary (for checkbox)
+  danger: '#E63946',         // Same as error (for delete buttons)
 
   // DARK MODE (Optional, implement later)
   dark: {
@@ -432,48 +441,6 @@ export const darkModeColors = {
   primary: colors.primary,    // Keep primary vibrant even in dark mode
   tertiary: colors.tertiary,  // Keep tertiary vibrant
 };
-
-// ============================================================================
-// 📱 USAGE EXAMPLES
-// ============================================================================
-
-/*
-// Example 1: Using colors
-import { colors } from './designSystem'
-
-<Text style={{ color: colors.textDark, fontSize: 18 }}>Hello</Text>
-
-// Example 2: Using spacing
-import { spacing } from './designSystem'
-
-<View style={{ padding: spacing.md, marginVertical: spacing.lg }}>
-
-// Example 3: Using typography
-import { typography } from './designSystem'
-
-<Text style={typography.title24}>My Title</Text>
-
-// Example 4: Using component presets
-import { componentStyles } from './designSystem'
-
-<Pressable style={componentStyles.button.primary}>
-  <Text>Click me</Text>
-</Pressable>
-
-// Example 5: Using shadows
-import { shadows } from './designSystem'
-
-<View style={[styles.card, shadows.medium]}>
-
-// Example 6: Complete card component
-<View style={[componentStyles.card.recipe, shadows.medium]}>
-  <Image source={...} style={{ width: '100%', height: 200 }} />
-  <View style={{ padding: spacing.md }}>
-    <Text style={typography.title18}>{recipe.name}</Text>
-    <Text style={typography.caption14}>{recipe.category}</Text>
-  </View>
-</View>
-*/
 
 // ============================================================================
 // ✅ EXPORT EVERYTHING

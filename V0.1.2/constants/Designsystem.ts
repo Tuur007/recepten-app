@@ -1,89 +1,101 @@
 /**
- * 🎨 DESIGN SYSTEM V1
- * Warm & Inviting + Multi-Color + Premium Feel
- * 
- * Usage:
- * import { colors, spacing, typography, shadows } from './designSystem'
- * 
- * In styles:
- * style={{ color: colors.textDark, marginVertical: spacing.md }}
+ * 🎨 DESIGN SYSTEM — "Onze Tafel" Editorial
+ *
+ * Vervang de inhoud van: V0.1.2/constants/Designsystem.ts
+ *
+ * Aesthetic: warm crème papier · ink deep · terracotta italic accent.
+ * Type: Fraunces (display, italic accent), Inter (body), JetBrains Mono (folios/labels).
+ *
+ * BELANGRIJK: Voor de fonts moet je in expo-font de families laden.
+ * Zie /utils/fonts.ts (apart bestand) voor de loader.
  */
 
 // ============================================================================
-// 🎨 COLORS: Warm & Multi-Color Palette
+// 🎨 COLORS — Warm cream paper + deep ink + terracotta
 // ============================================================================
 
 export const colors = {
-  // PRIMARY: Orange (Main CTA, highlights, active states)
-  primary: '#FF6B35',        // Vibrant orange (appetite-inducing)
-  primaryLight: '#FF8551',   // Lighter tint (hover state)
-  primaryDark: '#E55100',    // Darker shade (pressed state)
+  // Brand
+  primary: '#C2492A',         // Terracotta (CTA, accent, italic emphasis)
+  primaryLight: '#E6A386',    // Soft terracotta (hover/pressed)
+  primaryDark: '#8A3119',     // Deep terracotta
 
-  // SECONDARY: Green (Done, success, saved, checked)
-  secondary: '#2D6A4F',      // Deep, organic green
-  secondaryLight: '#40916C', // Medium green
-  secondaryLighter: '#52B788', // Light green (accent)
+  // Secondary palette (sparingly)
+  secondary: '#5A6B3A',       // Olive (vegetarian / saved)
+  secondaryLight: '#7A8B5A',
+  secondaryLighter: '#A0B07F',
 
-  // TERTIARY: Yellow (Badges, labels, ratings, accent)
-  tertiary: '#FFB703',       // Golden yellow
-  tertiaryLight: '#FFA500',  // Orange-yellow
+  tertiary: '#D49A3A',        // Saffron (special / featured)
+  tertiaryLight: '#E6B566',
 
-  // BACKGROUNDS: Warm creams (inviting, not clinical)
-  background: '#FEF9E7',     // Warm white (main bg)
-  backgroundCard: '#FFF8DC', // Cornsilk (card bg)
-  backgroundLight: '#F5F5F0', // Very light neutral
+  // Backgrounds — warm cream "paper"
+  background: '#F6F1E7',      // Main paper
+  backgroundCard: '#FFFFFF',  // Card surfaces (rare)
+  backgroundLight: '#EDE4D0', // Toasted cream (warm panel)
 
-  // NEUTRAL: Grays (Text, borders, disabled)
-  textDark: '#1F1F1F',       // Near black (titles, primary text)
-  textMedium: '#4A4A4A',     // Dark gray (secondary text)
-  textLight: '#8B8B8B',      // Medium gray (tertiary text, placeholders)
-  borderColor: '#D1D1D1',    // Light gray (borders, dividers)
-  disabled: '#C0C0C0',       // Disabled state
+  // Ink (text)
+  textDark: '#191613',        // Near-black, warm
+  textMedium: '#3A342E',      // Soft ink
+  textLight: 'rgba(25,22,19,0.55)', // Muted
+  textFaint: 'rgba(25,22,19,0.35)', // Hairline metadata
 
-  // SEMANTIC: Feedback colors
-  success: '#2D6A4F',        // Same as secondary (green)
-  error: '#E63946',          // Red (errors, warnings)
-  warning: '#FFB703',        // Yellow (warnings)
-  info: '#1E90FF',           // Blue (info messages)
+  // Lines
+  borderColor: 'rgba(25,22,19,0.15)',
+  borderSoft: 'rgba(25,22,19,0.08)',
+  disabled: 'rgba(25,22,19,0.25)',
 
-  // WHITE & SHADOWS
+  // Semantic
+  success: '#5A6B3A',
+  error: '#C2492A',
+  warning: '#D49A3A',
+  info: '#3A5A6B',
+
+  // White & shadows (we use them sparingly)
   white: '#FFFFFF',
-  black: '#000000',
-  shadow: 'rgba(0, 0, 0, 0.1)',
-  shadowDark: 'rgba(0, 0, 0, 0.15)',
+  black: '#191613',
+  shadow: 'rgba(25, 22, 19, 0.08)',
+  shadowDark: 'rgba(25, 22, 19, 0.15)',
 
-  // ALIASES FOR CONVENIENCE (commonly used shortcuts)
-  text: '#1F1F1F',           // Same as textDark
-  textSecondary: '#8B8B8B',  // Same as textLight
-  surface: '#FFFFFF',        // Card/panel background
-  surfaceAlt: '#F5F5F0',     // Alternative surface (same as backgroundLight)
-  border: '#D1D1D1',         // Same as borderColor
-  green: '#2D6A4F',          // Same as secondary (for checkbox)
-  danger: '#E63946',         // Same as error (for delete buttons)
+  // Aliases
+  text: '#191613',
+  textSecondary: 'rgba(25,22,19,0.55)',
+  surface: '#F6F1E7',
+  surfaceAlt: '#EDE4D0',
+  border: 'rgba(25,22,19,0.15)',
+  green: '#5A6B3A',
+  danger: '#C2492A',
 
-  // DARK MODE (Optional, implement later)
+  // Family member colors (zelfde als bestaand, lichtjes herschikt naar editorial)
+  family: {
+    tuur: '#C2492A',
+    louise: '#B56B3F',
+    basiel: '#5A6B3A',
+    jules: '#3A5A6B',
+  },
+
+  // Dark mode (later)
   dark: {
-    background: '#1A1A1A',
-    backgroundCard: '#2A2A2A',
-    text: '#F5F5F0',
-    textSecondary: '#D1D1D1',
-    border: '#444444',
+    background: '#1A1714',
+    backgroundCard: '#2A2520',
+    text: '#F6F1E7',
+    textSecondary: 'rgba(246,241,231,0.55)',
+    border: 'rgba(246,241,231,0.15)',
   },
 };
 
 // ============================================================================
-// 📐 SPACING: 8px Grid System
+// 📐 SPACING — 8pt grid
 // ============================================================================
 
 export const spacing = {
-  xs: 4,      // Extra small gaps
-  sm: 8,      // Small gaps
-  md: 16,     // Standard padding (DEFAULT)
-  lg: 24,     // Large spacing between sections
-  xl: 32,     // Extra large spacing
-  xxl: 48,    // Hero spacing
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
 
-  // Aliases for readability
+  // Aliases
   none: 0,
   tiny: 4,
   small: 8,
@@ -94,180 +106,229 @@ export const spacing = {
 };
 
 // ============================================================================
-// 🔤 TYPOGRAPHY: Font sizes, weights, line heights
+// 🔤 TYPOGRAPHY — Fraunces (display) · Inter (body) · JetBrains Mono (folio)
 // ============================================================================
 
+const FONT_DISPLAY = 'Fraunces_400Regular';
+const FONT_DISPLAY_ITALIC = 'Fraunces_400Italic';
+const FONT_BODY = 'Inter_400Regular';
+const FONT_BODY_MEDIUM = 'Inter_500Medium';
+const FONT_BODY_SEMIBOLD = 'Inter_600SemiBold';
+const FONT_MONO = 'JetBrainsMono_400Regular';
+const FONT_MONO_MEDIUM = 'JetBrainsMono_500Medium';
+
 export const typography = {
-  // HERO: 32px, Bold, Tight (1.2 line height)
+  // HERO — grote serif titel (Fraunces light)
   hero32Bold: {
-    fontSize: 32,
-    fontWeight: '700',
-    lineHeight: 32 * 1.2,
-    fontFamily: 'Poppins', // Use system font as fallback
+    fontFamily: FONT_DISPLAY,
+    fontSize: 38,
+    fontWeight: '300' as const,
+    lineHeight: 38 * 1.0,
+    letterSpacing: -0.8,
+    color: colors.textDark,
   },
 
-  // TITLE: 24px, SemiBold
+  // ITALIC accent — voor één-woord highlights in terracotta
+  heroItalic: {
+    fontFamily: FONT_DISPLAY_ITALIC,
+    fontSize: 38,
+    fontWeight: '300' as const,
+    lineHeight: 38 * 1.0,
+    letterSpacing: -0.8,
+    color: colors.primary,
+    fontStyle: 'italic' as const,
+  },
+
   title24: {
-    fontSize: 24,
-    fontWeight: '600',
-    lineHeight: 24 * 1.2,
-    fontFamily: 'Poppins',
+    fontFamily: FONT_DISPLAY,
+    fontSize: 26,
+    fontWeight: '400' as const,
+    lineHeight: 26 * 1.1,
+    letterSpacing: -0.4,
+    color: colors.textDark,
   },
 
-  // SUBTITLE: 20px, SemiBold
   title20: {
-    fontSize: 20,
-    fontWeight: '600',
-    lineHeight: 20 * 1.2,
-    fontFamily: 'Poppins',
+    fontFamily: FONT_DISPLAY,
+    fontSize: 22,
+    fontWeight: '400' as const,
+    lineHeight: 22 * 1.15,
+    letterSpacing: -0.3,
+    color: colors.textDark,
   },
 
-  // CARD TITLE: 18px, Bold
   title18: {
+    fontFamily: FONT_DISPLAY,
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '400' as const,
     lineHeight: 18 * 1.2,
-    fontFamily: 'Poppins',
+    color: colors.textDark,
   },
 
-  // BODY: 16px, Regular (default for most text)
+  // BODY ITALIC — Fraunces italic, voor zachte introtekst en credit-lines
+  bodyItalic: {
+    fontFamily: FONT_DISPLAY_ITALIC,
+    fontStyle: 'italic' as const,
+    fontSize: 14,
+    fontWeight: '400' as const,
+    lineHeight: 14 * 1.5,
+    color: colors.textMedium,
+  },
+
   body16: {
-    fontSize: 16,
-    fontWeight: '400',
-    lineHeight: 16 * 1.4,
-    fontFamily: 'Inter', // Or system font
+    fontFamily: FONT_BODY,
+    fontSize: 15,
+    fontWeight: '400' as const,
+    lineHeight: 15 * 1.5,
+    color: colors.textDark,
   },
 
-  // BODY MEDIUM: 16px, Medium weight
   body16Medium: {
-    fontSize: 16,
-    fontWeight: '500',
-    lineHeight: 16 * 1.4,
-    fontFamily: 'Inter',
+    fontFamily: FONT_BODY_MEDIUM,
+    fontSize: 15,
+    fontWeight: '500' as const,
+    lineHeight: 15 * 1.5,
+    color: colors.textDark,
   },
 
-  // CAPTION: 14px, Regular (metadata, timestamps)
   caption14: {
-    fontSize: 14,
-    fontWeight: '400',
-    lineHeight: 14 * 1.4,
-    fontFamily: 'Inter',
+    fontFamily: FONT_BODY,
+    fontSize: 13,
+    fontWeight: '400' as const,
+    lineHeight: 13 * 1.4,
+    color: colors.textMedium,
   },
 
-  // CAPTION MEDIUM: 14px, Medium (labels, badges)
   caption14Medium: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 14 * 1.4,
-    fontFamily: 'Inter',
+    fontFamily: FONT_BODY_MEDIUM,
+    fontSize: 13,
+    fontWeight: '500' as const,
+    lineHeight: 13 * 1.4,
+    color: colors.textDark,
   },
 
-  // LABEL: 12px, Medium (small badges, tags)
+  // FOLIO / mono — paginanummers, sectienummers, kleine labels
+  folio: {
+    fontFamily: FONT_MONO,
+    fontSize: 9,
+    fontWeight: '400' as const,
+    letterSpacing: 2,
+    textTransform: 'uppercase' as const,
+    color: colors.textLight,
+  },
+
+  folioBold: {
+    fontFamily: FONT_MONO_MEDIUM,
+    fontSize: 9,
+    fontWeight: '500' as const,
+    letterSpacing: 3,
+    textTransform: 'uppercase' as const,
+    color: colors.textDark,
+  },
+
   label12: {
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 12 * 1.4,
-    fontFamily: 'Inter',
+    fontFamily: FONT_MONO_MEDIUM,
+    fontSize: 10,
+    fontWeight: '500' as const,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase' as const,
+    color: colors.textMedium,
   },
 
-  // SMALL: 12px, Regular (fine print)
   small12: {
+    fontFamily: FONT_BODY,
+    fontSize: 11,
+    fontWeight: '400' as const,
+    lineHeight: 11 * 1.5,
+    color: colors.textLight,
+  },
+
+  // CTA button label — Inter caps
+  buttonLabel: {
+    fontFamily: FONT_BODY_MEDIUM,
     fontSize: 12,
-    fontWeight: '400',
-    lineHeight: 12 * 1.6,
-    fontFamily: 'Inter',
+    fontWeight: '500' as const,
+    letterSpacing: 2,
+    textTransform: 'uppercase' as const,
+    color: colors.background,
   },
 };
 
+// Font-family constants exporteren voor inline gebruik
+export const fonts = {
+  display: FONT_DISPLAY,
+  displayItalic: FONT_DISPLAY_ITALIC,
+  body: FONT_BODY,
+  bodyMedium: FONT_BODY_MEDIUM,
+  bodySemibold: FONT_BODY_SEMIBOLD,
+  mono: FONT_MONO,
+  monoMedium: FONT_MONO_MEDIUM,
+};
+
 // ============================================================================
-// 🎯 SHADOWS: Depth levels
+// 🎯 SHADOWS — heel zacht, papier-achtig (geen drukke schaduwen)
 // ============================================================================
 
 export const shadows = {
-  // Subtle shadow (cards, light elevation)
   sm: {
-    shadowColor: '#000000',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.04,
     shadowRadius: 2,
-    elevation: 2, // Android
+    elevation: 1,
   },
-
-  // Medium shadow (important cards, buttons)
   medium: {
-    shadowColor: '#000000',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     elevation: 4,
   },
-
-  // Strong shadow (modals, featured content)
-  lg: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+  xl: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 20,
     elevation: 8,
   },
-
-  // Extra strong shadow (floating elements)
-  xl: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 12,
-  },
-
-  // Color-tinted shadow (orange accent)
   orangeGlow: {
-    shadowColor: '#FF6B35',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 4,
   },
 };
 
 // ============================================================================
-// 🎨 BORDER RADIUS: Rounded corners
+// 🎨 BORDER RADIUS
 // ============================================================================
 
 export const borderRadius = {
   none: 0,
-  xs: 4,
-  sm: 8,
-  md: 12,      // Standard (buttons, inputs)
-  lg: 16,      // Cards, larger elements
-  xl: 20,      // Very rounded (search bar)
-  full: 9999,  // Fully rounded (circles)
+  xs: 2,
+  sm: 4,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  full: 9999,
 };
 
 // ============================================================================
-// ⏱️ ANIMATIONS: Timing and easing
+// ⏱️ ANIMATIONS
 // ============================================================================
 
 export const animations = {
-  // Fast interactions (button press)
-  fast: {
-    duration: 150,
-    easing: 'easeInOut',
-  },
-
-  // Standard transitions (tab switch, modal)
-  standard: {
-    duration: 300,
-    easing: 'easeInOut',
-  },
-
-  // Slow animations (page transition, complex)
-  slow: {
-    duration: 500,
-    easing: 'easeInOut',
-  },
-
-  // Easing functions (use with Animated API)
+  fast: { duration: 150, easing: 'easeInOut' },
+  standard: { duration: 300, easing: 'easeInOut' },
+  slow: { duration: 500, easing: 'easeInOut' },
   easing: {
     easeInOut: 'easeInOut',
     easeIn: 'easeIn',
@@ -277,126 +338,100 @@ export const animations = {
 };
 
 // ============================================================================
-// 🔘 COMPONENT PRESETS: Ready-to-use style objects
+// 🔘 COMPONENT PRESETS
 // ============================================================================
 
 export const componentStyles = {
-  // BUTTONS
   button: {
     primary: {
-      backgroundColor: colors.primary,
-      color: colors.white,
-      paddingVertical: spacing.md - 4, // 12
-      paddingHorizontal: spacing.lg,   // 24
-      borderRadius: borderRadius.md,
-      ...typography.body16Medium,
-      ...shadows.medium,
+      backgroundColor: colors.textDark,
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      borderRadius: borderRadius.full,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      flexDirection: 'row' as const,
     },
-
     secondary: {
-      backgroundColor: colors.secondary,
-      color: colors.white,
-      paddingVertical: spacing.md - 4,
-      paddingHorizontal: spacing.lg,
-      borderRadius: borderRadius.md,
-      ...typography.body16Medium,
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: colors.textDark,
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      borderRadius: borderRadius.full,
     },
-
     tertiary: {
       backgroundColor: 'transparent',
-      borderColor: colors.borderColor,
-      borderWidth: 1.5,
-      color: colors.textDark,
-      paddingVertical: spacing.md - 4,
-      paddingHorizontal: spacing.lg,
-      borderRadius: borderRadius.md,
-      ...typography.body16Medium,
+      paddingVertical: 8,
+      paddingHorizontal: 0,
     },
-
     icon: {
-      width: 40,
-      height: 40,
+      width: 44,
+      height: 44,
       borderRadius: borderRadius.full,
-      backgroundColor: colors.backgroundLight,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-  },
-
-  // CARDS
-  card: {
-    container: {
-      backgroundColor: colors.white,
-      borderRadius: borderRadius.lg,
-      marginVertical: spacing.sm,
-      marginHorizontal: spacing.md,
-      overflow: 'hidden',
-      ...shadows.medium,
-    },
-
-    recipe: {
-      backgroundColor: colors.white,
-      borderRadius: borderRadius.lg,
-      overflow: 'hidden',
-      ...shadows.medium,
-    },
-
-    stat: {
-      paddingVertical: spacing.lg,
-      paddingHorizontal: spacing.lg,
-      borderRadius: borderRadius.lg,
-      ...shadows.sm,
-    },
-  },
-
-  // INPUTS
-  input: {
-    base: {
-      backgroundColor: colors.backgroundLight,
-      borderRadius: borderRadius.md,
       borderWidth: 1,
       borderColor: colors.borderColor,
-      paddingVertical: spacing.md - 4,
-      paddingHorizontal: spacing.md,
-      ...typography.body16,
-    },
-
-    focused: {
-      borderWidth: 2,
-      borderColor: colors.primary,
-    },
-
-    search: {
-      backgroundColor: colors.backgroundLight,
-      borderRadius: borderRadius.xl,
-      paddingVertical: spacing.md - 4,
-      paddingHorizontal: spacing.lg,
-      ...typography.body16,
+      backgroundColor: 'transparent',
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
     },
   },
 
-  // BADGES
+  card: {
+    container: {
+      backgroundColor: 'transparent',
+      borderTopWidth: 1,
+      borderTopColor: colors.borderColor,
+      paddingVertical: spacing.md,
+    },
+    recipe: {
+      backgroundColor: 'transparent',
+      paddingVertical: spacing.sm,
+    },
+    stat: {
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.md,
+      alignItems: 'center' as const,
+    },
+  },
+
+  input: {
+    base: {
+      backgroundColor: 'transparent',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderColor,
+      paddingVertical: 12,
+      fontFamily: FONT_DISPLAY,
+      fontSize: 16,
+      color: colors.textDark,
+    },
+    focused: { borderBottomColor: colors.primary },
+    search: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: colors.borderColor,
+      borderRadius: borderRadius.full,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      fontFamily: FONT_BODY,
+      fontSize: 14,
+    },
+  },
+
   badge: {
     category: {
-      backgroundColor: colors.tertiary,
-      color: colors.textDark,
+      backgroundColor: 'transparent',
+      borderWidth: 0,
       paddingVertical: 4,
-      paddingHorizontal: spacing.sm,
-      borderRadius: borderRadius.full,
-      ...typography.label12,
+      paddingHorizontal: 0,
     },
-
     time: {
-      backgroundColor: colors.backgroundLight,
-      color: colors.textMedium,
-      paddingVertical: 4,
-      paddingHorizontal: spacing.sm,
-      borderRadius: borderRadius.sm,
-      ...typography.caption14,
+      backgroundColor: 'transparent',
+      paddingVertical: 0,
+      paddingHorizontal: 0,
     },
   },
 
-  // DIVIDER
   divider: {
     height: 1,
     backgroundColor: colors.borderColor,
@@ -405,26 +440,12 @@ export const componentStyles = {
 };
 
 // ============================================================================
-// 🎬 RESPONSIVE HELPERS
+// 🎬 RESPONSIVE
 // ============================================================================
 
 export const responsive = {
-  // Screen breakpoints (mobile-first)
-  breakpoints: {
-    small: 320,    // iPhone SE
-    regular: 375,  // iPhone 12/13
-    large: 428,    // iPhone 14 Plus
-    tablet: 768,   // iPad
-  },
-
-  // Safe area helper (for notches)
-  safeArea: {
-    // Implement with useSafeAreaInsets() hook
-    // paddingTop: insets.top
-    // paddingBottom: insets.bottom
-  },
-
-  // Scale text based on screen size (optional)
+  breakpoints: { small: 320, regular: 375, large: 428, tablet: 768 },
+  safeArea: {},
   fontSize: (baseSize: number, width: number): number => {
     if (width < 375) return baseSize * 0.9;
     if (width > 428) return baseSize * 1.1;
@@ -432,24 +453,17 @@ export const responsive = {
   },
 };
 
-// ============================================================================
-// 🌙 DARK MODE SUPPORT (Future)
-// ============================================================================
-
 export const darkModeColors = {
   ...colors.dark,
-  primary: colors.primary,    // Keep primary vibrant even in dark mode
-  tertiary: colors.tertiary,  // Keep tertiary vibrant
+  primary: colors.primary,
+  tertiary: colors.tertiary,
 };
-
-// ============================================================================
-// ✅ EXPORT EVERYTHING
-// ============================================================================
 
 export default {
   colors,
   spacing,
   typography,
+  fonts,
   shadows,
   borderRadius,
   animations,

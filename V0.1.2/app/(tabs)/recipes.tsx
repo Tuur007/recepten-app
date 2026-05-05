@@ -75,14 +75,12 @@ export default function RecipesScreen() {
                 style={styles.catItem}
               >
                 <Text
-                  style={[
-                    {
-                      fontFamily: active ? fonts.display : fonts.displayItalic,
-                      fontStyle: active ? 'normal' : 'italic',
-                      fontSize: 16,
-                      color: active ? colors.textDark : colors.textLight,
-                    },
-                  ]}
+                  style={{
+                    fontFamily: active ? fonts.display : fonts.displayItalic,
+                    fontStyle: active ? 'normal' : 'italic',
+                    fontSize: 16,
+                    color: active ? colors.textDark : colors.textLight,
+                  }}
                 >
                   {c}
                 </Text>

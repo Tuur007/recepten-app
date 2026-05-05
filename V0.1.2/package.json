@@ -11,7 +11,11 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@expo-google-fonts/fraunces": "^0.3.0",
+    "@expo-google-fonts/inter": "^0.3.0",
+    "@expo-google-fonts/jetbrains-mono": "^0.3.0",
     "expo": "~54.0.0",
+    "expo-font": "~13.0.1",
     "expo-router": "~6.0.23",
     "expo-sqlite": "~16.0.10",
     "expo-status-bar": "~3.0.9",
@@ -33,6 +37,7 @@
     "typescript": "^5.3.3",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
-    "eslint": "^8.57.0"
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-native": "^4.1.0"
   }
 }

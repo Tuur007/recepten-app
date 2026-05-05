@@ -2,8 +2,7 @@ import { generateId } from './id';
 
 // expo-file-system is a native module unavailable in environments like Expo Snack.
 // We load it dynamically so the rest of the app still boots when it's absent.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let FS: any = null;
+let FS: typeof import('expo-file-system') | null = null;
 try {
   FS = require('expo-file-system');
 } catch {

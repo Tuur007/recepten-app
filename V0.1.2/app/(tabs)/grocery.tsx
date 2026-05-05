@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useRef } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,7 +10,6 @@ import {
   Alert,
   TextInput,
   ScrollView,
-  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useGrocery } from '../../features/grocery/hooks';
@@ -60,7 +59,6 @@ export default function GroceryScreen() {
   return (
     <ErrorBoundary>
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-        {/* Header with stats */}
         <View style={[styles.header, { backgroundColor: colors.surface }]}>
           <View>
             <Text style={[typography.title20, { color: colors.text }]}>Boodschappen</Text>
@@ -70,7 +68,6 @@ export default function GroceryScreen() {
           </View>
         </View>
 
-        {/* Items list */}
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
@@ -80,7 +77,7 @@ export default function GroceryScreen() {
               item={item}
               onToggle={() => toggleItem(item.id)}
               onDelete={() => deleteItem(item.id)}
-              onUpdate={(updates) => updateItem(item.id, updates)}
+              onRemoveSource={() => {}}
             />
           )}
           ListEmptyComponent={
@@ -92,11 +89,10 @@ export default function GroceryScreen() {
           }
         />
 
-        {/* Action buttons */}
         <View style={[styles.actionBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
           {checkedCount > 0 && (
             <Pressable
-              style={[styles.button, { backgroundColor: colors.success }]}
+              style={[styles.button, { backgroundColor: colors.secondary }]}
               onPress={clearChecked}
             >
               <Ionicons name="checkmark-circle" size={20} color="#fff" />
@@ -122,28 +118,25 @@ export default function GroceryScreen() {
           </View>
         </View>
 
-        {/* Add from recipe modal */}
         <AddFromRecipeModal
           visible={showAddFromRecipe}
           onClose={() => setShowAddFromRecipe(false)}
-          onSelectRecipe={(recipeId) => {
-            // Handle recipe selection
+          onSelectRecipe={() => {
             setShowAddFromRecipe(false);
           }}
         />
 
-        {/* Manual add modal */}
         <Modal visible={showManualAdd} transparent animationType="slide">
           <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
             <View style={[styles.modalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
               <Pressable onPress={() => setShowManualAdd(false)}>
-                <Ionicons name="close" size={24} color={colors.primary} />
+                <Ionicons name="close" size={24} color={colors.text} />
               </Pressable>
               <Text style={[typography.title18, { color: colors.text }]}>Artikel toevoegen</Text>
               <View style={{ width: 24 }} />
             </View>
 
-            <ScrollView style={styles.modalContent} contentContainerStyle={{ gap: spacing.md }}>
+            <ScrollView style={styles.modalContent} contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.xl }}>
               <View>
                 <Text style={[typography.body16Medium, { color: colors.text, marginBottom: spacing.sm }]}>
                   Artikel
@@ -161,6 +154,7 @@ export default function GroceryScreen() {
                   placeholderTextColor={colors.textSecondary}
                   value={newItemName}
                   onChangeText={setNewItemName}
+                  editable={!isLoading}
                 />
               </View>
 
@@ -181,12 +175,18 @@ export default function GroceryScreen() {
                   placeholderTextColor={colors.textSecondary}
                   value={newItemUnit}
                   onChangeText={setNewItemUnit}
+                  editable={!isLoading}
                 />
               </View>
 
               <Pressable
-                style={[styles.submitButton, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.submitButton,
+                  { backgroundColor: colors.primary },
+                  (!newItemName.trim() || isLoading) && styles.submitButtonDisabled,
+                ]}
                 onPress={handleAddManual}
+                disabled={!newItemName.trim() || isLoading}
               >
                 <Text style={[typography.body16Medium, { color: '#fff' }]}>Toevoegen</Text>
               </Pressable>
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.border,
   },
   list: {
     padding: spacing.md,
@@ -236,6 +236,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
+    ...shadows.medium,
   },
   modalContainer: {
     flex: 1,
@@ -264,5 +265,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginTop: spacing.lg,
+  },
+  submitButtonDisabled: {
+    opacity: 0.5,
   },
 });

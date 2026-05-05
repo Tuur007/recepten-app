@@ -32,7 +32,7 @@ export function GroceryItem({ item, onToggle, onDelete, onRemoveSource }: Grocer
       <TouchableOpacity
         onPress={onToggle}
         activeOpacity={0.7}
-        hitSlop={10}
+        hitSlop={12}
         style={[styles.checkbox, item.checked && styles.checkboxChecked]}
       >
         {item.checked ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
@@ -74,7 +74,7 @@ export function GroceryItem({ item, onToggle, onDelete, onRemoveSource }: Grocer
         ) : null}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={handleDelete} hitSlop={10} style={styles.deleteBtn}>
+      <TouchableOpacity onPress={handleDelete} hitSlop={12} style={styles.deleteBtn}>
         <Text style={styles.deleteIcon}>×</Text>
       </TouchableOpacity>
     </View>
@@ -90,8 +90,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 12,
-    borderWidth: 0.5,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.borderColor,
   },
   checkedRow: { opacity: 0.55 },
   checkbox: {
@@ -99,15 +99,15 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: colors.borderColor,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
     marginTop: 2,
   },
   checkboxChecked: {
-    backgroundColor: colors.green,
-    borderColor: colors.green,
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
   },
   content: { flex: 1, gap: 6 },
   nameRow: {

@@ -14,11 +14,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useGrocery } from '../../features/grocery/hooks';
 import { GroceryItem } from '../../features/grocery/components/GroceryItem';
-import { AddFromRecipeModal } from '../../features/grocery/components/AddFromRecipeModal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
-import { useRecipes } from '../../features/recipes/hooks';
 import { colors, spacing, typography, shadows } from '../../constants/Designsystem';
 
 export default function GroceryScreen() {
@@ -28,13 +26,9 @@ export default function GroceryScreen() {
     toggleChecked,
     remove,
     addManual,
-    addFromRecipe,
     clearChecked,
   } = useGrocery();
 
-  const { recipes } = useRecipes();
-
-  const [showAddFromRecipe, setShowAddFromRecipe] = useState(false);
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemUnit, setNewItemUnit] = useState('');
@@ -60,21 +54,13 @@ export default function GroceryScreen() {
     }
   }, [newItemName, newItemUnit, addManual]);
 
-  const handleAddFromRecipe = useCallback(
-    async (recipe: any) => {
-      try {
-        await addFromRecipe(recipe.ingredients, recipe.id, recipe.title);
-        Alert.alert('Succes', 'Ingrediënten toegevoegd aan boodschappenlijst');
-        setShowAddFromRecipe(false);
-      } catch (err) {
-        Alert.alert('Fout', 'Kon ingrediënten niet toevoegen');
-        console.error('[GroceryScreen] Add from recipe error:', err);
-      }
-    },
-    [addFromRecipe]
-  );
-
   const checkedCount = useMemo(() => items.filter((i) => i.checked).length, [items]);
+
+  const sortedItems = useMemo(() => {
+    const unchecked = items.filter((i) => !i.checked);
+    const checked = items.filter((i) => i.checked);
+    return [...unchecked, ...checked];
+  }, [items]);
 
   if (isLoading) return <LoadingScreen />;
 
@@ -91,7 +77,7 @@ export default function GroceryScreen() {
         </View>
 
         <FlatList
-          data={items}
+          data={sortedItems}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
@@ -105,7 +91,7 @@ export default function GroceryScreen() {
             <EmptyState
               icon="🛒"
               title="Geen artikelen"
-              message="Voeg recepten toe of voeg handmatig items in."
+              message="Voeg handmatig items in."
             />
           }
         />
@@ -123,28 +109,13 @@ export default function GroceryScreen() {
             </Pressable>
           )}
 
-          <View style={styles.buttonRow}>
-            <Pressable
-              style={[styles.fabButton, { backgroundColor: colors.primary }]}
-              onPress={() => setShowAddFromRecipe(true)}
-            >
-              <Ionicons name="add-circle" size={24} color="#fff" />
-            </Pressable>
-            <Pressable
-              style={[styles.fabButton, { backgroundColor: colors.secondary }]}
-              onPress={() => setShowManualAdd(true)}
-            >
-              <Ionicons name="create" size={24} color="#fff" />
-            </Pressable>
-          </View>
+          <Pressable
+            style={[styles.fabButton, { backgroundColor: colors.secondary }]}
+            onPress={() => setShowManualAdd(true)}
+          >
+            <Ionicons name="create" size={24} color="#fff" />
+          </Pressable>
         </View>
-
-        <AddFromRecipeModal
-          visible={showAddFromRecipe}
-          recipes={recipes}
-          onClose={() => setShowAddFromRecipe(false)}
-          onConfirm={handleAddFromRecipe}
-        />
 
         <Modal visible={showManualAdd} transparent animationType="slide">
           <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
@@ -237,18 +208,17 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderTopWidth: 1,
     gap: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   button: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     borderRadius: 12,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    justifyContent: 'flex-end',
   },
   fabButton: {
     width: 50,

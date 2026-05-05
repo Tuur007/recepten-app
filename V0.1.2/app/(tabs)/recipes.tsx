@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react'
 import {
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -72,119 +71,111 @@ export default function RecipesScreen() {
   return (
     <ErrorBoundary>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <View style={styles.header}>
-          <Text style={typography.hero32Bold}>
-            📖 Recepten
-          </Text>
-          {filteredRecipes.length > 0 && (
-            <Text style={[typography.caption14, { color: colors.textLight }]}>
-              {filteredRecipes.length} recept{filteredRecipes.length !== 1 ? 'en' : ''}
-            </Text>
-          )}
-        </View>
-
-        <ScrollView
-          scrollEnabled={false}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <View style={styles.searchSection}>
-            <View style={styles.searchInput}>
-              <Ionicons name="search" size={18} color={colors.textSecondary} />
-              <TextInput
-                style={styles.searchTextInput}
-                placeholder="Zoek recepten..."
-                placeholderTextColor={colors.textSecondary}
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-              />
-              {searchTerm && (
-                <TouchableOpacity onPress={() => setSearchTerm('')} hitSlop={10}>
-                  <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {categories.length > 0 && (
-            <View style={styles.categoriesSection}>
-              <Text style={[typography.caption14Medium, { color: colors.textSecondary }]}>
-                FILTER
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoriesList}
-              >
-                {categories.map((cat) => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[
-                      styles.categoryTag,
-                      selectedCategory === cat && styles.categoryTagActive,
-                    ]}
-                    onPress={() => handleCategorySelect(cat)}
-                  >
-                    {cat === 'Favorieten' ? (
-                      <View style={styles.categoryTagContent}>
-                        <Ionicons
-                          name="heart"
-                          size={14}
-                          color={selectedCategory === cat ? colors.white : colors.error}
-                        />
-                        <Text
-                          style={[
-                            typography.caption14,
-                            {
-                              color:
-                                selectedCategory === cat
-                                  ? colors.white
-                                  : colors.textSecondary,
-                            },
-                          ]}
-                        >
-                          {cat}
-                        </Text>
-                      </View>
-                    ) : (
-                      <Text
-                        style={[
-                          typography.caption14,
-                          {
-                            color:
-                              selectedCategory === cat
-                                ? colors.white
-                                : colors.textSecondary,
-                          },
-                        ]}
-                      >
-                        {cat}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {filteredRecipes.length > 0 ? (
-            <FlatList
-              scrollEnabled={false}
-              data={filteredRecipes}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <RecipeCard
-                  recipe={item}
-                  onPress={() => router.push(`/recipes/${item.id}`)}
-                  onToggleFavorite={(newFavorite) =>
-                    update(item.id, { isFavorite: newFavorite })
-                  }
-                />
-              )}
-              contentContainerStyle={styles.recipesList}
-              gap={spacing.md}
+        <FlatList
+          data={filteredRecipes}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <RecipeCard
+              recipe={item}
+              onPress={() => router.push(`/recipes/${item.id}`)}
+              onToggleFavorite={(newFavorite) =>
+                update(item.id, { isFavorite: newFavorite })
+              }
             />
-          ) : (
+          )}
+          ListHeaderComponent={
+            <>
+              <View style={styles.header}>
+                <Text style={typography.hero32Bold}>📖 Recepten</Text>
+                {filteredRecipes.length > 0 && (
+                  <Text style={[typography.caption14, { color: colors.textLight }]}>
+                    {filteredRecipes.length} recept{filteredRecipes.length !== 1 ? 'en' : ''}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.searchSection}>
+                <View style={styles.searchInput}>
+                  <Ionicons name="search" size={18} color={colors.textSecondary} />
+                  <TextInput
+                    style={styles.searchTextInput}
+                    placeholder="Zoek recepten..."
+                    placeholderTextColor={colors.textSecondary}
+                    value={searchTerm}
+                    onChangeText={setSearchTerm}
+                  />
+                  {searchTerm && (
+                    <TouchableOpacity onPress={() => setSearchTerm('')} hitSlop={10}>
+                      <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              {categories.length > 0 && (
+                <View style={styles.categoriesSection}>
+                  <Text style={[typography.caption14Medium, { color: colors.textSecondary }]}>
+                    FILTER
+                  </Text>
+                  <FlatList
+                    horizontal
+                    scrollEnabled
+                    showsHorizontalScrollIndicator={false}
+                    data={categories}
+                    keyExtractor={(cat) => cat}
+                    renderItem={({ item: cat }) => (
+                      <TouchableOpacity
+                        style={[
+                          styles.categoryTag,
+                          selectedCategory === cat && styles.categoryTagActive,
+                        ]}
+                        onPress={() => handleCategorySelect(cat)}
+                      >
+                        {cat === 'Favorieten' ? (
+                          <View style={styles.categoryTagContent}>
+                            <Ionicons
+                              name="heart"
+                              size={14}
+                              color={selectedCategory === cat ? colors.white : colors.error}
+                            />
+                            <Text
+                              style={[
+                                typography.caption14,
+                                {
+                                  color:
+                                    selectedCategory === cat
+                                      ? colors.white
+                                      : colors.textSecondary,
+                                },
+                              ]}
+                            >
+                              {cat}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text
+                            style={[
+                              typography.caption14,
+                              {
+                                color:
+                                  selectedCategory === cat
+                                    ? colors.white
+                                    : colors.textSecondary,
+                                },
+                            ]}
+                          >
+                            {cat}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                    contentContainerStyle={styles.categoriesList}
+                  />
+                </View>
+              )}
+            </>
+          }
+          ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <EmptyState
                 icon="📖"
@@ -196,8 +187,10 @@ export default function RecipesScreen() {
                 }
               />
             </View>
-          )}
-        </ScrollView>
+          }
+          contentContainerStyle={styles.recipesList}
+          showsVerticalScrollIndicator={false}
+        />
       </SafeAreaView>
     </ErrorBoundary>
   )
@@ -216,13 +209,9 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
 
-  scrollContent: {
+  searchSection: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-  },
-
-  searchSection: {
-    marginBottom: spacing.lg,
   },
 
   searchInput: {
@@ -245,7 +234,8 @@ const styles = StyleSheet.create({
   },
 
   categoriesSection: {
-    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
     gap: spacing.sm,
   },
 
@@ -276,7 +266,8 @@ const styles = StyleSheet.create({
 
   recipesList: {
     gap: spacing.md,
-    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
 
   emptyContainer: {

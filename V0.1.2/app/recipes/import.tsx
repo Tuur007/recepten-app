@@ -123,16 +123,73 @@ export default function ImportRecipeScreen() {
   if (step === 'url') {
     return (
       <View style={styles.container}>
-        <SafeAreaView edges={['top']} style={styles.headerSafe}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-              <Ionicons name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Importeer recept</Text>
-            <View style={{ width: 32 }} />
-          </View>
-        </SafeAreaView>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
+            <Ionicons name="close" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Importeer recept</Text>
+          <View style={{ width: 32 }} />
+        </View>
 
+        <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1 }}
+          >
+            <ScrollView
+              contentContainerStyle={styles.content}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.urlCard}>
+                <Ionicons name="link-outline" size={36} color={colors.primary} style={styles.urlIcon} />
+                <Text style={styles.urlHint}>
+                  Plak een link van een receptenwebsite, zoals Dagelijkse Kost, Marley Spoon of een andere kooksite.
+                </Text>
+
+                <AppTextInput
+                  label="Recept URL"
+                  value={url}
+                  onChangeText={setUrl}
+                  placeholder="https://..."
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                />
+
+                {fetchError ? (
+                  <View style={styles.errorBox}>
+                    <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+                    <Text style={styles.errorText}>{fetchError}</Text>
+                  </View>
+                ) : null}
+
+                {fetching ? (
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator color={colors.primary} />
+                    <Text style={styles.loadingText}>Recept ophalen…</Text>
+                  </View>
+                ) : (
+                  <Button label="Importeer" onPress={handleFetch} />
+                )}
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => setStep('url')} hitSlop={8}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Recept bewerken</Text>
+        <Button label="Opslaan" onPress={handleSave} loading={saving} />
+      </View>
+
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
@@ -141,139 +198,77 @@ export default function ImportRecipeScreen() {
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={styles.urlCard}>
-              <Ionicons name="link-outline" size={36} color={colors.primary} style={styles.urlIcon} />
-              <Text style={styles.urlHint}>
-                Plak een link van een receptenwebsite, zoals Dagelijkse Kost, Marley Spoon of een andere kooksite.
-              </Text>
+            {parsedSourceUrl.current ? (
+              <View style={styles.sourceBadge}>
+                <Ionicons name="link-outline" size={13} color={colors.primary} />
+                <Text style={styles.sourceText} numberOfLines={1}>
+                  {parsedSourceUrl.current}
+                </Text>
+              </View>
+            ) : null}
 
-              <AppTextInput
-                label="Recept URL"
-                value={url}
-                onChangeText={setUrl}
-                placeholder="https://..."
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-              />
+            <AppTextInput
+              label="Titel"
+              value={form.title}
+              onChangeText={form.setTitle}
+              placeholder="Recepttitel"
+            />
 
-              {fetchError ? (
-                <View style={styles.errorBox}>
-                  <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
-                  <Text style={styles.errorText}>{fetchError}</Text>
-                </View>
-              ) : null}
+            <CategoryPicker value={form.category} onChange={form.setCategory} />
 
-              {fetching ? (
-                <View style={styles.loadingRow}>
-                  <ActivityIndicator color={colors.primary} />
-                  <Text style={styles.loadingText}>Recept ophalen…</Text>
-                </View>
-              ) : (
-                <Button label="Importeer" onPress={handleFetch} />
-              )}
+            <AppTextInput
+              label="Kooktijd (minuten)"
+              value={form.duration?.toString() ?? ''}
+              onChangeText={(text) => form.setDuration(text ? parseInt(text, 10) : undefined)}
+              placeholder="30"
+              keyboardType="number-pad"
+            />
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Ingrediënten</Text>
+              <View style={styles.sectionContent}>
+                {form.ingredients.map((ing, index) => (
+                  <IngredientInput
+                    key={ing.id}
+                    ingredient={ing}
+                    onChange={(updated) => form.updateIngredient(index, updated)}
+                    onRemove={() => form.removeIngredient(index)}
+                  />
+                ))}
+                <TouchableOpacity style={styles.addRowBtn} onPress={form.addIngredient}>
+                  <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+                  <Text style={styles.addRowBtnText}>Ingrediënt toevoegen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Stappen</Text>
+              <View style={styles.sectionContent}>
+                {form.steps.map((step, index) => (
+                  <StepInput
+                    key={index}
+                    index={index}
+                    value={step}
+                    onChange={(text) => form.updateStep(index, text)}
+                    onRemove={() => form.removeStep(index)}
+                  />
+                ))}
+                <TouchableOpacity style={styles.addRowBtn} onPress={form.addStep}>
+                  <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+                  <Text style={styles.addRowBtnText}>Stap toevoegen</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-
-        <SafeAreaView edges={['bottom']} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setStep('url')} hitSlop={8}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Recept bewerken</Text>
-          <Button label="Opslaan" onPress={handleSave} loading={saving} />
-        </View>
       </SafeAreaView>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-        >
-          {parsedSourceUrl.current ? (
-            <View style={styles.sourceBadge}>
-              <Ionicons name="link-outline" size={13} color={colors.primary} />
-              <Text style={styles.sourceText} numberOfLines={1}>
-                {parsedSourceUrl.current}
-              </Text>
-            </View>
-          ) : null}
-
-          <AppTextInput
-            label="Titel"
-            value={form.title}
-            onChangeText={form.setTitle}
-            placeholder="Recepttitel"
-          />
-
-          <CategoryPicker value={form.category} onChange={form.setCategory} />
-
-          <AppTextInput
-            label="Kooktijd (minuten)"
-            value={form.duration?.toString() ?? ''}
-            onChangeText={(text) => form.setDuration(text ? parseInt(text, 10) : undefined)}
-            placeholder="30"
-            keyboardType="number-pad"
-          />
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ingrediënten</Text>
-            <View style={styles.sectionContent}>
-              {form.ingredients.map((ing, index) => (
-                <IngredientInput
-                  key={ing.id}
-                  ingredient={ing}
-                  onChange={(updated) => form.updateIngredient(index, updated)}
-                  onRemove={() => form.removeIngredient(index)}
-                />
-              ))}
-              <TouchableOpacity style={styles.addRowBtn} onPress={form.addIngredient}>
-                <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-                <Text style={styles.addRowBtnText}>Ingrediënt toevoegen</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Stappen</Text>
-            <View style={styles.sectionContent}>
-              {form.steps.map((step, index) => (
-                <StepInput
-                  key={index}
-                  index={index}
-                  value={step}
-                  onChange={(text) => form.updateStep(index, text)}
-                  onRemove={() => form.removeStep(index)}
-                />
-              ))}
-              <TouchableOpacity style={styles.addRowBtn} onPress={form.addStep}>
-                <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-                <Text style={styles.addRowBtnText}>Stap toevoegen</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      <SafeAreaView edges={['bottom']} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  headerSafe: { backgroundColor: colors.surface },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

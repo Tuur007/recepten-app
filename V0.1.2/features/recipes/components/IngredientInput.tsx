@@ -1,63 +1,93 @@
-import React from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography } from '../../../constants/Designsystem';
+import { colors } from '../../../constants/Designsystem';
 import { Ingredient } from '../../../types/recipe';
 
 interface IngredientInputProps {
   ingredient: Ingredient;
-  onChange: (updated: Ingredient) => void;
+  onChange: (ingredient: Ingredient) => void;
   onRemove: () => void;
 }
 
 export function IngredientInput({ ingredient, onChange, onRemove }: IngredientInputProps) {
+  const [focused, setFocused] = useState<'name' | 'quantity' | 'unit' | null>(null);
+
   return (
     <View style={styles.row}>
       <TextInput
-        style={[styles.input, styles.quantityInput]}
-        value={ingredient.quantity > 0 ? String(ingredient.quantity) : ''}
-        onChangeText={(text) => onChange({ ...ingredient, quantity: parseFloat(text) || 0 })}
-        placeholder="Hv."
-        placeholderTextColor={colors.textSecondary}
-        keyboardType="decimal-pad"
-      />
-      <TextInput
-        style={[styles.input, styles.unitInput]}
-        value={ingredient.unit}
-        onChangeText={(text) => onChange({ ...ingredient, unit: text })}
-        placeholder="Eenheid"
-        placeholderTextColor={colors.textSecondary}
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={[styles.input, styles.nameInput]}
+        style={[styles.input, styles.nameInput, focused === 'name' && styles.inputFocused]}
+        placeholder="Ingrediënt"
         value={ingredient.name}
-        onChangeText={(text) => onChange({ ...ingredient, name: text })}
-        placeholder="Ingrediëntnaam"
+        onChangeText={(name) => onChange({ ...ingredient, name })}
+        onFocus={() => setFocused('name')}
+        onBlur={() => setFocused(null)}
         placeholderTextColor={colors.textSecondary}
       />
-      <TouchableOpacity onPress={onRemove} hitSlop={8} style={styles.removeBtn}>
-        <Ionicons name="close-circle" size={20} color={colors.danger} />
+      <TextInput
+        style={[styles.input, styles.quantityInput, focused === 'quantity' && styles.inputFocused]}
+        placeholder="Hoeveelheid"
+        value={ingredient.quantity?.toString() ?? ''}
+        onChangeText={(text) =>
+          onChange({ ...ingredient, quantity: text ? parseFloat(text) : undefined })
+        }
+        onFocus={() => setFocused('quantity')}
+        onBlur={() => setFocused(null)}
+        keyboardType="decimal-pad"
+        placeholderTextColor={colors.textSecondary}
+      />
+      <TextInput
+        style={[styles.input, styles.unitInput, focused === 'unit' && styles.inputFocused]}
+        placeholder="Eenheid"
+        value={ingredient.unit}
+        onChangeText={(unit) => onChange({ ...ingredient, unit })}
+        onFocus={() => setFocused('unit')}
+        onBlur={() => setFocused(null)}
+        placeholderTextColor={colors.textSecondary}
+      />
+      <TouchableOpacity onPress={onRemove} hitSlop={10} style={styles.removeBtn}>
+        <Ionicons name="close-circle" size={20} color={colors.error} />
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  input: {
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 9,
-    fontSize: 14,
-    color: colors.text,
-    minHeight: 42,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  quantityInput: { width: 56 },
-  unitInput: { width: 76 },
-  nameInput: { flex: 1 },
-  removeBtn: { padding: 2 },
+  input: {
+    fontSize: 13,
+    color: colors.text,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  inputFocused: {
+    color: colors.text,
+  },
+  nameInput: {
+    flex: 2,
+  },
+  quantityInput: {
+    flex: 1,
+  },
+  unitInput: {
+    flex: 1,
+  },
+  removeBtn: {
+    padding: 4,
+  },
 });

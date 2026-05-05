@@ -23,7 +23,7 @@ import { StepInput } from '../../features/recipes/components/StepInput';
 import { CategoryPicker } from '../../features/recipes/components/CategoryPicker';
 import { AppTextInput } from '../../components/ui/AppTextInput';
 import { Button } from '../../components/ui/Button';
-import { colors, spacing, typography, shadows } from '../../constants/Designsystem';
+import { colors } from '../../constants/Designsystem';
 import { generateId } from '../../utils/id';
 
 export default function ImportRecipeScreen() {
@@ -124,7 +124,7 @@ export default function ImportRecipeScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} hitSlop={8}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Importeer recept</Text>
@@ -277,7 +277,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
   content: { padding: 16, gap: 20, paddingBottom: 40 },
-
   urlCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,
@@ -293,7 +292,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -303,7 +301,6 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   errorText: { fontSize: 13, color: colors.danger, flex: 1 },
-
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -312,7 +309,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   loadingText: { fontSize: 14, color: colors.textSecondary },
-
   sourceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -325,7 +321,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   sourceText: { fontSize: 12, color: colors.primary, flex: 1 },
-
   section: { gap: 10 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   sectionContent: { gap: 8 },

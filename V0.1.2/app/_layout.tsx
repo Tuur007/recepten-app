@@ -1,11 +1,18 @@
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { Stack } from 'expo-router';
 import { SQLiteProvider } from 'expo-sqlite';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initializeDatabase } from '../database';
 import { LoadingScreen } from '../components/LoadingScreen';
+import { SplashScreen } from '../components/SplashScreen';
 
 export default function RootLayout() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Suspense fallback={<LoadingScreen message="Opening database…" />}>

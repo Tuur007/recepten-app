@@ -4,7 +4,7 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { initializeDatabase } from '../database';
 import { LoadingScreen } from '../components/LoadingScreen';
-import { SplashScreen } from '../components/SplashScreen';
+import { SplashScreen } from '../components/Splashscreen';
 
 export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);

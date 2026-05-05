@@ -6,7 +6,7 @@ import {
   View,
   TouchableOpacity,
   FlatList,
-  Dimensions,
+  TextInput,
 } from 'react-native'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -25,8 +25,6 @@ import {
   shadows,
 } from '../../constants/Designsystem'
 
-const { width } = Dimensions.get('window')
-
 export default function RecipesScreen() {
   const router = useRouter()
   const { filter } = useLocalSearchParams()
@@ -38,17 +36,16 @@ export default function RecipesScreen() {
 
   const categories = useMemo(() => {
     const cats = new Set(recipes.map((r) => r.category).filter(Boolean))
-    return Array.from(cats).sort()
+    const catArray = Array.from(cats).sort()
+    return ['Favorieten', ...catArray]
   }, [recipes])
 
   const filteredRecipes = useMemo(() => {
     let filtered = recipes
 
-    if (isFavoritesMode) {
+    if (selectedCategory === 'Favorieten') {
       filtered = filtered.filter((r) => r.isFavorite)
-    }
-
-    if (selectedCategory) {
+    } else if (selectedCategory) {
       filtered = filtered.filter((r) => r.category === selectedCategory)
     }
 
@@ -65,7 +62,7 @@ export default function RecipesScreen() {
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
       return dateB - dateA
     })
-  }, [recipes, isFavoritesMode, selectedCategory, searchTerm])
+  }, [recipes, selectedCategory, searchTerm])
 
   const handleCategorySelect = useCallback((category: string) => {
     setSelectedCategory(selectedCategory === category ? null : category)
@@ -97,24 +94,25 @@ export default function RecipesScreen() {
           <View style={styles.searchSection}>
             <View style={styles.searchInput}>
               <Ionicons name="search" size={18} color={colors.textSecondary} />
-              <Text
-                onPress={() => setSearchTerm('')}
-                style={styles.searchPlaceholder}
-              >
-                {searchTerm || 'Zoek recepten...'}
-              </Text>
+              <TextInput
+                style={styles.searchTextInput}
+                placeholder="Zoek recepten..."
+                placeholderTextColor={colors.textSecondary}
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+              />
               {searchTerm && (
-                <TouchableOpacity onPress={() => setSearchTerm('')}>
+                <TouchableOpacity onPress={() => setSearchTerm('')} hitSlop={10}>
                   <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
               )}
             </View>
           </View>
 
-          {!isFavoritesMode && categories.length > 0 && (
+          {categories.length > 0 && (
             <View style={styles.categoriesSection}>
               <Text style={[typography.caption14Medium, { color: colors.textSecondary }]}>
-                CATEGORIEËN
+                FILTER
               </Text>
               <ScrollView
                 horizontal
@@ -130,19 +128,42 @@ export default function RecipesScreen() {
                     ]}
                     onPress={() => handleCategorySelect(cat)}
                   >
-                    <Text
-                      style={[
-                        typography.caption14,
-                        {
-                          color:
-                            selectedCategory === cat
-                              ? colors.white
-                              : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {cat}
-                    </Text>
+                    {cat === 'Favorieten' ? (
+                      <View style={styles.categoryTagContent}>
+                        <Ionicons
+                          name="heart"
+                          size={14}
+                          color={selectedCategory === cat ? colors.white : colors.error}
+                        />
+                        <Text
+                          style={[
+                            typography.caption14,
+                            {
+                              color:
+                                selectedCategory === cat
+                                  ? colors.white
+                                  : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {cat}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text
+                        style={[
+                          typography.caption14,
+                          {
+                            color:
+                              selectedCategory === cat
+                                ? colors.white
+                                : colors.textSecondary,
+                          },
+                        ]}
+                      >
+                        {cat}
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -227,6 +248,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
+  searchTextInput: {
+    flex: 1,
+    ...typography.caption14,
+    color: colors.text,
+    paddingVertical: 0,
+  },
+
   categoriesSection: {
     marginBottom: spacing.lg,
     gap: spacing.sm,
@@ -249,6 +277,12 @@ const styles = StyleSheet.create({
   categoryTagActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+
+  categoryTagContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
 
   recipesList: {

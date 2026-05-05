@@ -1,3 +1,14 @@
+/**
+ * 🎨 HOME SCREEN (DASHBOARD)
+ * FILE: app/(tabs)/home.tsx
+ * 
+ * CHANGES:
+ * - Removed FAB button (moved to recipes tab)
+ * - Removed quick actions buttons
+ * - Simplified to pure dashboard with stats only
+ * - No "Snelle acties" section
+ */
+
 import React, { useMemo } from 'react'
 import {
   ScrollView,
@@ -37,6 +48,8 @@ export default function HomeScreen() {
   const { recipes, isLoading, update } = useRecipes()
   const groceryItems = useGroceryStore((state) => state.items)
 
+  // ====== STATISTICS ======
+
   const stats = useMemo(() => {
     const now = new Date()
     const thisWeekStart = new Date(now)
@@ -63,6 +76,8 @@ export default function HomeScreen() {
     }
   }, [recipes, groceryItems])
 
+  // ====== RECENT RECIPES ======
+
   const recentRecipes = useMemo(() => {
     return recipes
       .sort((a, b) => {
@@ -72,6 +87,8 @@ export default function HomeScreen() {
       })
       .slice(0, 4)
   }, [recipes])
+
+  // ====== GREETING ======
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours()
@@ -91,6 +108,7 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
+          {/* ====== GREETING ====== */}
           <View style={styles.greeting}>
             <Text style={typography.hero32Bold}>
               {greeting}
@@ -105,6 +123,7 @@ export default function HomeScreen() {
             </Text>
           </View>
 
+          {/* ====== STATISTICS CARDS ====== */}
           <View style={styles.section}>
             <Text style={typography.title20}>Deze week</Text>
 
@@ -147,6 +166,7 @@ export default function HomeScreen() {
             </View>
           </View>
 
+          {/* ====== RECENT RECIPES ====== */}
           {recentRecipes.length > 0 ? (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -183,18 +203,14 @@ export default function HomeScreen() {
             />
           )}
         </ScrollView>
-
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => router.push('/recipes/new')}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="add" size={28} color={colors.white} />
-        </TouchableOpacity>
       </SafeAreaView>
     </ErrorBoundary>
   )
 }
+
+// ============================================================================
+// STAT CARD COMPONENT
+// ============================================================================
 
 interface StatCardProps {
   icon: string
@@ -230,6 +246,10 @@ function StatCard({
     </View>
   )
 }
+
+// ============================================================================
+// STYLES
+// ============================================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -298,21 +318,5 @@ const styles = StyleSheet.create({
 
   recipeList: {
     gap: spacing.md,
-  },
-
-  fab: {
-    position: 'absolute',
-    bottom:
-      Platform.OS === 'android'
-        ? spacing.lg + 10
-        : spacing.lg + 20,
-    right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.xl,
   },
 })

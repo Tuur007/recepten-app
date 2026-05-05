@@ -90,35 +90,57 @@ export default function ImportRecipeScreen() {
   };
 
   const handleSave = async () => {
-    if (!form.title.trim()) {
-      Alert.alert('Titel ontbreekt', 'Voer een recepttitel in.');
+  const titleTrimmed = form.title.trim();
+  
+  if (!titleTrimmed) {
+    Alert.alert('Titel ontbreekt', 'Voer een recepttitel in.');
+    return;
+  }
+ 
+  if (recipeExists(titleTrimmed, parsedSourceUrl.current)) {
+    Alert.alert('Recept bestaat al', 'Dit recept is al in je verzameling opgeslagen.');
+    return;
+  }
+ 
+  if (form.validIngredients.length === 0) {
+    Alert.alert('Ingrediënten ontbreken', 'Zorg dat je minstens 1 ingrediënt hebt.');
+    return;
+  }
+ 
+  if (form.validSteps.length === 0) {
+    Alert.alert('Stappen ontbreken', 'Zorg dat je minstens 1 stap hebt.');
+    return;
+  }
+ 
+  setSaving(true);
+  try {
+    const recipe = await create({
+      title: titleTrimmed,
+      category: form.category,
+      isFavorite: false,
+      ingredients: form.validIngredients,
+      steps: form.validSteps,
+      imageUri: form.imageUri,
+      duration: form.duration,
+      sourceUrl: parsedSourceUrl.current || undefined,
+    });
+ 
+    if (!recipe?.id) {
+      Alert.alert('Fout', 'Recept kon niet worden aangemaakt.');
       return;
     }
-
-    if (recipeExists(form.title.trim(), parsedSourceUrl.current)) {
-      Alert.alert('Recept bestaat al', 'Dit recept is al in je verzameling opgeslagen.');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await create({
-        title: form.title.trim(),
-        category: form.category,
-        isFavorite: false,
-        ingredients: form.validIngredients,
-        steps: form.validSteps,
-        imageUri: form.imageUri,
-        duration: form.duration,
-        sourceUrl: parsedSourceUrl.current || undefined,
-      });
-      router.back();
-    } catch {
-      Alert.alert('Fout', 'Kon recept niet opslaan. Probeer opnieuw.');
-    } finally {
-      setSaving(false);
-    }
-  };
+ 
+    Alert.alert('Succes!', 'Recept geïmporteerd.', [
+      { text: 'OK', onPress: () => router.back() },
+    ]);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Kon recept niet opslaan';
+    Alert.alert('Fout', errorMsg);
+    console.error('[ImportRecipeScreen] Save error:', error);
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (step === 'url') {
     return (

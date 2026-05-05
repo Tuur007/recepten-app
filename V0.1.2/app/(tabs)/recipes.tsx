@@ -15,7 +15,6 @@ import { RecipeCard } from '../../features/recipes/components/RecipeCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingScreen } from '../../components/LoadingScreen'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
-
 import {
   colors,
   spacing,
@@ -67,105 +66,6 @@ export default function RecipesScreen() {
     return <LoadingScreen />
   }
 
-  const renderHeader = () => (
-    <>
-      <View style={styles.header}>
-        <Text style={typography.hero32Bold}>📖 Recepten</Text>
-        {filteredRecipes.length > 0 && (
-          <Text style={[typography.caption14, { color: colors.textLight }]}>
-            {filteredRecipes.length} recept{filteredRecipes.length !== 1 ? 'en' : ''}
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.searchSection}>
-        <View style={styles.searchInput}>
-          <Ionicons name="search" size={18} color={colors.textSecondary} />
-          <TextInput
-            style={styles.searchTextInput}
-            placeholder="Zoek recepten..."
-            placeholderTextColor={colors.textSecondary}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-          {searchTerm ? (
-            <TouchableOpacity onPress={() => setSearchTerm('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </View>
-
-      {categories.length > 0 && (
-        <View style={styles.categoriesSection}>
-          <Text style={[typography.caption14Medium, { color: colors.textSecondary }]}>
-            FILTER
-          </Text>
-          <FlatList
-            horizontal
-            scrollEnabled={true}
-            showsHorizontalScrollIndicator={false}
-            data={categories}
-            keyExtractor={(cat) => cat}
-            renderItem={({ item: cat }) => (
-              <TouchableOpacity
-                style={[
-                  styles.categoryTag,
-                  selectedCategory === cat && styles.categoryTagActive,
-                ]}
-                onPress={() => handleCategorySelect(cat)}
-              >
-                {cat === 'Favorieten' ? (
-                  <View style={styles.categoryTagContent}>
-                    <Ionicons
-                      name="heart"
-                      size={14}
-                      color={selectedCategory === cat ? colors.white : colors.error}
-                    />
-                    <Text
-                      style={[
-                        typography.caption14,
-                        {
-                          color: selectedCategory === cat ? colors.white : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {cat}
-                    </Text>
-                  </View>
-                ) : (
-                  <Text
-                    style={[
-                      typography.caption14,
-                      {
-                        color: selectedCategory === cat ? colors.white : colors.textSecondary,
-                      },
-                    ]}
-                  >
-                    {cat}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
-            contentContainerStyle={styles.categoriesList}
-          />
-        </View>
-      )}
-    </>
-  )
-
-  const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-      <EmptyState
-        icon="📖"
-        title="Geen recepten"
-        description={
-          searchTerm || selectedCategory ? 'Geen recepten gevonden' : 'Voeg je eerste recept toe'
-        }
-      />
-    </View>
-  )
-
   return (
     <ErrorBoundary>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -176,11 +76,119 @@ export default function RecipesScreen() {
             <RecipeCard
               recipe={item}
               onPress={() => router.push(`/recipes/${item.id}`)}
-              onToggleFavorite={(newFavorite) => update(item.id, { isFavorite: newFavorite })}
+              onToggleFavorite={(newFavorite) =>
+                update(item.id, { isFavorite: newFavorite })
+              }
             />
           )}
-          ListHeaderComponent={renderHeader}
-          ListEmptyComponent={renderEmpty}
+          ListHeaderComponent={
+            <>
+              <View style={styles.header}>
+                <Text style={typography.hero32Bold}>📖 Recepten</Text>
+                {filteredRecipes.length > 0 && (
+                  <Text style={[typography.caption14, { color: colors.textLight }]}>
+                    {filteredRecipes.length} recept{filteredRecipes.length !== 1 ? 'en' : ''}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.searchSection}>
+                <View style={styles.searchInput}>
+                  <Ionicons name="search" size={18} color={colors.textSecondary} />
+                  <TextInput
+                    style={styles.searchTextInput}
+                    placeholder="Zoek recepten..."
+                    placeholderTextColor={colors.textSecondary}
+                    value={searchTerm}
+                    onChangeText={setSearchTerm}
+                  />
+                  {searchTerm && (
+                    <TouchableOpacity
+                      onPress={() => setSearchTerm('')}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              {categories.length > 0 && (
+                <View style={styles.categoriesSection}>
+                  <Text style={[typography.caption14Medium, { color: colors.textSecondary }]}>
+                    FILTER
+                  </Text>
+                  <FlatList
+                    horizontal
+                    scrollEnabled
+                    showsHorizontalScrollIndicator={false}
+                    data={categories}
+                    keyExtractor={(cat) => cat}
+                    renderItem={({ item: cat }) => (
+                      <TouchableOpacity
+                        style={[
+                          styles.categoryTag,
+                          selectedCategory === cat && styles.categoryTagActive,
+                        ]}
+                        onPress={() => handleCategorySelect(cat)}
+                      >
+                        {cat === 'Favorieten' ? (
+                          <View style={styles.categoryTagContent}>
+                            <Ionicons
+                              name="heart"
+                              size={14}
+                              color={selectedCategory === cat ? colors.white : colors.error}
+                            />
+                            <Text
+                              style={[
+                                typography.caption14,
+                                {
+                                  color:
+                                    selectedCategory === cat
+                                      ? colors.white
+                                      : colors.textSecondary,
+                                },
+                              ]}
+                            >
+                              {cat}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text
+                            style={[
+                              typography.caption14,
+                              {
+                                color:
+                                  selectedCategory === cat
+                                    ? colors.white
+                                    : colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            {cat}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                    contentContainerStyle={styles.categoriesList}
+                  />
+                </View>
+              )}
+            </>
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <EmptyState
+                icon="📖"
+                title="Geen recepten"
+                description={
+                  searchTerm || selectedCategory
+                    ? 'Geen recepten gevonden'
+                    : 'Voeg je eerste recept toe'
+                }
+              />
+            </View>
+          }
           contentContainerStyle={styles.recipesList}
           showsVerticalScrollIndicator={false}
         />
@@ -194,19 +202,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-
   header: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-
   searchSection: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
-
   searchInput: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -218,25 +223,21 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     gap: spacing.sm,
   },
-
   searchTextInput: {
     flex: 1,
-    ...typography.caption14,
     color: colors.text,
     paddingVertical: 0,
+    fontSize: 14,
   },
-
   categoriesSection: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.lg,
     gap: spacing.sm,
   },
-
   categoriesList: {
     gap: spacing.sm,
     paddingRight: spacing.md,
   },
-
   categoryTag: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -245,24 +246,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-
   categoryTagActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-
   categoryTagContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
   },
-
   recipesList: {
     gap: spacing.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
-
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',

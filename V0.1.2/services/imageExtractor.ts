@@ -25,11 +25,14 @@ export async function extractImageFromUrl(url: string): Promise<string | undefin
 
     const html = await response.text();
     const candidates = extractImageCandidates(html, url);
-
     if (candidates.length === 0) return undefined;
 
-    const best = candidates.sort((a, b) => b.score - a.score)[0];
-    return await downloadImage(best.url);
+    const sorted = candidates.sort((a, b) => b.score - a.score);
+    for (const candidate of sorted) {
+      const result = await downloadImage(candidate.url);
+      if (result) return result;
+    }
+    return undefined;
   } catch {
     return undefined;
   }
@@ -41,7 +44,7 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
   const addCandidate = (rawUrl: string, score: number, extra?: Partial<ImageCandidate>) => {
     const url = normalizeUrl(rawUrl, baseUrl);
     if (!isValidImageUrl(url)) return;
-    const key = url.split('?')[0];
+    const key = canonicalKey(url);
     if (!candidates.has(key)) {
       candidates.set(key, { url, score, ...extra });
     }
@@ -76,10 +79,9 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   let match: RegExpExecArray | null;
   while ((match = imgRegex.exec(html)) !== null) {
-    const rawUrl = match[1];
-    const url = normalizeUrl(rawUrl, baseUrl);
+    const url = normalizeUrl(match[1], baseUrl);
     if (!isValidImageUrl(url)) continue;
-    const key = url.split('?')[0];
+    const key = canonicalKey(url);
     if (candidates.has(key)) continue;
 
     const size = extractImageSize(match[0]);
@@ -125,11 +127,15 @@ function extractJsonLdImages(data: unknown): string[] {
 }
 
 function normalizeUrl(url: string, baseUrl: string): string {
-  url = url.trim().replace(/['"]/g, '');
+  url = url.trim().replace(/^["']|["']$/g, '');
   if (url.startsWith('//')) return 'https:' + url;
   if (url.startsWith('/')) {
-    const base = new URL(baseUrl);
-    return base.origin + url;
+    try {
+      const base = new URL(baseUrl);
+      return base.origin + url;
+    } catch {
+      return url;
+    }
   }
   if (url.startsWith('http')) return url;
   try {
@@ -139,19 +145,31 @@ function normalizeUrl(url: string, baseUrl: string): string {
   }
 }
 
+// Stable dedup key — strip query params but keep path intact
+function canonicalKey(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.origin + u.pathname;
+  } catch {
+    return url.split('?')[0];
+  }
+}
+
 function isValidImageUrl(url: string): boolean {
   if (!url) return false;
   const lower = url.toLowerCase();
   if (lower.includes('javascript:') || lower.startsWith('data:')) return false;
 
-  // Known image extensions
-  if (/\.(jpg|jpeg|png|webp|gif|avif|bmp|tiff?)(\?|$)/i.test(url)) return true;
+  // Known image extensions anywhere in path (before query string)
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    if (/\.(jpg|jpeg|png|webp|gif|avif|bmp)$/.test(pathname)) return true;
+  } catch {
+    if (/\.(jpg|jpeg|png|webp|gif|avif|bmp)(\?|$)/i.test(url)) return true;
+  }
 
-  // Extensionless but clearly an image by path pattern
-  if (/\/(?:photos?|images?|imgs?|pictures?|fotos?|media)s?\//i.test(url)) return true;
-
-  // Known image CDN hostnames (extensionless URLs are normal here)
-  const imageCdnHosts = [
+  // Known image CDN hostnames
+  const imageCdnHosts = new Set([
     'recipe-service.prod.cloud.jumbo.com',
     'images.ctfassets.net',
     'res.cloudinary.com',
@@ -160,21 +178,22 @@ function isValidImageUrl(url: string): boolean {
     'images.squarespace-cdn.com',
     'i.imgur.com',
     'static.ah.nl',
-    'images.immediate.co.uk',
     'cdn.ah.nl',
-    'assets.jumbo.com',
+    'images.immediate.co.uk',
     'img.youtube.com',
     'i.ytimg.com',
-  ];
+    'assets.jumbo.com',
+  ]);
 
   try {
     const { hostname } = new URL(url);
-    if (imageCdnHosts.includes(hostname)) return true;
-    // Generic CDN subdomain patterns: img.*, images.*, cdn.*, media.*, photos.*
+    if (imageCdnHosts.has(hostname)) return true;
     if (/^(?:img|images?|cdn|media|photos?|static|assets)\./i.test(hostname)) return true;
   } catch {
     return false;
   }
+
+  if (/\/(?:photos?|images?|imgs?|pictures?|fotos?|media)s?\//i.test(url)) return true;
 
   return false;
 }
@@ -191,19 +210,27 @@ function extractImageSize(imgTag: string): { width?: number; height?: number } {
 async function downloadImage(imageUrl: string): Promise<string | undefined> {
   if (!FS) return undefined;
   try {
-    // Probe Content-Type to determine correct extension
-    let ext = 'jpg';
+    // Encode special characters in the URL path (commas, spaces, etc.)
+    const safeUrl = encodeSpecialChars(imageUrl);
+
+    // Probe content-type with a small GET request (HEAD often blocked by CDNs)
+    let ext = guessExtFromUrl(imageUrl);
     try {
-      const head = await fetch(imageUrl, { method: 'HEAD' });
-      const ct = head.headers.get('content-type') ?? '';
+      const probe = await fetch(safeUrl, {
+        headers: {
+          Range: 'bytes=0-511',
+          'User-Agent':
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+        },
+      });
+      const ct = probe.headers.get('content-type') ?? '';
       if (ct.includes('png')) ext = 'png';
       else if (ct.includes('webp')) ext = 'webp';
       else if (ct.includes('gif')) ext = 'gif';
       else if (ct.includes('avif')) ext = 'avif';
+      else if (ct.includes('jpeg') || ct.includes('jpg')) ext = 'jpg';
     } catch {
-      // fall back to guessing from URL
-      const urlExt = imageUrl.match(/\.(jpg|jpeg|png|webp|gif|avif)/i)?.[1];
-      if (urlExt) ext = urlExt.toLowerCase() === 'jpeg' ? 'jpg' : urlExt.toLowerCase();
+      // keep guessed ext
     }
 
     const filename = `recipe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
@@ -215,12 +242,41 @@ async function downloadImage(imageUrl: string): Promise<string | undefined> {
       await FS.makeDirectoryAsync(dir, { intermediates: true });
     }
 
-    const result = await FS.downloadAsync(imageUrl, filepath);
-    if (result.status !== 200) return undefined;
+    const result = await FS.downloadAsync(safeUrl, filepath, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+      },
+    });
+
+    if (result.status !== 200) {
+      try { await FS.deleteAsync(filepath, { idempotent: true }); } catch { /* ignore */ }
+      return undefined;
+    }
 
     const fileInfo = await FS.getInfoAsync(filepath);
     return fileInfo.exists ? filepath : undefined;
   } catch {
     return undefined;
   }
+}
+
+function encodeSpecialChars(url: string): string {
+  try {
+    const u = new URL(url);
+    // Re-encode only the pathname — preserve existing valid percent-encoding
+    u.pathname = u.pathname
+      .split('/')
+      .map((segment) => encodeURIComponent(decodeURIComponent(segment)))
+      .join('/');
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+function guessExtFromUrl(url: string): string {
+  const m = url.match(/\.(jpg|jpeg|png|webp|gif|avif)/i);
+  if (!m) return 'jpg';
+  return m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase();
 }

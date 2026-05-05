@@ -27,21 +27,22 @@ export default function RootLayout() {
       <Suspense fallback={<LoadingScreen />}>
         <SQLiteProvider databaseName="recepten.db" onInit={initializeDatabase}>
           <Stack
-  screenOptions={{
-    headerStyle: { backgroundColor: colors.background },
-    headerTintColor: colors.textDark,
-    headerTitleStyle: { fontFamily: 'Fraunces_400Regular', fontSize: 17 },
-    headerShadowVisible: false,
-    contentStyle: { backgroundColor: colors.background },
-  }}
->
-  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-  <Stack.Screen name="recipes/[id]" options={{ headerShown: false }} />
-  <Stack.Screen name="recipes/search" options={{ headerShown: false }} />
-  <Stack.Screen name="recipes/new" options={{ title: 'Nieuw recept' }} />
-  <Stack.Screen name="recipes/import" options={{ title: 'Importeren' }} />
-  <Stack.Screen name="recipes/edit/[id]" options={{ headerShown: false }} />
-</Stack>
+            screenOptions={{
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.textDark,
+              headerTitleStyle: { fontFamily: 'Fraunces_400Regular', fontSize: 17 },
+              headerShadowVisible: false,
+              headerBackTitle: 'Terug',
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="recipes/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="recipes/search" options={{ headerShown: false }} />
+            <Stack.Screen name="recipes/new" options={{ title: 'Nieuw recept' }} />
+            <Stack.Screen name="recipes/import" options={{ title: 'Importeren' }} />
+            <Stack.Screen name="recipes/edit/[id]" options={{ headerShown: false }} />
+          </Stack>
         </SQLiteProvider>
       </Suspense>
     </SafeAreaProvider>

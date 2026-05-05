@@ -1,705 +1,270 @@
 /**
- * 📄 RECIPE DETAIL SCREEN
- * FILE: app/recipes/[id].tsx
- * 
- * CHANGES:
- * - In edit mode: ONLY show title and duration (cooking time)
- * - Hide ingredients editing
- * - Hide steps editing
- * - Hide category editing
- * - Hide image editing
- * - Can still VIEW ingredients and steps in read mode
- * - Can still add ingredients to grocery list
+ * 🎨 RECEPT DETAIL — magazine layout met dotted leaders + italic stappen
+ *
+ * Vervang: V0.1.2/app/recipes/[id].tsx
  */
 
-import React, { useEffect, useRef, useState } from 'react'
+import React from 'react';
 import {
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
-  Modal,
-} from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
-import { useRecipes } from '../../features/recipes/hooks'
-import { useGrocery } from '../../features/grocery/hooks'
-import { useRecipeForm } from '../../features/recipes/hooks/useRecipeForm'
-import { safeOpenUrl } from '../../utils/linking'
-import { LoadingScreen } from '../../components/LoadingScreen'
-import { AppTextInput } from '../../components/ui/AppTextInput'
-import { Button } from '../../components/ui/Button'
-import {
-  colors,
-  spacing,
-  typography,
-  shadows,
-  borderRadius,
-} from '../../constants/Designsystem'
+  TouchableOpacity,
+  ScrollView,
+  Image,
+} from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+
+import { useRecipes } from '../../features/recipes/hooks';
+import { LoadingScreen } from '../../components/LoadingScreen';
+import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
+
+const PAPER = colors.background;
 
 export default function RecipeDetailScreen() {
-  const router = useRouter()
-  const { id } = useLocalSearchParams<{ id: string }>()
-  const { getById, update, remove } = useRecipes()
-  const { addFromRecipe } = useGrocery()
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { recipes, isLoading, update } = useRecipes();
 
-  const recipe = getById(id)
+  const recipe = recipes.find((r) => r.id === id);
 
-  const [isEditing, setIsEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [addingToList, setAddingToList] = useState(false)
-  const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(
-    new Set()
-  )
-  const [deleteModalVisible, setDeleteModalVisible] = useState(false)
-
-  const allSelected =
-    recipe
-      ? selectedIngredients.size ===
-        recipe.ingredients.filter((i) => i.name.trim()).length
-      : false
-
-  // ====== FORM STATE ======
-  const form = useRecipeForm()
-  const initialised = useRef(false)
-
-  useEffect(() => {
-    if (!recipe || initialised.current) return
-    initialised.current = true
-    form.reset({
-      title: recipe.title,
-      category: recipe.category ?? '',
-      ingredients: recipe.ingredients,
-      steps: recipe.steps,
-      imageUri: recipe.imageUri,
-      duration: recipe.duration,
-    })
-    const validIds = new Set(
-      recipe.ingredients.filter((i) => i.name.trim()).map((i) => i.id)
-    )
-    setSelectedIngredients(validIds)
-  }, [recipe?.id])
-
-  if (!recipe) return <LoadingScreen />
-
-  // ====== HANDLERS ======
-
-  const handleSave = async () => {
-    if (!form.title.trim()) {
-      Alert.alert('Titel ontbreekt', 'Voer een recepttitel in.')
-      return
-    }
-    setSaving(true)
-    try {
-      await update(id, {
-        title: form.title.trim(),
-        category: form.category,
-        ingredients: form.validIngredients,
-        steps: form.validSteps,
-        imageUri: form.imageUri,
-        duration: form.duration,
-      })
-      setIsEditing(false)
-    } catch {
-      Alert.alert('Fout', 'Kon wijzigingen niet opslaan. Probeer opnieuw.')
-    } finally {
-      setSaving(false)
-    }
+  if (isLoading) return <LoadingScreen />;
+  if (!recipe) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={[typography.bodyItalic, { textAlign: 'center', marginTop: 40 }]}>
+          Recept niet gevonden.
+        </Text>
+      </SafeAreaView>
+    );
   }
 
-  const handleAddToGroceryList = async () => {
-    const selectedForGrocery = recipe.ingredients.filter((ing) =>
-      selectedIngredients.has(ing.id)
-    )
-    if (!selectedForGrocery.length) {
-      Alert.alert('Niets geselecteerd', 'Selecteer minstens één ingrediënt.')
-      return
-    }
-    setAddingToList(true)
-    try {
-      await addFromRecipe(selectedForGrocery, recipe.id, recipe.title)
-      Alert.alert('Succes', 'Ingrediënten toegevoegd aan boodschappenlijst.')
-    } catch {
-      Alert.alert('Fout', 'Kon ingrediënten niet toevoegen.')
-    } finally {
-      setAddingToList(false)
-    }
-  }
+  const splitTitle = (title: string) => {
+    const words = title.trim().split(' ');
+    if (words.length === 1) return { lead: '', tail: title };
+    return { lead: words.slice(0, -1).join(' '), tail: words[words.length - 1] };
+  };
+  const { lead, tail } = splitTitle(recipe.title);
 
-  const handleDelete = async () => {
-    setDeleteModalVisible(false)
-    try {
-      await remove(id)
-      router.back()
-    } catch {
-      Alert.alert('Fout', 'Kon recept niet verwijderen.')
-    }
-  }
-
-  const toggleIngredient = (ingId: string) => {
-    setSelectedIngredients((prev) => {
-      const next = new Set(prev)
-      next.has(ingId) ? next.delete(ingId) : next.add(ingId)
-      return next
-    })
-  }
-
-  const toggleAllIngredients = () => {
-    if (allSelected) {
-      setSelectedIngredients(new Set())
-    } else {
-      const validIds = new Set(
-        recipe.ingredients.filter((i) => i.name.trim()).map((i) => i.id)
-      )
-      setSelectedIngredients(validIds)
-    }
-  }
+  const stats = [
+    { icon: 'time-outline', v: String(recipe.totalTime ?? 45), u: 'min' },
+    { icon: 'people-outline', v: String(recipe.servings ?? 4), u: 'pers' },
+    { icon: 'flame-outline', v: String(recipe.calories ?? 520), u: 'kcal' },
+    { icon: 'star-outline', v: String(recipe.rating ?? '4.8'), u: 'top' },
+  ] as const;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={22} color={colors.textDark} />
+        </TouchableOpacity>
+        <Text style={typography.folio}>recept · {recipe.category ?? 'pasta'}</Text>
+        <TouchableOpacity
+          onPress={() => update(recipe.id, { isFavorite: !recipe.isFavorite })}
         >
-          {/* ====== HEADER / TITLE ====== */}
-          {!isEditing ? (
-            <>
-              {recipe.imageUri && (
-                <Image
-                  source={{ uri: recipe.imageUri }}
-                  style={styles.image}
-                />
-              )}
+          <Ionicons
+            name={recipe.isFavorite ? 'bookmark' : 'bookmark-outline'}
+            size={20}
+            color={colors.textDark}
+          />
+        </TouchableOpacity>
+      </View>
 
-              <View style={styles.header}>
-                <Text style={styles.title}>{recipe.title}</Text>
-                {recipe.category ? (
-                  <Text style={styles.category}>{recipe.category}</Text>
-                ) : null}
-              </View>
-
-              {recipe.duration ? (
-                <View style={styles.durationBadge}>
-                  <Ionicons
-                    name="time-outline"
-                    size={13}
-                    color={colors.textSecondary}
-                  />
-                  <Text style={styles.durationText}>
-                    {recipe.duration} min
-                  </Text>
-                </View>
-              ) : null}
-
-              {recipe.sourceUrl ? (
-                <TouchableOpacity
-                  style={styles.sourceBadge}
-                  onPress={() => safeOpenUrl(recipe.sourceUrl!)}
-                >
-                  <Ionicons name="link-outline" size={13} color={colors.primary} />
-                  <Text style={styles.sourceText}>Origineel recept</Text>
-                </TouchableOpacity>
-              ) : null}
-            </>
-          ) : null}
-
-          {/* ====== EDIT MODE ====== */}
-          {isEditing && (
-            <View style={styles.editSection}>
-              <AppTextInput
-                label="Titel"
-                value={form.title}
-                onChangeText={form.setTitle}
-                placeholder="Titel van het recept"
-              />
-
-              <AppTextInput
-                label="Kooktijd (minuten)"
-                value={form.duration?.toString() ?? ''}
-                onChangeText={(text) =>
-                  form.setDuration(text ? parseInt(text, 10) : undefined)
-                }
-                placeholder="bijv. 30"
-                keyboardType="numeric"
-              />
-            </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* Title block */}
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
+          <Text style={typography.label12}>nummer 01 · klassieker</Text>
+          {lead.length > 0 && (
+            <Text style={[typography.hero32Bold, { fontSize: 42, marginTop: 8 }]}>
+              {lead}
+            </Text>
           )}
-
-          {/* ====== INGREDIENTS (READ ONLY) ====== */}
-          {recipe.ingredients.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Ingrediënten</Text>
-                {!isEditing && recipe.ingredients.length > 0 && (
-                  <TouchableOpacity
-                    onPress={toggleAllIngredients}
-                    style={styles.selectAllBtn}
-                  >
-                    <Ionicons
-                      name={allSelected ? 'checkmark-circle' : 'circle-outline'}
-                      size={18}
-                      color={colors.primary}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <View style={styles.ingredientsList}>
-                {recipe.ingredients.map((ingredient) => (
-                  <TouchableOpacity
-                    key={ingredient.id}
-                    style={styles.ingredientItem}
-                    onPress={() => toggleIngredient(ingredient.id)}
-                    disabled={isEditing}
-                  >
-                    <Ionicons
-                      name={
-                        selectedIngredients.has(ingredient.id)
-                          ? 'checkbox'
-                          : 'checkbox-outline'
-                      }
-                      size={20}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.ingredientText}>
-                      {ingredient.name}
-                      {ingredient.quantity && ingredient.quantity > 0
-                        ? ` - ${ingredient.quantity}`
-                        : ''}
-                      {ingredient.unit ? ` ${ingredient.unit}` : ''}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {!isEditing && selectedIngredients.size > 0 && (
-                <TouchableOpacity
-                  style={styles.addToGroceryBtn}
-                  onPress={handleAddToGroceryList}
-                  disabled={addingToList}
-                >
-                  <Ionicons name="cart-outline" size={16} color={colors.white} />
-                  <Text style={styles.addToGroceryBtnText}>
-                    {addingToList
-                      ? 'Toevoegen...'
-                      : `${selectedIngredients.size} toevoegen aan boodschappen`}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
-          {/* ====== STEPS (READ ONLY) ====== */}
-          {recipe.steps.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Bereidingsstappen</Text>
-              <View style={styles.stepsList}>
-                {recipe.steps.map((step, index) => (
-                  <View key={index} style={styles.stepItem}>
-                    <View style={styles.stepNumber}>
-                      <Text style={styles.stepNumberText}>{index + 1}</Text>
-                    </View>
-                    <Text style={styles.stepText}>{step}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-        </ScrollView>
-
-        {/* ====== BOTTOM BUTTONS ====== */}
-        <View style={styles.bottomBar}>
-          {isEditing ? (
-            <>
-              <TouchableOpacity
-                style={[styles.bottomButton, styles.cancelButton]}
-                onPress={() => setIsEditing(false)}
-              >
-                <Text style={styles.cancelButtonText}>Annuleren</Text>
-              </TouchableOpacity>
-              <Button
-                label="Opslaan"
-                onPress={handleSave}
-                loading={saving}
-                style={styles.saveButton}
-              />
-            </>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={[styles.bottomButton, styles.deleteButton]}
-                onPress={() => setDeleteModalVisible(true)}
-              >
-                <Ionicons name="trash-outline" size={20} color={colors.error} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.bottomButton, styles.editButton]}
-                onPress={() => setIsEditing(true)}
-              >
-                <Ionicons name="pencil-outline" size={20} color={colors.primary} />
-                <Text style={styles.editButtonText}>Bewerken</Text>
-              </TouchableOpacity>
-            </>
+          <Text style={[typography.heroItalic, { fontSize: 42 }]}>{tail}</Text>
+          {recipe.description && (
+            <Text style={[typography.bodyItalic, { marginTop: 14 }]}>
+              "{recipe.description}"
+            </Text>
           )}
         </View>
-      </KeyboardAvoidingView>
 
-      {/* ====== DELETE CONFIRMATION MODAL ====== */}
-      <Modal
-        visible={deleteModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setDeleteModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setDeleteModalVisible(false)}
-        >
-          <View style={styles.modalContent}>
-            <Ionicons
-              name="alert-circle-outline"
-              size={48}
-              color={colors.error}
-              style={styles.modalIcon}
-            />
-            <Text style={styles.modalTitle}>
-              {recipe.title} verwijderen?
-            </Text>
-            <Text style={styles.modalDescription}>
-              Dit kan niet ongedaan worden gemaakt.
-            </Text>
+        {/* Hero photo */}
+        <View style={{ marginTop: spacing.lg }}>
+          {recipe.imageUri ? (
+            <Image source={{ uri: recipe.imageUri }} style={styles.hero} />
+          ) : (
+            <View style={[styles.hero, styles.placeholder]} />
+          )}
+        </View>
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalCancelButton]}
-                onPress={() => setDeleteModalVisible(false)}
-              >
-                <Text style={styles.modalCancelText}>Annuleren</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalDeleteButton]}
-                onPress={handleDelete}
-              >
-                <Text style={styles.modalDeleteText}>Verwijderen</Text>
-              </TouchableOpacity>
+        {/* Stats — typografisch, geen kaders */}
+        <View style={styles.stats}>
+          {stats.map((s, i) => (
+            <View key={i} style={styles.statCol}>
+              <Ionicons name={s.icon as any} size={16} color={colors.textLight} />
+              <Text style={styles.statValue}>{s.v}</Text>
+              <Text style={typography.label12}>{s.u}</Text>
             </View>
-          </View>
+          ))}
+        </View>
+
+        {/* Ingrediënten */}
+        <Section title="i. ingrediënten" count={recipe.ingredients?.length ?? 0} />
+        <View style={{ paddingHorizontal: spacing.lg, gap: 10 }}>
+          {(recipe.ingredients ?? []).map((ing: any, i: number) => (
+            <View key={i} style={styles.ingRow}>
+              <Text style={styles.ingNum}>{ing.quantity ?? ''}</Text>
+              <Text style={styles.ingUnit}>{ing.unit ?? ''}</Text>
+              <Text style={styles.ingName}>{ing.name}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Werkwijze */}
+        <Section title="ii. werkwijze" count={recipe.steps?.length ?? 0} suffix="stappen" />
+        <View style={{ paddingHorizontal: spacing.lg, gap: 16 }}>
+          {(recipe.steps ?? []).map((step: any, i: number) => (
+            <View key={i} style={styles.stepRow}>
+              <Text style={styles.stepNum}>{i + 1}</Text>
+              <Text style={styles.stepText}>
+                {typeof step === 'string' ? step : step.text}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+
+      {/* Sticky CTA */}
+      <View style={styles.ctaBar}>
+        <TouchableOpacity style={styles.cta} activeOpacity={0.85}>
+          <Text style={typography.buttonLabel}>begin met koken</Text>
+          <Ionicons
+            name="arrow-forward"
+            size={14}
+            color={PAPER}
+            style={{ marginLeft: 10 }}
+          />
         </TouchableOpacity>
-      </Modal>
+        <TouchableOpacity style={styles.ctaIcon} activeOpacity={0.7}>
+          <Ionicons name="add" size={20} color={colors.textDark} />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
-  )
+  );
+}
+
+function Section({
+  title,
+  count,
+  suffix,
+}: {
+  title: string;
+  count: number;
+  suffix?: string;
+}) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={typography.folioBold}>{title}</Text>
+      <View style={styles.rule} />
+      <Text style={typography.folio}>
+        {count} {suffix ?? ''}
+      </Text>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  content: {
-    paddingBottom: spacing.xl + 56,
-  },
-
-  // ====== IMAGE ======
-  image: {
-    width: '100%',
-    height: 300,
-    backgroundColor: colors.border,
-  },
-
-  // ====== HEADER ======
+  container: { flex: 1, backgroundColor: PAPER },
   header: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-
-  title: {
-    ...typography.title32,
-    marginBottom: spacing.sm,
-  },
-
-  category: {
-    ...typography.caption14,
-    color: colors.textSecondary,
-  },
-
-  durationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginHorizontal: spacing.md,
-    marginVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.full,
-    alignSelf: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
-
-  durationText: {
-    ...typography.caption14,
-    color: colors.textSecondary,
-  },
-
-  sourceBadge: {
+  hero: { width: '100%', height: 240, backgroundColor: colors.backgroundLight },
+  placeholder: { backgroundColor: colors.backgroundLight },
+  stats: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginHorizontal: spacing.md,
-    marginVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    backgroundColor: `${colors.primary}15`,
-    borderRadius: borderRadius.full,
-    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    justifyContent: 'space-between',
   },
-
-  sourceText: {
-    ...typography.caption14,
-    color: colors.primary,
+  statCol: { alignItems: 'center', flex: 1 },
+  statValue: {
+    fontFamily: fonts.display,
+    fontSize: 22,
+    color: colors.textDark,
+    marginTop: 6,
+    marginBottom: 4,
   },
-
-  // ====== EDIT MODE ======
-  editSection: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
-    gap: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-
-  // ====== SECTIONS ======
-  section: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xl,
     marginBottom: spacing.md,
   },
-
-  sectionTitle: {
-    ...typography.title18,
+  rule: { flex: 1, height: 1, backgroundColor: colors.borderColor },
+  ingRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  ingNum: {
+    fontFamily: fonts.monoMedium,
+    fontSize: 11,
+    color: colors.primary,
+    width: 38,
+    textAlign: 'right',
   },
-
-  selectAllBtn: {
-    padding: spacing.sm,
+  ingUnit: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1,
+    color: colors.textLight,
+    textTransform: 'uppercase',
+    width: 56,
   },
-
-  // ====== INGREDIENTS ======
-  ingredientsList: {
-    gap: spacing.sm,
+  ingName: { flex: 1, fontFamily: fonts.display, fontSize: 15 },
+  stepRow: { flexDirection: 'row', gap: 10 },
+  stepNum: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 22,
+    color: colors.primary,
+    width: 28,
   },
-
-  ingredientItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  ingredientText: {
-    flex: 1,
-    ...typography.caption14,
-    color: colors.text,
-  },
-
-  addToGroceryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    marginTopmargin: spacing.md,
-    backgroundColor: colors.secondary,
-    borderRadius: borderRadius.lg,
-  },
-
-  addToGroceryBtnText: {
-    ...typography.caption14Medium,
-    color: colors.white,
-  },
-
-  // ====== STEPS ======
-  stepsList: {
-    gap: spacing.md,
-  },
-
-  stepItem: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-
-  stepNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-
-  stepNumberText: {
-    ...typography.caption14Medium,
-    color: colors.white,
-  },
-
-  stepText: {
-    flex: 1,
-    ...typography.caption14,
-    color: colors.text,
-    paddingTop: spacing.xs,
-  },
-
-  // ====== BOTTOM BAR ======
-  bottomBar: {
+  stepText: { flex: 1, fontFamily: fonts.display, fontSize: 15, lineHeight: 22 },
+  ctaBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: PAPER,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: spacing.sm,
+    borderTopColor: colors.borderColor,
+    flexDirection: 'row',
+    padding: spacing.md,
+    gap: 10,
+    alignItems: 'center',
   },
-
-  bottomButton: {
+  cta: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
+    backgroundColor: colors.textDark,
+    paddingVertical: 14,
+    borderRadius: 999,
+  },
+  ctaIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     borderWidth: 1,
-    gap: spacing.sm,
-  },
-
-  deleteButton: {
-    backgroundColor: colors.white,
-    borderColor: colors.error,
-  },
-
-  editButton: {
-    flex: 2,
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-
-  editButtonText: {
-    ...typography.caption14Medium,
-    color: colors.white,
-  },
-
-  cancelButton: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-  },
-
-  cancelButtonText: {
-    ...typography.caption14Medium,
-    color: colors.text,
-  },
-
-  saveButton: {
-    flex: 1,
-  },
-
-  // ====== MODAL ======
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderColor: colors.textDark,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-
-  modalContent: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    marginHorizontal: spacing.md,
-    alignItems: 'center',
-    ...shadows.xl,
-  },
-
-  modalIcon: {
-    marginBottom: spacing.md,
-  },
-
-  modalTitle: {
-    ...typography.title18,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-
-  modalDescription: {
-    ...typography.caption14,
-    color: colors.textSecondary,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-
-  modalButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    width: '100%',
-  },
-
-  modalButton: {
-    flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-
-  modalCancelButton: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-  },
-
-  modalCancelText: {
-    ...typography.caption14Medium,
-    color: colors.text,
-  },
-
-  modalDeleteButton: {
-    backgroundColor: colors.error,
-    borderColor: colors.error,
-  },
-
-  modalDeleteText: {
-    ...typography.caption14Medium,
-    color: colors.white,
-  },
-})
+});

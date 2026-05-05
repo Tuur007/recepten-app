@@ -29,28 +29,54 @@ export default function NewRecipeScreen() {
 
   const form = useRecipeForm();
 
-  const handleSave = async () => {
-    if (!form.title.trim()) {
-      Alert.alert('Titel ontbreekt', 'Voer een recepttitel in.');
+  // ✂️ VERVANG DEZE HELE FUNCTIE IN app/recipes/new.tsx (regel 32-53)
+
+const handleSave = async () => {
+  // Validatie
+  const titleTrimmed = form.title.trim();
+  if (!titleTrimmed) {
+    Alert.alert('Titel ontbreekt', 'Voer een recepttitel in.');
+    return;
+  }
+
+  if (form.validIngredients.length === 0) {
+    Alert.alert('Ingrediënten ontbreken', 'Voeg minstens 1 ingrediënt toe.');
+    return;
+  }
+
+  if (form.validSteps.length === 0) {
+    Alert.alert('Stappen ontbreken', 'Voeg minstens 1 stap toe.');
+    return;
+  }
+
+  setSaving(true);
+  try {
+    const recipe = await create({
+      title: titleTrimmed,
+      category: form.category,
+      isFavorite: false,
+      ingredients: form.validIngredients,
+      steps: form.validSteps,
+      imageUri: form.imageUri,
+    });
+    
+    if (!recipe?.id) {
+      Alert.alert('Fout', 'Recept kon niet worden aangemaakt.');
       return;
     }
-    setSaving(true);
-    try {
-      await create({
-        title: form.title.trim(),
-        category: form.category,
-        isFavorite: false,
-        ingredients: form.validIngredients,
-        steps: form.validSteps,
-        imageUri: form.imageUri,
-      });
-      router.back();
-    } catch {
-      Alert.alert('Fout', 'Kon recept niet opslaan. Probeer opnieuw.');
-    } finally {
-      setSaving(false);
-    }
-  };
+
+    // Success
+    Alert.alert('Succes!', 'Recept opgeslagen.', [
+      { text: 'OK', onPress: () => router.back() },
+    ]);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Kon recept niet opslaan';
+    Alert.alert('Fout', errorMsg);
+    console.error('[NewRecipeScreen] Save error:', error);
+  } finally {
+    setSaving(false);
+  }
+};
 
   return (
     <SafeAreaView style={styles.container}>

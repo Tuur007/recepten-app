@@ -365,13 +365,13 @@ export default function RecipesScreen() {
                   <Ionicons
                     name="time-outline"
                     size={20}
-                    color={sortBy === 'recent' ? colors.primary : colors.textSecondary}
+                    color={sortBy === 'recent' ? colors.white : colors.textSecondary}
                   />
                   <View>
                     <Text
                       style={[
                         typography.caption14Medium,
-                        { color: sortBy === 'recent' ? colors.primary : colors.text },
+                        { color: sortBy === 'recent' ? colors.white : colors.text },
                       ]}
                     >
                       Recent toegevoegd
@@ -379,7 +379,7 @@ export default function RecipesScreen() {
                     <Text
                       style={[
                         typography.small12,
-                        { color: colors.textSecondary },
+                        { color: sortBy === 'recent' ? colors.white : colors.textSecondary },
                       ]}
                     >
                       Nieuwste eerst
@@ -387,7 +387,7 @@ export default function RecipesScreen() {
                   </View>
                 </View>
                 {sortBy === 'recent' && (
-                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                  <Ionicons name="checkmark" size={20} color={colors.white} />
                 )}
               </TouchableOpacity>
 
@@ -405,13 +405,13 @@ export default function RecipesScreen() {
                   <Ionicons
                     name="text-outline"
                     size={20}
-                    color={sortBy === 'alphabetical' ? colors.primary : colors.textSecondary}
+                    color={sortBy === 'alphabetical' ? colors.white : colors.textSecondary}
                   />
                   <View>
                     <Text
                       style={[
                         typography.caption14Medium,
-                        { color: sortBy === 'alphabetical' ? colors.primary : colors.text },
+                        { color: sortBy === 'alphabetical' ? colors.white : colors.text },
                       ]}
                     >
                       Alfabetisch (A → Z)
@@ -419,7 +419,7 @@ export default function RecipesScreen() {
                     <Text
                       style={[
                         typography.small12,
-                        { color: colors.textSecondary },
+                        { color: sortBy === 'alphabetical' ? colors.white : colors.textSecondary },
                       ]}
                     >
                       Alfabetische volgorde
@@ -427,7 +427,7 @@ export default function RecipesScreen() {
                   </View>
                 </View>
                 {sortBy === 'alphabetical' && (
-                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                  <Ionicons name="checkmark" size={20} color={colors.white} />
                 )}
               </TouchableOpacity>
 
@@ -445,13 +445,13 @@ export default function RecipesScreen() {
                   <Ionicons
                     name="flame-outline"
                     size={20}
-                    color={sortBy === 'duration' ? colors.primary : colors.textSecondary}
+                    color={sortBy === 'duration' ? colors.white : colors.textSecondary}
                   />
                   <View>
                     <Text
                       style={[
                         typography.caption14Medium,
-                        { color: sortBy === 'duration' ? colors.primary : colors.text },
+                        { color: sortBy === 'duration' ? colors.white : colors.text },
                       ]}
                     >
                       Kooktijd
@@ -459,7 +459,7 @@ export default function RecipesScreen() {
                     <Text
                       style={[
                         typography.small12,
-                        { color: colors.textSecondary },
+                        { color: sortBy === 'duration' ? colors.white : colors.textSecondary },
                       ]}
                     >
                       Korte recepten eerst
@@ -467,7 +467,7 @@ export default function RecipesScreen() {
                   </View>
                 </View>
                 {sortBy === 'duration' && (
-                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                  <Ionicons name="checkmark" size={20} color={colors.white} />
                 )}
               </TouchableOpacity>
 
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
   },
 
   sortOptionActive: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.primary,
   },
 
   sortOptionContent: {

@@ -66,7 +66,7 @@ export function RecipeImagePicker({
             onPress={onImageRemove}
             disabled={loading}
           >
-            <Ionicons name="close-circle" size={28} color={colors.danger} />
+            <Ionicons name="close-circle" size={28} color={colors.error} />
           </TouchableOpacity>
         </View>
         <TouchableOpacity
@@ -74,7 +74,7 @@ export function RecipeImagePicker({
           onPress={handlePickImage}
           disabled={loading}
         >
-          <Ionicons name="images-outline" size={16} color={colors.primary} />
+          <Ionicons name="images-outline" size={16} color={colors.white} />
           <Text style={styles.changeBtnText}>Afbeelding wijzigen</Text>
         </TouchableOpacity>
       </View>
@@ -90,7 +90,7 @@ export function RecipeImagePicker({
           onPress={handleTakePhoto}
           disabled={loading}
         >
-          <Ionicons name="camera-outline" size={20} color={colors.primary} />
+          <Ionicons name="camera-outline" size={20} color={colors.white} />
           <Text style={styles.actionBtnText}>Foto maken</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -98,7 +98,7 @@ export function RecipeImagePicker({
           onPress={handlePickImage}
           disabled={loading}
         >
-          <Ionicons name="images-outline" size={20} color={colors.primary} />
+          <Ionicons name="images-outline" size={20} color={colors.white} />
           <Text style={styles.actionBtnText}>Uit gallerij</Text>
         </TouchableOpacity>
       </View>
@@ -118,18 +118,17 @@ const styles = StyleSheet.create({
   buttonRow: { gap: 8, flexDirection: 'row' },
   actionBtn: {
     flex: 1,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
     gap: 6,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderWidth: 0,
   },
   actionBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.white,
   },
   imageWrapper: {
     position: 'relative',
@@ -137,7 +136,7 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.backgroundLight,
   },
   image: { width: '100%', height: '100%' },
   removeBtn: {
@@ -157,13 +156,13 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.primary,
     borderRadius: 10,
     justifyContent: 'center',
   },
   changeBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.white,
   },
 });

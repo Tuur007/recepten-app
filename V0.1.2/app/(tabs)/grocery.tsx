@@ -58,10 +58,13 @@ export default function GroceryScreen() {
     setNewItemName('');
   };
 
-  const handleAddFromRecipe = async (recipe: Recipe) => {
-    await addFromRecipe(recipe.ingredients, recipe.id, recipe.title);
-    setModalVisible(false);
-  };
+  const handleAddFromRecipe = async (recipe: Recipe, ingredientIds: string[]) => {
+  const filteredIngredients = recipe.ingredients.filter((ing) =>
+    ingredientIds.includes(ing.id)
+  );
+  await addFromRecipe(filteredIngredients, recipe.id, recipe.title);
+  setModalVisible(false);
+};
 
   const totalCount = uncheckedItems.length + checkedItems.length;
 

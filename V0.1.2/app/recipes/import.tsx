@@ -122,14 +122,16 @@ export default function ImportRecipeScreen() {
 
   if (step === 'url') {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Importeer recept</Text>
-          <View style={{ width: 32 }} />
-        </View>
+      <View style={styles.container}>
+        <SafeAreaView edges={['top']} style={styles.headerSafe}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Importeer recept</Text>
+            <View style={{ width: 32 }} />
+          </View>
+        </SafeAreaView>
 
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -173,19 +175,23 @@ export default function ImportRecipeScreen() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+
+        <SafeAreaView edges={['bottom']} />
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setStep('url')} hitSlop={8}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Recept bewerken</Text>
-        <Button label="Opslaan" onPress={handleSave} loading={saving} />
-      </View>
+    <View style={styles.container}>
+      <SafeAreaView edges={['top']} style={styles.headerSafe}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setStep('url')} hitSlop={8}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Recept bewerken</Text>
+          <Button label="Opslaan" onPress={handleSave} loading={saving} />
+        </View>
+      </SafeAreaView>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -259,12 +265,15 @@ export default function ImportRecipeScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      <SafeAreaView edges={['bottom']} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  headerSafe: { backgroundColor: colors.surface },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

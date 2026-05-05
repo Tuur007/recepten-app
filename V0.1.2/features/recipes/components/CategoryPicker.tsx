@@ -1,33 +1,48 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, spacing } from '../../../constants/Designsystem';
-import { RECIPE_CATEGORIES, RecipeCategory } from '../../../types/recipe';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Text,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../../constants/Designsystem';
+import { RecipeCategory } from '../../../types/recipe';
+
+const CATEGORIES: RecipeCategory[] = [
+  'Ontbijt',
+  'Lunch',
+  'Diner',
+  'Dessert',
+  'Snack',
+  'Drank',
+  'Saus',
+];
 
 interface CategoryPickerProps {
-  value: RecipeCategory;
-  onChange: (category: RecipeCategory) => void;
+  value: RecipeCategory | '';
+  onChange: (category: RecipeCategory | '') => void;
 }
 
 export function CategoryPicker({ value, onChange }: CategoryPickerProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Categorie</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-        <TouchableOpacity
-          style={[styles.chip, value === '' && styles.chipActive]}
-          onPress={() => onChange('')}
-          activeOpacity={0.75}
-        >
-          <Text style={[styles.chipText, value === '' && styles.chipTextActive]}>Geen</Text>
-        </TouchableOpacity>
-        {RECIPE_CATEGORIES.map((cat) => (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
+        {CATEGORIES.map((cat) => (
           <TouchableOpacity
             key={cat}
             style={[styles.chip, value === cat && styles.chipActive]}
-            onPress={() => onChange(cat)}
-            activeOpacity={0.75}
+            onPress={() => onChange(value === cat ? '' : cat)}
           >
-            <Text style={[styles.chipText, value === cat && styles.chipTextActive]}>{cat}</Text>
+            <Text style={[styles.chipText, value === cat && styles.chipTextActive]}>
+              {cat}
+            </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -36,21 +51,39 @@ export function CategoryPicker({ value, onChange }: CategoryPickerProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 8 },
-  label: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
-  chips: { gap: 8, paddingVertical: 2 },
+  container: {
+    gap: 8,
+    marginVertical: 8,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  scroll: {
+    gap: 8,
+    paddingVertical: 4,
+  },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.backgroundLight,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderColor,
   },
   chipActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
-  chipTextActive: { color: '#fff' },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  chipTextActive: {
+    color: colors.white,
+  },
 });

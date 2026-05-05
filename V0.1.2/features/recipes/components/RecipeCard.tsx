@@ -44,6 +44,12 @@ export function RecipeCard({ recipe, onPress, onToggleFavorite }: RecipeCardProp
         <Text style={styles.title} numberOfLines={1}>{recipe.title}</Text>
 
         <View style={styles.meta}>
+          {recipe.duration ? (
+            <View style={styles.metaItem}>
+              <Ionicons name="time-outline" size={12} color={colors.primary} />
+              <Text style={styles.metaText}>{recipe.duration} min</Text>
+            </View>
+          ) : null}
           <View style={styles.metaItem}>
             <Ionicons name="restaurant-outline" size={12} color={colors.primary} />
             <Text style={styles.metaText}>{recipe.ingredients.length}</Text>
@@ -110,7 +116,8 @@ const styles = StyleSheet.create({
   },
   meta: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
+    flexWrap: 'wrap',
   },
   metaItem: {
     flexDirection: 'row',

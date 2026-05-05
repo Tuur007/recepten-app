@@ -96,7 +96,6 @@ function extractFromJsonLd(recipe: Record<string, unknown>, url: string): Parsed
   const title =
     str(recipe.name) ||
     str(recipe.headline) ||
-    stripSiteName(extractMetaContent('', 'og:title')) ||
     'Recept';
 
   const rawIngredients = asStringArray(recipe.recipeIngredient);
@@ -154,9 +153,11 @@ function extractDagelijksekost(o: Record<string, unknown>, url: string): ParsedR
   const rawIngredients = asStringArray(o.ingredients ?? o.recipeIngredient);
   const ingredients = rawIngredients.map(parseIngredientString);
 
+  const rawStepsFromArray = asStringArray(o.steps ?? o.recipeInstructions);
   const rawSteps =
-    asStringArray(o.steps ?? o.recipeInstructions) ||
-    extractStepsFromInstructions(o.steps ?? o.recipeInstructions);
+    rawStepsFromArray.length > 0
+      ? rawStepsFromArray
+      : extractStepsFromInstructions(o.steps ?? o.recipeInstructions);
   const steps = rawSteps.map((s) => s.trim()).filter(Boolean);
 
   const cookMins = o.cooking_time ? parseDurationNumber(Number(o.cooking_time)) : undefined;

@@ -34,7 +34,7 @@ export function IngredientInput({ ingredient, onChange, onRemove }: IngredientIn
         placeholder="Hoeveelheid"
         value={ingredient.quantity?.toString() ?? ''}
         onChangeText={(text) =>
-          onChange({ ...ingredient, quantity: text ? parseFloat(text) : undefined })
+          onChange({ ...ingredient, quantity: text ? parseFloat(text) : 0 })
         }
         onFocus={() => setFocused('quantity')}
         onBlur={() => setFocused(null)}

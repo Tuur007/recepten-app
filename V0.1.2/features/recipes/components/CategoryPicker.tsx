@@ -8,17 +8,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../constants/Designsystem';
-import { RecipeCategory } from '../../../types/recipe';
+import { RECIPE_CATEGORIES, RecipeCategory } from '../../../types/recipe';
 
-const CATEGORIES: RecipeCategory[] = [
-  'Ontbijt',
-  'Lunch',
-  'Diner',
-  'Dessert',
-  'Snack',
-  'Drank',
-  'Saus',
-];
+const CATEGORIES: RecipeCategory[] = [...RECIPE_CATEGORIES];
 
 interface CategoryPickerProps {
   value: RecipeCategory | '';

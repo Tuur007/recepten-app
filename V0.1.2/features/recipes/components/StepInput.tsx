@@ -1,7 +1,13 @@
-import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Text,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography } from '../../../constants/Designsystem';
+import { colors } from '../../../constants/Designsystem';
 
 interface StepInputProps {
   index: number;
@@ -11,51 +17,59 @@ interface StepInputProps {
 }
 
 export function StepInput({ index, value, onChange, onRemove }: StepInputProps) {
+  const [focused, setFocused] = useState(false);
+
   return (
     <View style={styles.row}>
-      <View style={styles.stepNumber}>
-        <Text style={styles.stepNumberText}>{index + 1}</Text>
-      </View>
+      <Text style={styles.stepNumber}>{index + 1}.</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, focused && styles.inputFocused]}
+        placeholder={`Stap ${index + 1}`}
         value={value}
         onChangeText={onChange}
-        placeholder={`Stap ${index + 1}…`}
-        placeholderTextColor={colors.textSecondary}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         multiline
-        textAlignVertical="top"
+        placeholderTextColor={colors.textSecondary}
       />
-      <TouchableOpacity onPress={onRemove} hitSlop={8} style={styles.removeBtn}>
-        <Ionicons name="close-circle" size={20} color={colors.danger} />
+      <TouchableOpacity onPress={onRemove} hitSlop={10} style={styles.removeBtn}>
+        <Ionicons name="close-circle" size={20} color={colors.error} />
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 7,
-    flexShrink: 0,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  stepNumberText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  stepNumber: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 6,
+    minWidth: 20,
+  },
   input: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    fontSize: 13,
     color: colors.text,
-    minHeight: 64,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
   },
-  removeBtn: { padding: 2, marginTop: 7 },
+  inputFocused: {
+    color: colors.text,
+  },
+  removeBtn: {
+    padding: 4,
+    marginTop: 2,
+  },
 });

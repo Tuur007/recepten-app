@@ -63,17 +63,13 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     }
   }
 
-  // og:image — highest priority
-  const ogMatch =
-    html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
-    html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i);
-  if (ogMatch) addCandidate(ogMatch[1], 95);
+  // og:image — use a robust extractor that handles apostrophes in URLs
+  const ogUrl = extractMetaImageUrl(html, 'og:image', 'property');
+  if (ogUrl) addCandidate(ogUrl, 95);
 
   // twitter:image
-  const twitterMatch =
-    html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i) ||
-    html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']twitter:image["']/i);
-  if (twitterMatch) addCandidate(twitterMatch[1], 88);
+  const twitterUrl = extractMetaImageUrl(html, 'twitter:image', 'name');
+  if (twitterUrl) addCandidate(twitterUrl, 88);
 
   // <img> tags
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
@@ -92,6 +88,71 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
   }
 
   return Array.from(candidates.values());
+}
+
+/**
+ * Extracts the content of a <meta> tag where the URL may contain apostrophes.
+ *
+ * The standard regex `content=["']([^"']+)["']` breaks when the URL itself
+ * contains an apostrophe (e.g. "pinda's"). Instead we:
+ * 1. Find the full <meta ...> tag that contains the property/name attribute.
+ * 2. Extract the content attribute from that tag using a delimiter-aware parser
+ *    that reads until the same delimiter that opened content="..." or content='...'.
+ *    For double-quoted content (the common case) apostrophes are fine.
+ * 3. If the tag uses single-quote delimiters and the URL has apostrophes, we
+ *    fall back to reading until the next `>` and stripping the closing `'`.
+ */
+function extractMetaImageUrl(html: string, metaKey: string, attr: 'property' | 'name'): string | null {
+  // Match the entire <meta> tag that has the right property/name value
+  const tagRe = new RegExp(
+    `<meta\\s[^>]*(?:${attr})=["']${metaKey}["'][^>]*>`,
+    'i',
+  );
+  const tagMatch = html.match(tagRe);
+
+  if (!tagMatch) {
+    // Also try reversed attribute order: content first, then property/name
+    const tagReReversed = new RegExp(
+      `<meta\\s[^>]*content=[^>]*(?:${attr})=["']${metaKey}["'][^>]*>`,
+      'i',
+    );
+    const reversed = html.match(tagReReversed);
+    if (!reversed) return null;
+    return extractContentFromMetaTag(reversed[0]);
+  }
+
+  return extractContentFromMetaTag(tagMatch[0]);
+}
+
+function extractContentFromMetaTag(tag: string): string | null {
+  // Find content=" or content=' inside the tag
+  const contentIdx = tag.search(/\bcontent\s*=/i);
+  if (contentIdx === -1) return null;
+
+  const afterEquals = tag.slice(contentIdx).replace(/^content\s*=\s*/i, '');
+  const delimiter = afterEquals[0];
+
+  if (delimiter === '"') {
+    // Read until next double-quote — apostrophes inside are fine
+    const end = afterEquals.indexOf('"', 1);
+    if (end === -1) return null;
+    return afterEquals.slice(1, end) || null;
+  }
+
+  if (delimiter === "'") {
+    // Read until next single-quote — but the URL may contain apostrophes.
+    // Heuristic: a real closing quote is followed by whitespace or > or /
+    const rest = afterEquals.slice(1);
+    const closeRe = /'(?=\s|>|\/)/;
+    const closeMatch = rest.match(closeRe);
+    if (closeMatch && closeMatch.index !== undefined) {
+      return rest.slice(0, closeMatch.index) || null;
+    }
+    // Last resort: take everything up to >
+    return rest.replace(/[>].*$/, '').replace(/['"]$/, '').trim() || null;
+  }
+
+  return null;
 }
 
 function extractJsonLdImages(data: unknown): string[] {
@@ -127,7 +188,7 @@ function extractJsonLdImages(data: unknown): string[] {
 }
 
 function normalizeUrl(url: string, baseUrl: string): string {
-  url = url.trim().replace(/^["']|["']$/g, '');
+  url = url.trim();
   if (url.startsWith('//')) return 'https:' + url;
   if (url.startsWith('/')) {
     try {
@@ -145,7 +206,6 @@ function normalizeUrl(url: string, baseUrl: string): string {
   }
 }
 
-// Stable dedup key — strip query params but keep path intact
 function canonicalKey(url: string): string {
   try {
     const u = new URL(url);
@@ -160,40 +220,32 @@ function isValidImageUrl(url: string): boolean {
   const lower = url.toLowerCase();
   if (lower.includes('javascript:') || lower.startsWith('data:')) return false;
 
-  // Known image extensions anywhere in path (before query string)
   try {
-    const pathname = new URL(url).pathname.toLowerCase();
-    if (/\.(jpg|jpeg|png|webp|gif|avif|bmp)$/.test(pathname)) return true;
-  } catch {
-    if (/\.(jpg|jpeg|png|webp|gif|avif|bmp)(\?|$)/i.test(url)) return true;
-  }
+    const { pathname, hostname } = new URL(url);
+    if (/\.(jpg|jpeg|png|webp|gif|avif|bmp)$/i.test(pathname)) return true;
 
-  // Known image CDN hostnames
-  const imageCdnHosts = new Set([
-    'recipe-service.prod.cloud.jumbo.com',
-    'images.ctfassets.net',
-    'res.cloudinary.com',
-    'cdn.sanity.io',
-    'media.contentful.com',
-    'images.squarespace-cdn.com',
-    'i.imgur.com',
-    'static.ah.nl',
-    'cdn.ah.nl',
-    'images.immediate.co.uk',
-    'img.youtube.com',
-    'i.ytimg.com',
-    'assets.jumbo.com',
-  ]);
+    const imageCdnHosts = new Set([
+      'recipe-service.prod.cloud.jumbo.com',
+      'images.ctfassets.net',
+      'res.cloudinary.com',
+      'cdn.sanity.io',
+      'media.contentful.com',
+      'images.squarespace-cdn.com',
+      'i.imgur.com',
+      'static.ah.nl',
+      'cdn.ah.nl',
+      'images.immediate.co.uk',
+      'img.youtube.com',
+      'i.ytimg.com',
+      'assets.jumbo.com',
+    ]);
 
-  try {
-    const { hostname } = new URL(url);
     if (imageCdnHosts.has(hostname)) return true;
     if (/^(?:img|images?|cdn|media|photos?|static|assets)\./i.test(hostname)) return true;
+    if (/\/(?:photos?|images?|imgs?|pictures?|fotos?|media)\//i.test(pathname)) return true;
   } catch {
     return false;
   }
-
-  if (/\/(?:photos?|images?|imgs?|pictures?|fotos?|media)s?\//i.test(url)) return true;
 
   return false;
 }
@@ -210,11 +262,9 @@ function extractImageSize(imgTag: string): { width?: number; height?: number } {
 async function downloadImage(imageUrl: string): Promise<string | undefined> {
   if (!FS) return undefined;
   try {
-    // Encode special characters in the URL path (commas, spaces, etc.)
-    const safeUrl = encodeSpecialChars(imageUrl);
-
-    // Probe content-type with a small GET request (HEAD often blocked by CDNs)
+    const safeUrl = encodeImageUrl(imageUrl);
     let ext = guessExtFromUrl(imageUrl);
+
     try {
       const probe = await fetch(safeUrl, {
         headers: {
@@ -261,13 +311,24 @@ async function downloadImage(imageUrl: string): Promise<string | undefined> {
   }
 }
 
-function encodeSpecialChars(url: string): string {
+/**
+ * Percent-encodes characters in the URL path that are technically invalid
+ * in URLs but commonly appear in CDN filenames (apostrophes, commas, spaces).
+ * Preserves already-encoded sequences to avoid double-encoding.
+ */
+function encodeImageUrl(url: string): string {
   try {
     const u = new URL(url);
-    // Re-encode only the pathname — preserve existing valid percent-encoding
     u.pathname = u.pathname
       .split('/')
-      .map((segment) => encodeURIComponent(decodeURIComponent(segment)))
+      .map((segment) => {
+        try {
+          // Decode first to avoid double-encoding, then re-encode
+          return encodeURIComponent(decodeURIComponent(segment));
+        } catch {
+          return encodeURIComponent(segment);
+        }
+      })
       .join('/');
     return u.toString();
   } catch {

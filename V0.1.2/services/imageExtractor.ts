@@ -2,7 +2,6 @@ interface ImageCandidate {
   url: string;
   width?: number;
   height?: number;
-  size?: number;
   score: number;
 }
 
@@ -39,69 +38,90 @@ export async function extractImageFromUrl(url: string): Promise<string | undefin
 function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[] {
   const candidates: Map<string, ImageCandidate> = new Map();
 
-  const jsonLdRegex = /"image":\s*"?([^"}\n]+)"?/gi;
-  let match;
-  while ((match = jsonLdRegex.exec(html)) !== null) {
-    const url = normalizeUrl(match[1], baseUrl);
-    if (isValidImageUrl(url)) {
-      const key = url.split('?')[0];
-      if (!candidates.has(key)) {
-        candidates.set(key, { url, score: 85 });
-      }
+  const addCandidate = (rawUrl: string, score: number, extra?: Partial<ImageCandidate>) => {
+    const url = normalizeUrl(rawUrl, baseUrl);
+    if (!isValidImageUrl(url)) return;
+    const key = url.split('?')[0];
+    if (!candidates.has(key)) {
+      candidates.set(key, { url, score, ...extra });
+    }
+  };
+
+  // JSON-LD: ImageObject with url field
+  const jsonLdBlocks = html.matchAll(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  );
+  for (const block of jsonLdBlocks) {
+    try {
+      const data = JSON.parse(block[1].trim());
+      extractJsonLdImages(data).forEach((u) => addCandidate(u, 90));
+    } catch {
+      // malformed — skip
     }
   }
 
+  // og:image
   const ogMatch =
     html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
     html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i);
-  if (ogMatch) {
-    const url = normalizeUrl(ogMatch[1], baseUrl);
-    if (isValidImageUrl(url)) {
-      const key = url.split('?')[0];
-      if (!candidates.has(key)) {
-        candidates.set(key, { url, score: 95 });
-      }
-    }
-  }
+  if (ogMatch) addCandidate(ogMatch[1], 95);
 
+  // twitter:image
   const twitterMatch =
     html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i) ||
     html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']twitter:image["']/i);
-  if (twitterMatch) {
-    const url = normalizeUrl(twitterMatch[1], baseUrl);
-    if (isValidImageUrl(url)) {
-      const key = url.split('?')[0];
-      if (!candidates.has(key)) {
-        candidates.set(key, { url, score: 90 });
-      }
-    }
-  }
+  if (twitterMatch) addCandidate(twitterMatch[1], 88);
 
+  // <img> tags
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  let match: RegExpExecArray | null;
   while ((match = imgRegex.exec(html)) !== null) {
-    const url = normalizeUrl(match[1], baseUrl);
-    if (isValidImageUrl(url)) {
-      const key = url.split('?')[0];
-      if (!candidates.has(key)) {
-        const size = extractImageSize(match[0]);
-        let score = 60;
-        if (
-          url.includes('recipe') ||
-          url.includes('food') ||
-          url.includes('dish') ||
-          url.includes('recept')
-        ) {
-          score = 75;
-        }
-        if (size?.width && size.width >= 400 && size?.height && size.height >= 300) {
-          score += 15;
-        }
-        candidates.set(key, { url, ...size, score });
-      }
-    }
+    const rawUrl = match[1];
+    const url = normalizeUrl(rawUrl, baseUrl);
+    if (!isValidImageUrl(url)) continue;
+    const key = url.split('?')[0];
+    if (candidates.has(key)) continue;
+
+    const size = extractImageSize(match[0]);
+    let score = 50;
+    if (/recipe|food|dish|recept/i.test(url)) score = 70;
+    if (size?.width && size.width >= 400 && size?.height && size.height >= 300) score += 15;
+    candidates.set(key, { url, score, ...size });
   }
 
   return Array.from(candidates.values());
+}
+
+function extractJsonLdImages(data: unknown): string[] {
+  if (!data || typeof data !== 'object') return [];
+  if (Array.isArray(data)) return data.flatMap(extractJsonLdImages);
+
+  const obj = data as Record<string, unknown>;
+  const results: string[] = [];
+
+  const image = obj['image'];
+  if (typeof image === 'string') {
+    results.push(image);
+  } else if (Array.isArray(image)) {
+    for (const item of image) {
+      if (typeof item === 'string') results.push(item);
+      else if (item && typeof item === 'object') {
+        const imgObj = item as Record<string, unknown>;
+        if (typeof imgObj.url === 'string') results.push(imgObj.url);
+        if (typeof imgObj.contentUrl === 'string') results.push(imgObj.contentUrl);
+      }
+    }
+  } else if (image && typeof image === 'object') {
+    const imgObj = image as Record<string, unknown>;
+    if (typeof imgObj.url === 'string') results.push(imgObj.url);
+    if (typeof imgObj.contentUrl === 'string') results.push(imgObj.contentUrl);
+  }
+
+  if (Array.isArray(obj['@graph'])) {
+    results.push(...obj['@graph'].flatMap(extractJsonLdImages));
+  }
+
+  return results;
 }
 
 function normalizeUrl(url: string, baseUrl: string): string {
@@ -120,12 +140,38 @@ function normalizeUrl(url: string, baseUrl: string): string {
 }
 
 function isValidImageUrl(url: string): boolean {
-  const lowerUrl = url.toLowerCase();
-  const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-  const hasExt = validExtensions.some((ext) => lowerUrl.includes(ext));
-  const noJavascript = !lowerUrl.includes('javascript:');
-  const noData = !lowerUrl.startsWith('data:');
-  return hasExt && noJavascript && noData;
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  if (lower.includes('javascript:') || lower.startsWith('data:')) return false;
+
+  const knownImageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
+  const hasExtension = knownImageExtensions.some((ext) => lower.includes(ext));
+  if (hasExtension) return true;
+
+  // Accept extensionless URLs from known image CDNs
+  const imageCdnPatterns = [
+    'images.ctfassets.net',
+    'res.cloudinary.com',
+    'cdn.sanity.io',
+    'media.contentful.com',
+    'images.squarespace-cdn.com',
+    'i.imgur.com',
+    'static.ah.nl',
+    'images.immediate.co.uk',
+    'www.leukerecepten.nl',
+    'img.',
+    'image.',
+    'cdn.',
+    'media.',
+    'photos.',
+    'picture.',
+  ];
+  if (imageCdnPatterns.some((p) => lower.includes(p))) return true;
+
+  // Accept if URL path suggests an image even without extension
+  if (/\/(?:photo|image|img|picture|foto)s?\//i.test(url)) return true;
+
+  return false;
 }
 
 function extractImageSize(imgTag: string): { width?: number; height?: number } {
@@ -140,7 +186,8 @@ function extractImageSize(imgTag: string): { width?: number; height?: number } {
 async function downloadImage(imageUrl: string): Promise<string | undefined> {
   if (!FS) return undefined;
   try {
-    const filename = `recipe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+    const ext = imageUrl.match(/\.(jpg|jpeg|png|webp|gif|avif)/i)?.[1] ?? 'jpg';
+    const filename = `recipe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
     const dir = `${FS.documentDirectory}images`;
     const filepath = `${dir}/${filename}`;
 
@@ -149,13 +196,11 @@ async function downloadImage(imageUrl: string): Promise<string | undefined> {
       await FS.makeDirectoryAsync(dir, { intermediates: true });
     }
 
-    await FS.downloadAsync(imageUrl, filepath);
+    const result = await FS.downloadAsync(imageUrl, filepath);
+    if (result.status !== 200) return undefined;
 
     const fileInfo = await FS.getInfoAsync(filepath);
-    if (fileInfo.exists) {
-      return filepath;
-    }
-    return undefined;
+    return fileInfo.exists ? filepath : undefined;
   } catch {
     return undefined;
   }

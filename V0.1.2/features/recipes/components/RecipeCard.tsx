@@ -13,7 +13,7 @@ import { Recipe } from '../../../types/recipe'
 interface RecipeCardProps {
   recipe: Recipe
   onPress: () => void
-  onToggleFavorite: (isFavorite: boolean) => void
+  onToggleFavorite: (newFavorite: boolean) => void
 }
 
 export function RecipeCard({

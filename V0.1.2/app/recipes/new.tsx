@@ -29,8 +29,6 @@ export default function NewRecipeScreen() {
 
   const form = useRecipeForm();
 
-  // ✂️ VERVANG DEZE HELE FUNCTIE IN app/recipes/new.tsx (regel 32-53)
-
 const handleSave = async () => {
   // Validatie
   const titleTrimmed = form.title.trim();

@@ -147,40 +147,6 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.section}>
-            <Text style={typography.title20}>Snelle acties</Text>
-
-            <View style={styles.actionsRow}>
-              <QuickActionButton
-                icon="plus"
-                label="Recept"
-                color={colors.primary}
-                onPress={() => router.push('/recipes/new')}
-              />
-
-              <QuickActionButton
-                icon="calendar"
-                label="Week plan"
-                color={colors.secondary}
-                onPress={() => router.push('/(tabs)/weekplanner')}
-              />
-
-              <QuickActionButton
-                icon="cart"
-                label="Boodschap"
-                color={colors.tertiary}
-                onPress={() => router.push('/(tabs)/grocery')}
-              />
-
-              <QuickActionButton
-                icon="heart"
-                label="Favorieten"
-                color="#E63946"
-                onPress={() => router.push('/(tabs)/recipes?filter=favorites')}
-              />
-            </View>
-          </View>
-
           {recentRecipes.length > 0 ? (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -200,8 +166,8 @@ export default function HomeScreen() {
                   <RecipeCard
                     recipe={item}
                     onPress={() => router.push(`/recipes/${item.id}`)}
-                    onToggleFavorite={() =>
-                      update(item.id, { isFavorite: !item.isFavorite })
+                    onToggleFavorite={(newFavorite) =>
+                      update(item.id, { isFavorite: newFavorite })
                     }
                   />
                 )}
@@ -262,41 +228,6 @@ function StatCard({
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={styles.statSublabel}>{sublabel}</Text>
     </View>
-  )
-}
-
-interface QuickActionButtonProps {
-  icon: keyof typeof Ionicons.glyphMap
-  label: string
-  color: string
-  onPress: () => void
-}
-
-function QuickActionButton({
-  icon,
-  label,
-  color,
-  onPress,
-}: QuickActionButtonProps) {
-  return (
-    <TouchableOpacity
-      style={styles.quickActionButton}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View
-        style={[
-          styles.quickActionCircle,
-          {
-            backgroundColor: `${color}15`,
-          },
-        ]}
-      >
-        <Ionicons name={icon} size={24} color={color} />
-      </View>
-
-      <Text style={styles.quickActionLabel}>{label}</Text>
-    </TouchableOpacity>
   )
 }
 
@@ -363,37 +294,6 @@ const styles = StyleSheet.create({
   statSublabel: {
     ...typography.small12,
     color: 'rgba(255, 255, 255, 0.75)',
-  },
-
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: spacing.md,
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    ...shadows.sm,
-  },
-
-  quickActionButton: {
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    flex: 1,
-  },
-
-  quickActionCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  quickActionLabel: {
-    ...typography.caption14,
-    color: colors.textDark,
-    textAlign: 'center',
   },
 
   recipeList: {

@@ -55,6 +55,9 @@ export default function NewRecipeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
+          <Ionicons name="close" size={24} color={colors.text} />
+        </TouchableOpacity>
         <Button label="Opslaan" onPress={handleSave} loading={saving} />
       </View>
 
@@ -124,7 +127,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: colors.surface,

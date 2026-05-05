@@ -1,11 +1,10 @@
 /**
- * 📖 RECIPES SCREEN
- * FILE: app/(tabs)/recipes.tsx
- * 
- * CHANGES:
- * - Added FAB button (+ icon)
- * - FAB opens modal with 2 options: "Handmatig" of "URL importeren"
- * - Rest of functionality unchanged
+ * 📖 RECIPES SCREEN - app/(tabs)/recipes.tsx
+ * Features:
+ * - Sort: Recent Added / Alphabetical A-Z / Cooking Time
+ * - Duplicate prevention check
+ * - Category filtering
+ * - Search functionality
  */
 
 import React, { useMemo, useState, useCallback } from 'react'
@@ -17,7 +16,6 @@ import {
   FlatList,
   TextInput,
   Modal,
-  Alert,
   Platform,
 } from 'react-native'
 import { useRouter } from 'expo-router'
@@ -36,12 +34,16 @@ import {
   shadows,
 } from '../../constants/Designsystem'
 
+type SortOption = 'recent' | 'alphabetical' | 'duration'
+
 export default function RecipesScreen() {
   const router = useRouter()
   const { recipes, isLoading, update } = useRecipes()
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [fabMenuVisible, setFabMenuVisible] = useState(false)
+  const [sortBy, setSortBy] = useState<SortOption>('recent')
+  const [sortMenuVisible, setSortMenuVisible] = useState(false)
 
   const categories = useMemo(() => {
     const cats = new Set(recipes.map((r) => r.category).filter(Boolean))
@@ -67,17 +69,25 @@ export default function RecipesScreen() {
     }
 
     return filtered.sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-      return dateB - dateA
+      switch (sortBy) {
+        case 'alphabetical':
+          return a.title.localeCompare(b.title, 'nl-NL')
+        case 'duration':
+          const durationA = a.duration ?? Infinity
+          const durationB = b.duration ?? Infinity
+          return durationA - durationB
+        case 'recent':
+        default:
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          return dateB - dateA
+      }
     })
-  }, [recipes, selectedCategory, searchTerm])
+  }, [recipes, selectedCategory, searchTerm, sortBy])
 
   const handleCategorySelect = useCallback((category: string) => {
     setSelectedCategory(selectedCategory === category ? null : category)
   }, [selectedCategory])
-
-  // ====== FAB ACTIONS ======
 
   const handleAddManually = () => {
     setFabMenuVisible(false)
@@ -87,6 +97,18 @@ export default function RecipesScreen() {
   const handleImportUrl = () => {
     setFabMenuVisible(false)
     router.push('/recipes/import')
+  }
+
+  const getSortLabel = () => {
+    switch (sortBy) {
+      case 'alphabetical':
+        return 'A → Z'
+      case 'duration':
+        return 'Kooktijd'
+      case 'recent':
+      default:
+        return 'Recent'
+    }
   }
 
   if (isLoading) {
@@ -143,6 +165,16 @@ export default function RecipesScreen() {
                     </TouchableOpacity>
                   )}
                 </View>
+
+                <TouchableOpacity
+                  style={styles.sortButton}
+                  onPress={() => setSortMenuVisible(true)}
+                >
+                  <Ionicons name="funnel" size={16} color={colors.primary} />
+                  <Text style={[typography.small12, { color: colors.primary }]}>
+                    {getSortLabel()}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               {categories.length > 0 && (
@@ -258,7 +290,6 @@ export default function RecipesScreen() {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Recept toevoegen</Text>
 
-              {/* Option 1: Handmatig */}
               <TouchableOpacity
                 style={styles.modalButton}
                 onPress={handleAddManually}
@@ -279,7 +310,6 @@ export default function RecipesScreen() {
                 <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
 
-              {/* Option 2: Import URL */}
               <TouchableOpacity
                 style={styles.modalButton}
                 onPress={handleImportUrl}
@@ -296,12 +326,156 @@ export default function RecipesScreen() {
                 <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
 
-              {/* Cancel Button */}
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => setFabMenuVisible(false)}
               >
                 <Text style={styles.modalButtonCancelText}>Annuleren</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* ====== SORT MENU MODAL ====== */}
+        <Modal
+          visible={sortMenuVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setSortMenuVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setSortMenuVisible(false)}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Sorteren</Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.sortOption,
+                  sortBy === 'recent' && styles.sortOptionActive,
+                ]}
+                onPress={() => {
+                  setSortBy('recent')
+                  setSortMenuVisible(false)
+                }}
+              >
+                <View style={styles.sortOptionContent}>
+                  <Ionicons
+                    name="time-outline"
+                    size={20}
+                    color={sortBy === 'recent' ? colors.primary : colors.textSecondary}
+                  />
+                  <View>
+                    <Text
+                      style={[
+                        typography.caption14Medium,
+                        { color: sortBy === 'recent' ? colors.primary : colors.text },
+                      ]}
+                    >
+                      Recent toegevoegd
+                    </Text>
+                    <Text
+                      style={[
+                        typography.small12,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Nieuwste eerst
+                    </Text>
+                  </View>
+                </View>
+                {sortBy === 'recent' && (
+                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.sortOption,
+                  sortBy === 'alphabetical' && styles.sortOptionActive,
+                ]}
+                onPress={() => {
+                  setSortBy('alphabetical')
+                  setSortMenuVisible(false)
+                }}
+              >
+                <View style={styles.sortOptionContent}>
+                  <Ionicons
+                    name="text-outline"
+                    size={20}
+                    color={sortBy === 'alphabetical' ? colors.primary : colors.textSecondary}
+                  />
+                  <View>
+                    <Text
+                      style={[
+                        typography.caption14Medium,
+                        { color: sortBy === 'alphabetical' ? colors.primary : colors.text },
+                      ]}
+                    >
+                      Alfabetisch (A → Z)
+                    </Text>
+                    <Text
+                      style={[
+                        typography.small12,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Alfabetische volgorde
+                    </Text>
+                  </View>
+                </View>
+                {sortBy === 'alphabetical' && (
+                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.sortOption,
+                  sortBy === 'duration' && styles.sortOptionActive,
+                ]}
+                onPress={() => {
+                  setSortBy('duration')
+                  setSortMenuVisible(false)
+                }}
+              >
+                <View style={styles.sortOptionContent}>
+                  <Ionicons
+                    name="flame-outline"
+                    size={20}
+                    color={sortBy === 'duration' ? colors.primary : colors.textSecondary}
+                  />
+                  <View>
+                    <Text
+                      style={[
+                        typography.caption14Medium,
+                        { color: sortBy === 'duration' ? colors.primary : colors.text },
+                      ]}
+                    >
+                      Kooktijd
+                    </Text>
+                    <Text
+                      style={[
+                        typography.small12,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Korte recepten eerst
+                    </Text>
+                  </View>
+                </View>
+                {sortBy === 'duration' && (
+                  <Ionicons name="checkmark" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setSortMenuVisible(false)}
+              >
+                <Text style={styles.modalButtonCancelText}>Sluiten</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -327,6 +501,7 @@ const styles = StyleSheet.create({
   searchSection: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+    gap: spacing.sm,
   },
 
   searchInput: {
@@ -346,6 +521,18 @@ const styles = StyleSheet.create({
     color: colors.text,
     paddingVertical: 0,
     fontSize: 14,
+  },
+
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 
   categoriesSection: {
@@ -391,8 +578,6 @@ const styles = StyleSheet.create({
     minHeight: 400,
   },
 
-  // ====== FAB ======
-
   fab: {
     position: 'absolute',
     bottom:
@@ -408,8 +593,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...shadows.xl,
   },
-
-  // ====== MODAL ======
 
   modalOverlay: {
     flex: 1,
@@ -482,5 +665,27 @@ const styles = StyleSheet.create({
     ...typography.caption14Medium,
     color: colors.text,
     textAlign: 'center',
+  },
+
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background,
+  },
+
+  sortOptionActive: {
+    backgroundColor: colors.primaryLight,
+  },
+
+  sortOptionContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
   },
 })

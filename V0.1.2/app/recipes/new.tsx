@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useRecipeForm } from '../../features/recipes/hooks/useRecipeForm';
@@ -20,12 +20,13 @@ import { StepInput } from '../../features/recipes/components/StepInput';
 import { CategoryPicker } from '../../features/recipes/components/CategoryPicker';
 import { AppTextInput } from '../../components/ui/AppTextInput';
 import { Button } from '../../components/ui/Button';
-import { colors, spacing, typography, shadows } from '../../constants/Designsystem';
+import { colors } from '../../constants/Designsystem';
 
 export default function NewRecipeScreen() {
   const router = useRouter();
   const { create } = useRecipes();
   const [saving, setSaving] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const form = useRecipeForm();
 
@@ -53,8 +54,8 @@ export default function NewRecipeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
           <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
@@ -62,7 +63,10 @@ export default function NewRecipeScreen() {
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
+          keyboardShouldPersistTaps="handled"
+        >
           <RecipeImagePicker
             imageUri={form.imageUri}
             onImageSelect={form.setImageUri}
@@ -118,7 +122,7 @@ export default function NewRecipeScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -129,12 +133,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: 12,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  content: { padding: 16, gap: 20, paddingBottom: 40 },
+  content: { padding: 16, gap: 20 },
   section: { gap: 10 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   sectionContent: { gap: 8 },

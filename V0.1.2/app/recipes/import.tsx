@@ -122,8 +122,11 @@ export default function ImportRecipeScreen() {
 
   if (step === 'url') {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
         <View style={styles.header}>
+          <TouchableOpacity onPress={onClose} hitSlop={8}>
+            <Ionicons name="close" size={24} color={colors.text} />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Importeer recept</Text>
           <View style={{ width: 32 }} />
         </View>
@@ -175,8 +178,11 @@ export default function ImportRecipeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => setStep('url')} hitSlop={8}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Recept bewerken</Text>
         <Button label="Opslaan" onPress={handleSave} loading={saving} />
       </View>

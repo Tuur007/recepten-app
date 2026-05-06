@@ -1,0 +1,394 @@
+🎯 EERLIJKE KRITIEK — Recepten App Rating
+Oké, laat me echt eerlijk zijn als kritiekaster. Ik ga niet zeggen "het is prachtig" — ik ga zeggen wat echt goed is en wat echt beter kan.
+
+📊 OVERALL RATING: 7.5/10
+✅ Goed gegrond | ⚠️ Maar niet perfect
+
+🎨 DESIGN & FEEL: 8.5/10
+✅ Wat werkt HEEL goed:
+
+Identiteit is DUIDELIJK — Warm editorial, geen generieke app
+Typography keus is GOED — Fraunces serif ziet er premium uit
+Color palette is COHERENT — Terracotta/olive/saffron voelt samenhanging
+White space is SMART — Niet cramped, ademruimte
+Consistency is STERK — Zelfde folio, typography, spacing everywhere
+
+⚠️ Wat is MINDER:
+
+Geen hero images in grid — Recipes screen toont geen plaatjes, alleen titels
+
+Impact: Visueel minder aantrekkelijk, harder om recepten te kiezen
+Fix: Add images to recipe cards (3-4 uur werk)
+
+
+Veel tekst, weinig visuele breaks — Bij lange lijsten
+
+Impact: Voelt saai na wat scrollen
+Fix: Add icons, badges, dividers
+
+
+Geen animaties/transitions — App voelt static
+
+Impact: Voelt minder "premium", minder responsive
+Fix: Fade in, scale, slide animations (2-3 uur)
+
+
+Dark mode niet ondersteund — Je warm palette ziet er PRACHTIG uit in dark!
+
+Impact: Middernacht koken doet pijn aan je ogen
+Fix: Implement dark mode (1-2 dagen)
+
+
+
+Verdict: Design is solide en duidelijk, maar visueel kan het meer "pop" hebben.
+
+⚙️ FUNCTIONALITEIT: 7/10
+✅ Wat WERKT goed:
+
+✅ Core features aanwezig (recepten, weekplanner, boodschappen)
+✅ Database (SQLite) is correct ingericht
+✅ Image upload & storage werkt
+✅ Category system is flexibel
+✅ State management met Zustand is clean
+
+❌ GROTE GATEN:
+
+GEEN ZOEKEN (kritiek!)
+
+Je hebt een recipes/search.tsx, maar het is LEEG
+Users kunnen niet zoeken op titel, ingredient, category
+Impact: Bij 50+ recepten wordt het onbruikbaar
+Severity: HIGH — Dit is een deal-breaker voor grote apps
+
+
+GEEN FAVORIETEN
+
+Users kunnen geen recepten opslaan
+Geen rating system
+Impact: Geen personalisatie, geen "jarring" ervaring
+Severity: MEDIUM — Niet kritiek, maar wel gemist
+
+
+WEEKPLANNER IS BASIC
+
+Kan 1 recept per dag
+Geen lunch + dinner
+Geen visual calendar (alleen list)
+Impact: Voor gezin is dit te simpel
+Severity: MEDIUM-HIGH — Gezinnen willen meer
+
+
+SHOPPING LIST IS PRIMITIEF
+
+Geen quantity controls (hoeveel gram?)
+Geen grouping (groente, zuivel, vlees)
+Geen "clear all checked" bulk action
+Geen price tracking
+Impact: Minder useful voor echt boodschappen doen
+Severity: MEDIUM — Irritant in dagelijkse use
+
+
+GEEN RECIPE DETAILS BIJ AANMAAK
+
+Geen moeilijkheidsgraad
+Geen voedingswaarden
+Geen servings
+Geen prep/cook time split
+Impact: Recepten voelen onaf
+Severity: HIGH — Essentiële info ontbreekt
+
+
+GEEN TIMER DURING COOKING
+
+Je bent in recipe detail, maar geen timer
+Geen step-by-step guidance
+Impact: Moet naar andere app voor timer
+Severity: MEDIUM — Frustrerend
+
+
+IMPORT FUNCTIE IS ONVOLLEDIG
+
+recipes/import.tsx bestaat maar is waarschijnlijk basic
+Geen parsing van website recepten
+Impact: Moeilijk om recepten toe te voegen
+Severity: MEDIUM-LOW
+
+
+
+Verdict: Core is goed, maar features zijn oppervlakkig. Voelt als "v0.5", niet "v1.0".
+
+🏗️ CODE QUALITY: 8/10
+✅ Wat is GOED:
+
+✅ TypeScript strict mode (goed!)
+✅ File structure is logisch (features/, stores/, utils/)
+✅ Components zijn redelijk schoon
+✅ Hooks zijn goed georganiseerd
+✅ Error boundary aanwezig
+✅ Loading states handled
+
+⚠️ Wat kan BETER:
+
+Some TODOs in comments
+
+(tonight as any).duration — Ugh, type casting!
+Impact: Minder strict, minder type-safe
+Fix: Proper types everywhere
+
+
+Repeated code in screens
+
+Folio header in elk screen apart
+Could be shared component
+Impact: Harder to maintain
+Fix: Extract shared components (1 uur)
+
+
+No error handling in some hooks
+
+What if database fails?
+What if image upload fails?
+Impact: App could crash silently
+Fix: Add try/catch, error states (2 uur)
+
+
+Store mutations could be more atomic
+
+Some actions update multiple things
+Could cause race conditions
+Impact: Potential data bugs
+Fix: Refactor stores (3 uur)
+
+
+No performance optimization
+
+No memoization on expensive renders
+No lazy loading
+Impact: With 100+ recipes, app might stutter
+Fix: Add React.memo, useMemo (4 uur)
+
+
+
+Verdict: Code is professional, maar niet "production-grade". Some rough edges.
+
+📱 UX/INTERACTION: 6.5/10
+✅ Wat werkt:
+
+✅ Navigation is clear
+✅ Basic interactions work (tap, scroll)
+✅ Buttons are responsive
+
+❌ Wat SLECHT is:
+
+NO FEEDBACK ON ACTIONS
+
+Add recipe: nothing happens (does it save?)
+Delete: no confirmation
+Check shopping item: no haptic feedback
+Impact: Feels unresponsive, unsatisfying
+Severity: HIGH
+
+
+NO LOADING STATES DURING ACTIONS
+
+Add meal to plan: instant (but maybe slow?)
+No spinner, no disabled button
+Impact: User doesn't know what's happening
+Severity: MEDIUM
+
+
+KEYBOARD DOESN'T DISMISS
+
+Type in grocery input, then what?
+Have to tap outside
+Impact: Annoying on mobile
+Severity: MEDIUM
+
+
+EMPTY STATES ARE MINIMAL
+
+No recipes: just moon icon
+No grocery items: just empty
+Could be more inviting/helpful
+Impact: Feels cold
+Severity: MEDIUM-LOW
+
+
+NO ANIMATIONS
+
+Tap button → nothing
+Swipe between screens → nothing
+Delete item → just gone
+Impact: Feels dated, not premium
+Severity: HIGH for premium feel
+
+
+MODALS ARE BASIC
+
+Recipe picker in weekplanner is plain
+No smooth entrance
+Impact: Feels clunky
+Severity: MEDIUM
+
+
+
+Verdict: App is usable, maar not delightful. Feels more "utility" than "experience".
+
+🚀 PERFORMANCE: 7/10
+✅ Decent:
+
+✅ App boots fast (splash screen is good)
+✅ Database queries seem fast
+✅ Scrolling is smooth
+✅ No obvious lag
+
+⚠️ Concerns:
+
+Large images not optimized
+
+No image resize/compression
+Could slow down on older phones
+Impact: Slow on Android?
+
+
+No pagination
+
+All recipes loaded at once
+With 1000 recipes = slow
+Impact: Won't scale
+
+
+No caching
+
+Every load hits database
+Could cache more aggressively
+Impact: Not battery efficient
+
+
+
+Verdict: Fine for 100 recipes, but won't scale.
+
+📊 FEATURE COMPLETENESS: 6/10
+What's there:
+
+✅ Add recipes
+✅ View recipes
+✅ Weekly plan
+✅ Shopping list
+❌ Search (EMPTY)
+❌ Favorites
+❌ Ratings
+❌ Social sharing
+❌ Nutrition tracking
+❌ Cooking timer
+❌ Recipe notes
+❌ Dietary filters
+
+Verdict: 40% of what a production app needs.
+
+🎯 IF I WERE RATING THIS FOR APP STORE:
+❌ NOT READY
+
+❌ Too many missing features
+❌ No search (users would be mad)
+❌ No animations (feels cheap)
+❌ Recipe details incomplete
+❌ No error handling
+❌ No loading feedback
+
+But it's VERY CLOSE (2-3 weeks away)
+If you add:
+
+Search (2 days)
+Animations (2 days)
+Favorites + ratings (1-2 days)
+Recipe details (2-3 days)
+Error handling + feedback (2 days)
+Testing (1 week)
+
+= Ready in 3-4 weeks
+
+🏆 WHAT'S ACTUALLY GOOD
+Let me be fair — the app has some REAL strengths:
+Design Identity ⭐⭐⭐⭐⭐
+
+Not trying to be Instagram or Notion
+Own distinct look
+Brave color choices (terracotta works!)
+This is hard to do, you nailed it
+
+Solid Architecture ⭐⭐⭐⭐
+
+TypeScript, Zustand, SQLite
+Shows good taste in tech
+Not over-engineered
+Easy to extend
+
+Core Feature Loop ⭐⭐⭐⭐
+
+Recipe → Week planner → Shopping list
+That flow makes sense
+Good mental model
+
+
+🚨 BIGGEST ISSUES (Honest Opinion)
+
+SEARCH IS MISSING — This is critical
+No visual feedback — App feels unresponsive
+Features feel half-done — Recipe details incomplete
+No personality — Could have more delight/humor
+Doesn't feel "done" — Feels like early beta
+
+
+💡 WHAT IT ACTUALLY NEEDS TO BE GREAT
+Priority 1 (CRITICAL):
+  □ Search feature
+  □ Visual feedback (animations, haptics)
+  □ Error handling
+
+Priority 2 (IMPORTANT):
+  □ Favorites + ratings
+  □ Recipe details (difficulty, time, servings)
+  □ Shopping list improvements
+  □ Dark mode
+
+Priority 3 (NICE-TO-HAVE):
+  □ Collections
+  □ Social sharing
+  □ Nutrition tracking
+  □ Cooking timer
+
+🎓 FINAL VERDICT
+Current State: 7.5/10
+
+Design is genuinely good
+Core functionality works
+But feels incomplete
+Missing key features
+No polish/delight
+
+Potential: 9/10
+
+With 2-3 weeks of work
+Would be genuinely great
+Could sell this to people
+Real value for families
+
+My Recommendation:
+Don't launch yet.
+Add:
+
+Search (CRITICAL)
+Animations (for premium feel)
+Favorites + better recipe details
+Error handling
+
+THEN it's ready.
+
+🎯 HONEST CLOSING
+Your app isn't "bad" — it's actually solid. But it's not "finished". It feels like someone built a beautiful house but left some rooms empty. The foundation is strong, the design is distinct, but there's work left.
+The good news? It's the right kind of work. Not a total rewrite — just filling in the gaps and adding polish.
+2-3 weeks of good work = production-ready app.
+That's actually not bad! 🚀
+
+Want me to create a "Get to 9/10" roadmap? I can show you exactly what to fix and how.

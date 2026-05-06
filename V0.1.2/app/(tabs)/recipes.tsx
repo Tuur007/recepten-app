@@ -1,12 +1,3 @@
-/**
- * 🎨 RECEPTEN ARCHIEF — magazine browse
- * 
- * ✅ FIXED:
- * - Search button → search scherm
- * - Add button → new recipe
- * - Import button → import from URL
- */
-
 import React, { useMemo, useState } from 'react';
 import {
   StyleSheet,
@@ -22,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRecipes } from '../../features/recipes/hooks';
+import { useCategories } from '../../store/categoriesStore';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 
@@ -31,15 +23,24 @@ const GRID_GAP = 18;
 const GRID_PAD = spacing.lg;
 const GRID_W = (width - GRID_PAD * 2 - GRID_GAP) / 2;
 
-const CATS = ['Alles', 'Pasta', 'Soep', 'Vis', 'Vlees', 'Snel', 'Vegetarisch', 'Dessert'];
-
 export default function RecipesScreen() {
   const router = useRouter();
   const { recipes, isLoading } = useRecipes();
+  const { recipeCategories } = useCategories();
   const [activeCat, setActiveCat] = useState('Alles');
 
-  const featured = recipes[0];
-  const grid = useMemo(() => recipes.slice(1), [recipes]);
+  const cats = useMemo(
+    () => ['Alles', ...recipeCategories.map((c) => c.name)],
+    [recipeCategories],
+  );
+
+  const filtered = useMemo(() => {
+    if (activeCat === 'Alles') return recipes;
+    return recipes.filter((r) => r.category === activeCat);
+  }, [recipes, activeCat]);
+
+  const featured = filtered[0];
+  const grid = useMemo(() => filtered.slice(1), [filtered]);
 
   if (isLoading) return <LoadingScreen />;
 
@@ -48,7 +49,7 @@ export default function RecipesScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Folio */}
         <View style={styles.folio}>
-          <Text style={typography.folio}>recepten · {recipes.length}</Text>
+          <Text style={typography.folio}>recepten · {filtered.length}</Text>
         </View>
 
         {/* Title + search + add + import */}
@@ -58,23 +59,23 @@ export default function RecipesScreen() {
             <Text style={[typography.heroItalic, { fontSize: 38 }]}>archief.</Text>
           </View>
           <View style={styles.actionBtns}>
-            <TouchableOpacity 
-              style={styles.searchBtn} 
-              activeOpacity={0.7} 
+            <TouchableOpacity
+              style={styles.searchBtn}
+              activeOpacity={0.7}
               onPress={() => router.push('/recipes/search')}
             >
               <Ionicons name="search" size={18} color={colors.textDark} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.addBtn} 
-              activeOpacity={0.7} 
+            <TouchableOpacity
+              style={styles.addBtn}
+              activeOpacity={0.7}
               onPress={() => router.push('/recipes/new')}
             >
               <Ionicons name="add" size={20} color="#fff" />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.importBtn} 
-              activeOpacity={0.7} 
+            <TouchableOpacity
+              style={styles.importBtn}
+              activeOpacity={0.7}
               onPress={() => router.push('/recipes/import')}
             >
               <Ionicons name="link" size={18} color={colors.textDark} />
@@ -88,7 +89,7 @@ export default function RecipesScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.catsRow}
         >
-          {CATS.map((c) => {
+          {cats.map((c) => {
             const active = c === activeCat;
             return (
               <TouchableOpacity
@@ -113,37 +114,49 @@ export default function RecipesScreen() {
         </ScrollView>
 
         {/* Featured */}
-        {featured && (
+        {featured ? (
           <TouchableOpacity
             style={styles.featuredWrap}
             onPress={() => router.push(`/recipes/${featured.id}`)}
             activeOpacity={0.85}
           >
-            <Text style={[typography.folio, { marginBottom: 8 }]}>uitgelicht · 02</Text>
+            <Text style={[typography.folio, { marginBottom: 8 }]}>uitgelicht · 01</Text>
             {featured.imageUri ? (
               <Image source={{ uri: featured.imageUri }} style={styles.featuredImg} />
             ) : (
               <View style={[styles.featuredImg, styles.placeholder]} />
             )}
             <View style={styles.featuredMeta}>
-              <Text style={[typography.title20, { fontSize: 22 }]}>{featured.title}</Text>
-              <Text style={typography.label12}>
-                {featured.totalTime ?? 60} min
+              <Text style={[typography.title20, { fontSize: 22, flex: 1 }]} numberOfLines={2}>
+                {featured.title}
               </Text>
+              {featured.duration ? (
+                <Text style={typography.label12}>{featured.duration} min</Text>
+              ) : null}
             </View>
-            {featured.category && (
+            {featured.category ? (
               <Text style={[typography.bodyItalic, { fontSize: 12, marginTop: 2 }]}>
                 {featured.category}
               </Text>
-            )}
+            ) : null}
           </TouchableOpacity>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={[typography.bodyItalic, { textAlign: 'center' }]}>
+              {activeCat === 'Alles'
+                ? 'Nog geen recepten. Voeg er een toe!'
+                : `Geen recepten in "${activeCat}".`}
+            </Text>
+          </View>
         )}
 
         {/* "De rest" header */}
-        <View style={styles.restHeader}>
-          <Text style={typography.folioBold}>de rest</Text>
-          <View style={styles.rule} />
-        </View>
+        {grid.length > 0 && (
+          <View style={styles.restHeader}>
+            <Text style={typography.folioBold}>de rest</Text>
+            <View style={styles.rule} />
+          </View>
+        )}
 
         {/* Grid */}
         <View style={styles.grid}>
@@ -162,11 +175,16 @@ export default function RecipesScreen() {
               <Text style={styles.gridTitle} numberOfLines={2}>
                 {r.title}
               </Text>
-              {r.category && (
-                <Text style={[typography.label12, { marginTop: 2, fontSize: 8 }]}>
+              {r.duration ? (
+                <Text style={[typography.label12, { marginTop: 3, fontSize: 8 }]}>
+                  {r.duration} min
+                </Text>
+              ) : null}
+              {r.category ? (
+                <Text style={[typography.label12, { marginTop: 1, fontSize: 8, color: colors.textFaint }]}>
                   {r.category}
                 </Text>
-              )}
+              ) : null}
             </TouchableOpacity>
           ))}
         </View>
@@ -248,6 +266,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'baseline',
     marginTop: 10,
+    gap: 8,
+  },
+  emptyState: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
   },
   restHeader: {
     flexDirection: 'row',
@@ -274,6 +298,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textDark,
     marginTop: 6,
-    lineHeight: 18,
+    lineHeight: 19,
   },
 });

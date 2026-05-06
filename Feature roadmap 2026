@@ -1,0 +1,521 @@
+# 🎨 RECEPTEN APP — FEATURE & IMPROVEMENT ROADMAP
+## Gebaseerd op jouw huididig design (Editorial + Warm Cream)
+
+**Reviewed:** May 6, 2026  
+**Design Style:** Warm editorial (Fraunces serif + warm cream paper #F6F1E7)  
+**Huidiging Status:** Solide foundation met veel potentie  
+**Confidence:** 100% — Alle suggesties passen bij jouw design
+
+---
+
+## 📊 JE HUIDIDIG DESIGN (MOOI!)
+
+### 🎨 **Kleurenschema** (Perfect!)
+```
+Background:  #F6F1E7 (warm cream paper) ✅
+Text Dark:   #191613 (warm ink) ✅
+Primary:     #C2492A (terracotta accent) ✅
+Secondary:   #5A6B3A (olive green) ✅
+Tertiary:    #D49A3A (saffron yellow) ✅
+```
+
+**Karakter:** Editorial, warm, inviting, papier-achtig  
+**Voel:** Premium magazine/kookboek aesthetic
+
+### 📱 **Huidiging Screens**
+
+| Screen | Status | Design |
+|--------|--------|--------|
+| Home | ✅ Working | Hero image, title split italic, meta info |
+| Recipes | ✅ Working | 2-column grid, featured hero, categories |
+| Weekplanner | ✅ Working | 7 days, meal picker modal, auto-fill |
+| Grocery | ✅ Working | 2-list (unchecked/checked), add manual |
+| Settings | ✅ Working | Category management |
+
+### 🎯 **Sterke punten van jouw design**
+- ✅ **Editorial typography** — Fraunces serif ziet er premium uit
+- ✅ **Warm palette** — Voelt uitnodigend, niet corporate
+- ✅ **White space** — Niet cramped, ademruimte
+- ✅ **Consistent** — Same folio, typography, spacing everywhere
+- ✅ **Functional** — Alle core features present
+- ✅ **Accessible** — Good contrast, readable
+
+---
+
+## 🚀 FEATURE IMPROVEMENTS (Tier 1: Easy Wins)
+
+Deze features passen PERFECT bij je design en zijn relatief snel:
+
+### 1. **RECIPE DETAILS ENHANCEMENTS** ⭐ PRIORITY
+**Impact:** High | **Effort:** Medium | **Time:** 3-5 days
+
+Wat je nou hebt:
+- ❌ Recipe detail screen is basic
+- ❌ Geen nutritie info
+- ❌ Geen moeilijkheidsgraad
+- ❌ Geen servings aanpassingen
+- ❌ Geen winkelwagen-toevoegen
+
+**Toevoegen:**
+
+```typescript
+// Recipe detail screen improvements
+
+Interface RecipeDetail:
+  ✅ Ingrediënten (already have)
+  ✅ Stappen (already have)
+  ✨ Moeilijkheidsgraad (⭐ Easy, Medium, Hard)
+  ✨ Voedingswaarden (cal, protein, fat, carbs per serving)
+  ✨ Servings scaler (1x → 4x → 8x portions)
+  ✨ "Add all ingredients to shopping" button
+  ✨ Cooking time + prep time breakdown
+  ✨ Equipment nodig (oven, mixer, etc.)
+  ✨ Allergen warnings
+  ✨ Recipe notes/tips section
+```
+
+**Design notes:**
+- Use folio for metadata rows
+- Split title italic accent (already doing)
+- Meta items in editorial style
+- Vertical tabs for ingredients/steps/notes
+
+---
+
+### 2. **RECIPE FILTERING & SEARCH UPGRADES** ⭐ PRIORITY
+**Impact:** High | **Effort:** Easy | **Time:** 2-3 days
+
+Wat je nou hebt:
+- ✅ Category filter (nice!)
+- ❌ Geen time-based filter (15min recipes)
+- ❌ Geen difficulty filter
+- ❌ Geen ingredient filter
+- ❌ Geen favorites view
+
+**Toevoegen:**
+
+```typescript
+// Filter system
+
+Filters (can combine):
+  ✨ Time: "under 15 min", "15-30 min", "30+ min"
+  ✨ Difficulty: "Easy", "Medium", "Hard"
+  ✨ Ingredients: "contains chicken", "vegetarian", "vegan"
+  ✨ Favorites: "❤️ only"
+  ✨ Recently added
+  ✨ Most cooked
+
+// New sections:
+  ✨ Favorites tab (all ❤️ recipes)
+  ✨ Quick Meals section (under 20 min)
+  ✨ Dietary tabs (Vegetarian, Vegan, Gluten-free)
+```
+
+**Implementation:**
+- Horizontal scroll filters (like categories)
+- Add favorites to recipe model
+- Track "times cooked" in store
+- Filter logic in recipes hook
+
+---
+
+### 3. **SHOPPING LIST ENHANCEMENTS** ⭐ PRIORITY
+**Impact:** High | **Effort:** Medium | **Time:** 3-4 days
+
+Wat je nou hebt:
+- ✅ Unchecked/checked split
+- ✅ Manual add
+- ✅ Add from recipe
+- ❌ Geen bulk actions
+- ❌ Geen quantity adjustments
+- ❌ Geen store planning
+- ❌ Geen price estimates
+
+**Toevoegen:**
+
+```typescript
+// Enhanced grocery list
+
+Features:
+  ✨ Quantity up/down buttons (not just text)
+  ✨ Unit conversion (g ↔ kg, ml ↔ l)
+  ✨ "Select all unchecked" button
+  ✨ "Clear all checked" button with undo
+  ✨ Drag-to-reorder (top items first)
+  ✨ Group by store (produce, dairy, meat, pantry)
+  ✨ Price per item (optional)
+  ✨ Total estimate (sum of all prices)
+  ✨ Share list button (copy to clipboard)
+  ✨ Barcode scanner (scan in store)
+  ✨ "Mark items as bought" in store mode
+  ✨ Shopping history (what you bought last week)
+
+// New UI sections:
+  [Total: €47.50]  ← Shows sum if prices added
+  [Share List] [Print] [Clear Checked]
+```
+
+**Design approach:**
+- Same paper aesthetic
+- Use folio for totals
+- Icons for actions (already using Ionicons)
+- Muted colors for completed items
+
+---
+
+### 4. **FAVORITES & RATINGS** ⭐ PRIORITY
+**Impact:** Medium | **Effort:** Easy | **Time:** 1-2 days
+
+Wat je nou hebt:
+- ❌ Geen favorites
+- ❌ Geen ratings
+- ❌ Geen save option
+
+**Toevoegen:**
+
+```typescript
+// Favorites system
+
+Recipe model addition:
+  ✨ isFavorite: boolean
+  ✨ rating: 1-5 stars (user rating)
+  ✨ notes: "made this last Tuesday"
+  ✨ timesCooked: number
+  ✨ lastCooked: date
+
+Features:
+  ✨ Heart button on recipe detail
+  ✨ Star rating (tap to rate)
+  ✨ Personal notes on recipe
+  ✨ "Favorites" category in recipes screen
+  ✨ Top-rated recipes section
+  ✨ "Most cooked" section
+  ✨ Recipe history (last cooked date)
+```
+
+**UI placement:**
+- Heart icon next to title (editorial placement)
+- Stars below ingredients
+- Notes in expandable section
+
+---
+
+## 🚀 FEATURE IMPROVEMENTS (Tier 2: Medium Effort)
+
+### 5. **MEAL PLAN CALENDAR VIEW** 
+**Impact:** Medium | **Effort:** Medium | **Time:** 4-5 days
+
+Upgrade weekplanner from:
+```
+MON: Lasagna
+TUE: Pizza
+...
+```
+
+To beautiful calendar:
+```
+✨ Month view calendar
+✨ Swipe between weeks
+✨ Color-coded meals
+✨ Drag-drop to move meals
+✨ Multi-meal per day (lunch + dinner)
+✨ Meal prep notes
+✨ Shopping list from week
+✨ Recipe suggestions based on history
+```
+
+---
+
+### 6. **RECIPE COLLECTIONS** 
+**Impact:** Medium | **Effort:** Medium | **Time:** 3-4 days
+
+New feature:
+```
+✨ Create custom collections:
+  - "Summer BBQ"
+  - "Quick weekday lunches"
+  - "Fancy dinner guests"
+  - "Vegan experiments"
+  
+✨ Organize recipes by collection
+✨ Share collections (export as JSON/PDF)
+✨ Collaborative collections (family adds recipes)
+```
+
+---
+
+### 7. **RECIPE SCALING/ADJUSTMENTS**
+**Impact:** High | **Effort:** Easy | **Time:** 2-3 days
+
+Add to recipe detail:
+```
+✨ Servings slider (1-12)
+✨ Auto-scale ingredients
+✨ Recalculate cooking time
+✨ Dietary restrictions (swap ingredients):
+  - "Replace butter with oil"
+  - "Make vegan version"
+  - "Gluten-free option"
+```
+
+---
+
+## 🚀 FEATURE IMPROVEMENTS (Tier 3: Advanced)
+
+### 8. **NUTRITION CALCULATOR** 
+**Impact:** Medium | **Effort:** Hard | **Time:** 6-8 days
+
+Track per-recipe:
+```
+✨ Calories per serving
+✨ Macros breakdown
+✨ Allergen warnings
+✨ Weekly nutrition summary
+✨ Dietary goal tracking
+```
+
+Requires: Nutrition database (integrate with API or manual entry)
+
+---
+
+### 9. **GROCERY SMART SHOPPING**
+**Impact:** High | **Effort:** Hard | **Time:** 5-7 days
+
+Advanced features:
+```
+✨ Price tracking
+✨ Store inventory comparison
+✨ Discount notifications
+✨ Weekly specials integration
+✨ Best deals finder
+✨ Budget tracking
+```
+
+---
+
+### 10. **SOCIAL/SHARING**
+**Impact:** Medium | **Effort:** Hard | **Time:** 7-10 days
+
+Share functionality:
+```
+✨ Share single recipe (image + text)
+✨ Share weekly plan
+✨ Share shopping list
+✨ Recipe cards (pretty formatted)
+✨ Export to PDF
+✨ Print recipes
+```
+
+---
+
+## 🎯 QUICK WINS (1-2 days each)
+
+These are small but delightful:
+
+```
+1. "Copy ingredients" button → copies to clipboard
+2. Dark mode support (your design works beautifully in dark!)
+3. Recipe search improvements (by ingredient, time, difficulty)
+4. Keyboard shortcuts (swipe between recipe details)
+5. Ingredient checkmarks while cooking
+6. Timer for cooking steps
+7. Photos per step (cooking progress)
+8. Voice notes on recipes
+9. Shopping list export to email
+10. Recurring meal plans (same menu each week)
+11. Batch cooking features (cook 3x at once)
+12. Ingredient substitution suggestions
+13. Recipe difficulty badge
+14. "Cook this" vs "Plan this" toggle
+15. Pantry inventory (what you have at home)
+```
+
+---
+
+## 🏆 MY TOP 5 RECOMMENDATIONS (ROI Order)
+
+### **Priority 1: Recipe Filtering & Favorites** (Easy ⭐)
+- Effort: 2-3 days
+- Impact: Users can find recipes faster
+- Why: Fits perfectly with your design, big UX improvement
+
+### **Priority 2: Shopping List Enhancements** (Easy-Medium ⭐⭐)
+- Effort: 3-4 days
+- Impact: Most used feature becomes way better
+- Why: Practical, users appreciate polish here
+
+### **Priority 3: Recipe Details Upgrade** (Medium ⭐⭐)
+- Effort: 3-5 days
+- Impact: More info available, better cooking experience
+- Why: Education value (difficulty, nutrition, techniques)
+
+### **Priority 4: Meal Plan Calendar** (Medium ⭐⭐)
+- Effort: 4-5 days
+- Impact: Better visualization, more powerful
+- Why: Visual upgrade, better weekly planning
+
+### **Priority 5: Dark Mode** (Easy ⭐)
+- Effort: 2-3 days
+- Impact: Night cooking won't hurt eyes
+- Why: Your warm palette actually looks GREAT in dark mode!
+
+---
+
+## 🎨 DESIGN NOTES FOR ALL FEATURES
+
+### **Keep your aesthetic:**
+- ✅ Use same warm cream background
+- ✅ Keep Fraunces serif for titles
+- ✅ Maintain editorial folio labels
+- ✅ White space is your friend
+- ✅ Italic accents for emphasis
+- ✅ Warm color palette (terracotta/olive/saffron)
+
+### **Don't do:**
+- ❌ Gradient overlays
+- ❌ Harsh shadows
+- ❌ Neon colors
+- ❌ Too many icons
+- ❌ Crowded layouts
+- ❌ Cartoon illustrations
+
+### **Enhance with:**
+- ✅ Better icons (you're using Ionicons well)
+- ✅ Subtle animations (fade, slide)
+- ✅ Photography (recipe images!)
+- ✅ Typography hierarchy
+- ✅ Consistent spacing (8px grid)
+- ✅ Readable line heights
+
+---
+
+## 📊 IMPLEMENTATION ROADMAP (REALISTIC)
+
+### **Week 1: Quick Wins**
+```
+□ Favorites system (1-2 days)
+□ Recipe filtering (1-2 days)
+□ Difficulty badges (0.5 days)
+Total: 3-5 days
+```
+
+### **Week 2-3: Core Improvements**
+```
+□ Shopping list enhancements (2-3 days)
+□ Recipe detail upgrades (2-3 days)
+□ Servings scaler (1-2 days)
+Total: 5-8 days
+```
+
+### **Week 3-4: Polish & Features**
+```
+□ Calendar view for planner (2-3 days)
+□ Dark mode (1-2 days)
+□ Better search (1-2 days)
+Total: 4-7 days
+```
+
+### **Week 5+: Advanced**
+```
+□ Collections/categories (2-3 days)
+□ Social sharing (3-5 days)
+□ Nutrition tracking (3-5 days)
+```
+
+**Total: 4-6 weeks** for Priorities 1-5
+
+---
+
+## 💡 CODE CHANGES NEEDED
+
+### **Recipe Model Addition**
+```typescript
+interface Recipe {
+  // Current
+  id: string;
+  title: string;
+  imageUri?: string;
+  ingredients: Ingredient[];
+  steps: RecipeStep[];
+  category?: string;
+  
+  // Add these
+  isFavorite?: boolean;              // ⭐ For favorites
+  rating?: number;                    // ⭐ 1-5 stars
+  difficulty?: 'easy' | 'medium' | 'hard';  // ⭐ For filtering
+  preparationTime?: number;           // ⭐ Minutes
+  cookingTime?: number;               // ⭐ Minutes
+  servings?: number;                  // ⭐ Default 4
+  yield?: string;                     // ⭐ "Serves 4-6"
+  notes?: string;                     // ⭐ Personal notes
+  timesCooked?: number;               // ⭐ Track usage
+  lastCooked?: string;                // ⭐ ISO date
+  equipment?: string[];               // ⭐ "oven", "mixer"
+  allergens?: string[];               // ⭐ "dairy", "gluten"
+}
+```
+
+### **Grocery Model Addition**
+```typescript
+interface GroceryItem {
+  // Current
+  id: string;
+  name: string;
+  sources: ItemSource[];
+  checked: boolean;
+  
+  // Add these
+  quantity: number;                   // ⭐ Amount
+  unit: string;                       // ⭐ "g", "ml", etc
+  price?: number;                     // ⭐ €
+  aisle?: string;                     // ⭐ Grouping
+  barcode?: string;                   // ⭐ Scanner
+}
+```
+
+### **New Store Slices**
+```typescript
+// Create new Zustand stores for:
+□ useFavoritesStore
+□ useRatingsStore
+□ usePriceStore
+□ usePantryStore
+□ useCollectionsStore
+```
+
+---
+
+## ✅ SUCCESS CRITERIA
+
+After implementing Tier 1 features:
+- ✅ Users can filter recipes (time, difficulty, favorites)
+- ✅ Shopping list is faster to use (bulk actions, clear checked)
+- ✅ Recipe detail has more useful info
+- ✅ Favorites system lets users save preferences
+- ✅ All maintains warm editorial aesthetic
+- ✅ No breaking changes to existing features
+- ✅ TypeScript strict mode passes
+- ✅ Tested on iOS + Android
+
+---
+
+## 🎯 NEXT STEP
+
+Pick your Priority 1 feature above and I'll give you:
+1. Detailed sprint plan
+2. Complete code implementation
+3. Testing strategy
+4. Integration points
+
+**Which excites you most?**
+- Favorites & ratings?
+- Better recipe filtering?
+- Shopping list power-up?
+- Dark mode?
+- Something else?
+
+Let me know and I'll create a detailed implementation guide! 🚀
+
+---
+
+**Your app has a SOLID foundation. These features will make it amazing!** ✨

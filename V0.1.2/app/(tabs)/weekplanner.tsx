@@ -9,6 +9,7 @@ import {
   Modal,
   Image,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,6 +28,7 @@ export default function WeekPlannerScreen() {
   const { recipes, isLoading } = useRecipes();
   const { mealPlan, addMeal, clearDay } = useWeekPlannerStore();
   const [pickerDay, setPickerDay] = useState<string | null>(null);
+  const [pickerQuery, setPickerQuery] = useState('');
 
   const weekDays = useMemo(() => {
     const today = new Date();
@@ -53,10 +55,17 @@ export default function WeekPlannerScreen() {
     return recipes.find(r => r.id === ids[0]) ?? null;
   }, [mealPlan, recipes]);
 
+  const filteredPickerRecipes = useMemo(() => {
+    if (!pickerQuery.trim()) return recipes;
+    const q = pickerQuery.toLowerCase();
+    return recipes.filter((r) => r.title.toLowerCase().includes(q));
+  }, [recipes, pickerQuery]);
+
   const handleAdd = useCallback((dayKey: string, recipeId: string) => {
     clearDay(dayKey);
     addMeal(dayKey, recipeId);
     setPickerDay(null);
+    setPickerQuery('');
   }, [clearDay, addMeal]);
 
   const fillGaps = useCallback(() => {
@@ -142,17 +151,29 @@ export default function WeekPlannerScreen() {
         visible={!!pickerDay}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setPickerDay(null)}
+        onRequestClose={() => { setPickerDay(null); setPickerQuery(''); }}
       >
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Kies een recept</Text>
-            <TouchableOpacity onPress={() => setPickerDay(null)} hitSlop={8}>
+            <TouchableOpacity onPress={() => { setPickerDay(null); setPickerQuery(''); }} hitSlop={8}>
               <Ionicons name="close" size={24} color={colors.textDark} />
             </TouchableOpacity>
           </View>
+          <View style={styles.searchRow}>
+            <Ionicons name="search" size={16} color={colors.textFaint} />
+            <TextInput
+              style={styles.searchInput}
+              value={pickerQuery}
+              onChangeText={setPickerQuery}
+              placeholder="Zoek recept…"
+              placeholderTextColor={colors.textFaint}
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
+          </View>
           <FlatList
-            data={recipes}
+            data={filteredPickerRecipes}
             keyExtractor={r => r.id}
             contentContainerStyle={{ padding: spacing.md, gap: 10 }}
             ListEmptyComponent={
@@ -260,6 +281,22 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   modal: { flex: 1, backgroundColor: colors.background },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderColor,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.textDark,
+    paddingVertical: 6,
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

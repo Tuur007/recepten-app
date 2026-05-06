@@ -3,15 +3,17 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View } from 'react-native';
 import { SQLiteProvider } from 'expo-sqlite';
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 
 import { useEditorialFonts } from '../utils/fonts';
 import { colors } from '../constants/Designsystem';
 import { LoadingScreen } from '../components/LoadingScreen';
+import { SplashScreen } from '../components/Splashscreen';
 import { initializeDatabase } from '../database';
 
 export default function RootLayout() {
   const fontsLoaded = useEditorialFonts();
+  const [showSplash, setShowSplash] = useState(true);
 
   if (!fontsLoaded) {
     return (
@@ -19,6 +21,10 @@ export default function RootLayout() {
         <LoadingScreen />
       </View>
     );
+  }
+
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
   return (

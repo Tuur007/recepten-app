@@ -89,12 +89,12 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 36,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.textDark,
     letterSpacing: 0.5,
   },
   tagline: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.textLight,
     textAlign: 'center',
     maxWidth: '80%',
     lineHeight: 20,

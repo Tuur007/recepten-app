@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,6 +7,10 @@ import {
   ScrollView,
   Image,
   Alert,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +20,8 @@ import { useRecipes } from '../../features/recipes/hooks';
 import { useGrocery } from '../../features/grocery/hooks';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
+import { generateId } from '../../utils/id';
+import { Ingredient } from '../../types/recipe';
 
 const PAPER = colors.background;
 
@@ -25,15 +31,40 @@ function stepText(step: unknown): string {
   return '';
 }
 
+function formatQty(qty: number): string {
+  if (!qty) return '';
+  const rounded = Math.round(qty * 100) / 100;
+  return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '');
+}
+
 export default function RecipeDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { recipes, isLoading, update } = useRecipes();
+  const { recipes, isLoading, update, remove } = useRecipes();
   const { addFromRecipe } = useGrocery();
+
   const [cookStep, setCookStep] = useState<number | null>(null);
-  const [addingToList, setAddingToList] = useState(false);
+  const [servings, setServings] = useState<number | null>(null);
+  const [groceryModalVisible, setGroceryModalVisible] = useState(false);
+  const [selectedIngIds, setSelectedIngIds] = useState<Set<string>>(new Set());
+  const [addIngVisible, setAddIngVisible] = useState(false);
+  const [newIngName, setNewIngName] = useState('');
+  const [newIngQty, setNewIngQty] = useState('');
+  const [newIngUnit, setNewIngUnit] = useState('');
 
   const recipe = recipes.find(r => r.id === id);
+
+  const baseServings = useMemo(() => (recipe as any)?.servings ?? 4, [recipe]);
+  const currentServings = servings ?? baseServings;
+
+  const scaledIngredients = useMemo(() => {
+    if (!recipe?.ingredients) return [];
+    const ratio = currentServings / baseServings;
+    return recipe.ingredients.map(ing => ({
+      ...ing,
+      displayQty: formatQty(ing.quantity * ratio),
+    }));
+  }, [recipe?.ingredients, currentServings, baseServings]);
 
   if (isLoading) return <LoadingScreen />;
   if (!recipe) {
@@ -48,20 +79,71 @@ export default function RecipeDetailScreen() {
 
   const steps = recipe.steps ?? [];
 
+  const handleDeleteRecipe = () => {
+    Alert.alert(
+      'Recept verwijderen',
+      'Weet je zeker dat je dit recept wilt verwijderen? Dit kan niet ongedaan worden.',
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        {
+          text: 'Verwijderen',
+          style: 'destructive',
+          onPress: async () => {
+            await remove(recipe.id);
+            router.back();
+          },
+        },
+      ],
+    );
+  };
+
+  const openGroceryModal = () => {
+    const allIds = new Set(recipe.ingredients.map(i => i.id));
+    setSelectedIngIds(allIds);
+    setGroceryModalVisible(true);
+  };
+
+  const toggleIngredient = (ingId: string) => {
+    setSelectedIngIds(prev => {
+      const next = new Set(prev);
+      if (next.has(ingId)) next.delete(ingId);
+      else next.add(ingId);
+      return next;
+    });
+  };
+
   const handleAddToGrocery = async () => {
-    if (!recipe.ingredients.length) {
-      Alert.alert('Geen ingrediënten', 'Dit recept heeft geen ingrediënten.');
+    const selected = scaledIngredients
+      .filter(i => selectedIngIds.has(i.id))
+      .map(i => ({ ...i, quantity: i.quantity * (currentServings / baseServings) }));
+    if (!selected.length) {
+      Alert.alert('Niets geselecteerd', 'Selecteer minstens één ingrediënt.');
       return;
     }
-    setAddingToList(true);
+    setGroceryModalVisible(false);
     try {
-      await addFromRecipe(recipe.ingredients, recipe.id, recipe.title);
-      Alert.alert('Toegevoegd', `Ingrediënten van "${recipe.title}" staan nu op je boodschappenlijst.`);
+      await addFromRecipe(selected, recipe.id, recipe.title);
+      Alert.alert('Toegevoegd', `Ingrediënten staan nu op je boodschappenlijst.`);
     } catch {
       Alert.alert('Fout', 'Kon ingrediënten niet toevoegen. Probeer opnieuw.');
-    } finally {
-      setAddingToList(false);
     }
+  };
+
+  const handleSaveNewIngredient = async () => {
+    if (!newIngName.trim()) return;
+    const newIng: Ingredient = {
+      id: generateId(),
+      name: newIngName.trim(),
+      quantity: parseFloat(newIngQty) || 0,
+      unit: newIngUnit.trim(),
+    };
+    await update(recipe.id, {
+      ingredients: [...recipe.ingredients, newIng],
+    });
+    setNewIngName('');
+    setNewIngQty('');
+    setNewIngUnit('');
+    setAddIngVisible(false);
   };
 
   const splitTitle = (title: string) => {
@@ -72,9 +154,8 @@ export default function RecipeDetailScreen() {
   const { lead, tail } = splitTitle(recipe.title);
 
   const stats = [
-    { icon: 'time-outline', v: String(recipe.duration ?? recipe.totalTime ?? 45), u: 'min' },
-    { icon: 'people-outline', v: String(recipe.servings ?? 4), u: 'pers' },
-    { icon: 'flame-outline', v: String(recipe.calories ?? '—'), u: 'kcal' },
+    { icon: 'time-outline', v: String((recipe as any).duration ?? (recipe as any).totalTime ?? '—'), u: 'min' },
+    { icon: 'flame-outline', v: String((recipe as any).calories ?? '—'), u: 'kcal' },
     { icon: 'restaurant-outline', v: String(recipe.ingredients?.length ?? 0), u: 'ing.' },
   ] as const;
 
@@ -87,10 +168,7 @@ export default function RecipeDetailScreen() {
         </TouchableOpacity>
         <Text style={typography.folio}>{recipe.category || 'recept'}</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            onPress={() => router.push(`/recipes/edit/${recipe.id}`)}
-            hitSlop={8}
-          >
+          <TouchableOpacity onPress={() => router.push(`/recipes/edit/${recipe.id}`)} hitSlop={8}>
             <Ionicons name="pencil-outline" size={20} color={colors.textDark} />
           </TouchableOpacity>
           <TouchableOpacity
@@ -103,6 +181,9 @@ export default function RecipeDetailScreen() {
               color={colors.textDark}
             />
           </TouchableOpacity>
+          <TouchableOpacity onPress={handleDeleteRecipe} hitSlop={8}>
+            <Ionicons name="trash-outline" size={20} color={colors.textLight} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -113,8 +194,8 @@ export default function RecipeDetailScreen() {
             <Text style={[typography.hero32Bold, { fontSize: 42, marginTop: 8 }]}>{lead}</Text>
           )}
           <Text style={[typography.heroItalic, { fontSize: 42 }]}>{tail}</Text>
-          {recipe.description ? (
-            <Text style={[typography.bodyItalic, { marginTop: 14 }]}>"{recipe.description}"</Text>
+          {(recipe as any).description ? (
+            <Text style={[typography.bodyItalic, { marginTop: 14 }]}>"{(recipe as any).description}"</Text>
           ) : null}
         </View>
 
@@ -136,18 +217,80 @@ export default function RecipeDetailScreen() {
               <Text style={typography.label12}>{s.u}</Text>
             </View>
           ))}
+          {/* Servings adjuster */}
+          <View style={styles.statCol}>
+            <Ionicons name="people-outline" size={16} color={colors.textLight} />
+            <View style={styles.servingsRow}>
+              <TouchableOpacity
+                onPress={() => setServings(Math.max(1, currentServings - 1))}
+                hitSlop={6}
+              >
+                <Ionicons name="remove" size={14} color={colors.primary} />
+              </TouchableOpacity>
+              <Text style={styles.statValue}>{currentServings}</Text>
+              <TouchableOpacity
+                onPress={() => setServings(currentServings + 1)}
+                hitSlop={6}
+              >
+                <Ionicons name="add" size={14} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={typography.label12}>pers.</Text>
+          </View>
         </View>
 
         {/* Ingrediënten */}
         <Section title="i. ingrediënten" count={recipe.ingredients?.length ?? 0} />
         <View style={{ paddingHorizontal: spacing.lg, gap: 10 }}>
-          {(recipe.ingredients ?? []).map((ing, i) => (
-            <View key={i} style={styles.ingRow}>
-              <Text style={styles.ingNum}>{ing.quantity || ''}</Text>
+          {scaledIngredients.map((ing) => (
+            <View key={ing.id} style={styles.ingRow}>
+              <Text style={styles.ingNum}>{ing.displayQty}</Text>
               <Text style={styles.ingUnit}>{ing.unit || ''}</Text>
               <Text style={styles.ingName}>{ing.name}</Text>
             </View>
           ))}
+
+          {/* Add ingredient inline */}
+          {addIngVisible ? (
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+              <View style={styles.addIngForm}>
+                <TextInput
+                  style={[styles.addIngInput, { flex: 2 }]}
+                  placeholder="Naam"
+                  placeholderTextColor={colors.textFaint}
+                  value={newIngName}
+                  onChangeText={setNewIngName}
+                  autoFocus
+                />
+                <TextInput
+                  style={[styles.addIngInput, { width: 56 }]}
+                  placeholder="Aantal"
+                  placeholderTextColor={colors.textFaint}
+                  value={newIngQty}
+                  onChangeText={setNewIngQty}
+                  keyboardType="decimal-pad"
+                />
+                <TextInput
+                  style={[styles.addIngInput, { width: 64 }]}
+                  placeholder="Eenheid"
+                  placeholderTextColor={colors.textFaint}
+                  value={newIngUnit}
+                  onChangeText={setNewIngUnit}
+                />
+                <TouchableOpacity onPress={handleSaveNewIngredient} hitSlop={6}>
+                  <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setAddIngVisible(false)} hitSlop={6}>
+                  <Ionicons name="close-circle-outline" size={22} color={colors.textLight} />
+                </TouchableOpacity>
+              </View>
+            </KeyboardAvoidingView>
+          ) : (
+            <TouchableOpacity style={styles.addIngBtn} onPress={() => setAddIngVisible(true)}>
+              <Ionicons name="add" size={14} color={colors.primary} />
+              <Text style={styles.addIngBtnText}>ingrediënt toevoegen</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Werkwijze */}
@@ -166,7 +309,11 @@ export default function RecipeDetailScreen() {
       <View style={styles.ctaBar}>
         <TouchableOpacity
           style={styles.ctaPrimary}
-          onPress={() => steps.length ? setCookStep(0) : Alert.alert('Geen stappen', 'Voeg stappen toe aan dit recept.')}
+          onPress={() =>
+            steps.length
+              ? setCookStep(0)
+              : Alert.alert('Geen stappen', 'Voeg stappen toe aan dit recept.')
+          }
           activeOpacity={0.85}
         >
           <Text style={typography.buttonLabel}>begin met koken</Text>
@@ -174,8 +321,7 @@ export default function RecipeDetailScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.ctaSecondary}
-          onPress={handleAddToGrocery}
-          disabled={addingToList}
+          onPress={openGroceryModal}
           activeOpacity={0.7}
         >
           <Ionicons name="bag-outline" size={18} color={colors.textDark} />
@@ -201,8 +347,14 @@ export default function RecipeDetailScreen() {
                 onPress={() => cookStep > 0 && setCookStep(cookStep - 1)}
                 disabled={cookStep === 0}
               >
-                <Ionicons name="chevron-back" size={22} color={cookStep === 0 ? colors.textFaint : colors.textDark} />
-                <Text style={[styles.cookNavLabel, cookStep === 0 && { color: colors.textFaint }]}>vorige</Text>
+                <Ionicons
+                  name="chevron-back"
+                  size={22}
+                  color={cookStep === 0 ? colors.textFaint : colors.textDark}
+                />
+                <Text style={[styles.cookNavLabel, cookStep === 0 && { color: colors.textFaint }]}>
+                  vorige
+                </Text>
               </TouchableOpacity>
               {cookStep < steps.length - 1 ? (
                 <TouchableOpacity style={styles.cookNavBtn} onPress={() => setCookStep(cookStep + 1)}>
@@ -218,6 +370,73 @@ export default function RecipeDetailScreen() {
           </SafeAreaView>
         </View>
       )}
+
+      {/* Grocery ingredient select modal */}
+      <Modal
+        visible={groceryModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setGroceryModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modal}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setGroceryModalVisible(false)} hitSlop={8}>
+              <Ionicons name="close" size={24} color={colors.textDark} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Ingrediënten kiezen</Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (selectedIngIds.size === scaledIngredients.length) {
+                  setSelectedIngIds(new Set());
+                } else {
+                  setSelectedIngIds(new Set(scaledIngredients.map(i => i.id)));
+                }
+              }}
+              hitSlop={8}
+            >
+              <Text style={styles.selectAllText}>
+                {selectedIngIds.size === scaledIngredients.length ? 'Geen' : 'Alles'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: spacing.md, gap: 2 }}>
+            {scaledIngredients.map((ing) => {
+              const checked = selectedIngIds.has(ing.id);
+              return (
+                <TouchableOpacity
+                  key={ing.id}
+                  style={styles.ingCheckRow}
+                  onPress={() => toggleIngredient(ing.id)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={checked ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={22}
+                    color={checked ? colors.primary : colors.textFaint}
+                  />
+                  <Text style={styles.ingCheckNum}>{ing.displayQty}</Text>
+                  <Text style={styles.ingCheckUnit}>{ing.unit}</Text>
+                  <Text style={styles.ingCheckName}>{ing.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={styles.modalCta}
+              onPress={handleAddToGrocery}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="bag-outline" size={16} color={PAPER} style={{ marginRight: 8 }} />
+              <Text style={typography.buttonLabel}>
+                voeg {selectedIngIds.size} toe aan lijst
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -227,7 +446,9 @@ function Section({ title, count, suffix }: { title: string; count: number; suffi
     <View style={styles.sectionHeader}>
       <Text style={typography.folioBold}>{title}</Text>
       <View style={styles.rule} />
-      <Text style={typography.folio}>{count} {suffix ?? ''}</Text>
+      <Text style={typography.folio}>
+        {count} {suffix ?? ''}
+      </Text>
     </View>
   );
 }
@@ -257,6 +478,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 4,
   },
+  servingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 4,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -283,6 +511,35 @@ const styles = StyleSheet.create({
     width: 56,
   },
   ingName: { flex: 1, fontFamily: fonts.display, fontSize: 15 },
+  addIngBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: spacing.sm,
+  },
+  addIngBtnText: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.primary,
+  },
+  addIngForm: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 0.5,
+    borderTopColor: colors.borderSoft,
+  },
+  addIngInput: {
+    fontFamily: fonts.display,
+    fontSize: 14,
+    color: colors.textDark,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderColor,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
   stepRow: { flexDirection: 'row', gap: 10 },
   stepNum: {
     fontFamily: fonts.displayItalic,
@@ -323,7 +580,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Cook mode
   cookOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: PAPER,
@@ -372,5 +628,69 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Modal
+  modal: { flex: 1, backgroundColor: PAPER },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderColor,
+  },
+  modalTitle: {
+    fontFamily: fonts.display,
+    fontSize: 18,
+    color: colors.textDark,
+  },
+  selectAllText: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.primary,
+  },
+  ingCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    gap: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderSoft,
+  },
+  ingCheckNum: {
+    fontFamily: fonts.monoMedium,
+    fontSize: 11,
+    color: colors.primary,
+    width: 34,
+    textAlign: 'right',
+  },
+  ingCheckUnit: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    color: colors.textLight,
+    textTransform: 'uppercase',
+    width: 50,
+  },
+  ingCheckName: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.textDark,
+  },
+  modalFooter: {
+    padding: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderColor,
+  },
+  modalCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.textDark,
+    paddingVertical: 14,
+    borderRadius: 999,
   },
 });

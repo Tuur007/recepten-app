@@ -26,6 +26,26 @@ export const CREATE_GROCERY_ITEMS_TABLE = `
   );
 `;
 
+export const CREATE_CATEGORIES_TABLE = `
+  CREATE TABLE IF NOT EXISTS categories (
+    id         TEXT PRIMARY KEY NOT NULL,
+    name       TEXT NOT NULL,
+    type       TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+`;
+
+export const DEFAULT_RECIPE_CATEGORIES = [
+  'Pasta', 'Soep', 'Vis', 'Vlees', 'Snel',
+  'Vegetarisch', 'Dessert', 'Ontbijt', 'Lunch',
+  'Diner', 'Snack', 'Salade', 'Bakken', 'Dranken',
+];
+
+export const DEFAULT_GROCERY_CATEGORIES = [
+  'Groente', 'Fruit', 'Vlees', 'Zuivel', 'Bakkerij',
+  'Diepvries', 'Dranken', 'Snacks', 'Overig',
+];
+
 // Each entry runs once, guarded by PRAGMA user_version.
 // Never edit an existing entry — always append a new one.
 export const MIGRATIONS: string[] = [
@@ -41,4 +61,6 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE recipes ADD COLUMN image_uri TEXT`,
   // v6: recipe duration
   `ALTER TABLE recipes ADD COLUMN duration INTEGER`,
+  // v7: categories table (no ALTER needed — table created fresh via CREATE IF NOT EXISTS)
+  `SELECT 1`,
 ];

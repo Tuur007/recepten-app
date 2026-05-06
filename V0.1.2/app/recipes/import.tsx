@@ -73,9 +73,15 @@ export default function ImportRecipeScreen() {
         imageUri = undefined;
       }
 
+      const detectedCategory = detectCategory(
+        parsed.title,
+        parsed.ingredients.map((i) => i.name),
+        parsed.duration,
+      );
+
       form.reset({
         title: parsed.title,
-        category: '',
+        category: detectedCategory,
         ingredients: parsed.ingredients.map((ing) => ({ ...ing, id: generateId() })),
         steps: parsed.steps,
         duration: parsed.duration,
@@ -262,6 +268,27 @@ export default function ImportRecipeScreen() {
       </KeyboardAvoidingView>
     </View>
   );
+}
+
+function detectCategory(title: string, ingredientNames: string[], duration?: number): string {
+  const haystack = [title, ...ingredientNames].join(' ').toLowerCase();
+
+  if (duration != null && duration <= 30) return 'Snel';
+
+  const rules: [string[], string][] = [
+    [['pasta', 'spaghetti', 'penne', 'linguine', 'rigatoni', 'tagliatelle', 'lasagne', 'fettuccine', 'gnocchi'], 'Pasta'],
+    [['soep', 'bouillon', 'bisque', 'potage', 'broth'], 'Soep'],
+    [['zalm', 'kabeljauw', 'garnaal', 'garnalen', 'vis', 'forel', 'tonijn', 'inktvis', 'mosselen', 'scampi', 'zeevruchten', 'tilapia', 'pangasius'], 'Vis'],
+    [['kip', 'kipfilet', 'kippenborst', 'rund', 'rundvlees', 'gehakt', 'varken', 'varkensvlees', 'spek', 'lam', 'lamsvlees', 'tartaar', 'entrecote', 'rosbief', 'hamburger'], 'Vlees'],
+    [['dessert', 'taart', 'cake', 'pudding', 'mousse', 'crème brûlée', 'tiramisu', 'brownie', 'koekje', 'ijs', 'sorbet', 'pannacotta'], 'Dessert'],
+    [['soepje', 'salade', 'sla', 'coleslaw'], 'Salade'],
+  ];
+
+  for (const [keywords, category] of rules) {
+    if (keywords.some((k) => haystack.includes(k))) return category;
+  }
+
+  return '';
 }
 
 const styles = StyleSheet.create({

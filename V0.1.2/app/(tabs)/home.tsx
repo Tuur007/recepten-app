@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRecipes } from '../../features/recipes/hooks';
+import { useWeekPlannerStore } from '../../store/weekPlannerStore';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 
@@ -28,15 +29,24 @@ import { colors, spacing, typography, fonts } from '../../constants/Designsystem
 
 const PAPER = colors.background;
 
+const DAY_KEYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
+
 export default function HomeScreen() {
   const router = useRouter();
   const { recipes, isLoading } = useRecipes();
+  const { mealPlan } = useWeekPlannerStore();
 
-  // Pak vandaag's "voorgestelde" recept — eerste favoriet, anders eerste recept
+  // Vandaag's dag-key (0=SUN, 1=MON, ...)
+  const todayKey = DAY_KEYS[new Date().getDay()];
+
   const tonight = useMemo(() => {
-    if (!recipes.length) return null;
-    return recipes.find((r) => r.isFavorite) ?? recipes[0];
-  }, [recipes]);
+    const plannedIds = mealPlan[todayKey];
+    if (plannedIds?.length) {
+      const planned = recipes.find(r => r.id === plannedIds[0]);
+      if (planned) return planned;
+    }
+    return null;
+  }, [recipes, mealPlan, todayKey]);
 
   const dateLabel = useMemo(() => {
     const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
@@ -54,9 +64,7 @@ export default function HomeScreen() {
     return { lead: words.slice(0, -1).join(' '), tail: words[words.length - 1] };
   };
 
-  const { lead, tail } = tonight
-    ? splitTitle(tonight.title)
-    : { lead: 'Niets', tail: 'gepland' };
+  const { lead, tail } = tonight ? splitTitle(tonight.title) : { lead: '', tail: '' };
 
   return (
     <ErrorBoundary>
@@ -74,42 +82,65 @@ export default function HomeScreen() {
           {/* Spacer */}
           <View style={{ flex: 1, minHeight: 40 }} />
 
-          {/* Hero photo (round-cornered tall portrait) */}
-          <View style={styles.heroWrap}>
-            {tonight?.imageUri ? (
-              <Image source={{ uri: tonight.imageUri }} style={styles.heroImage} />
-            ) : (
+          {tonight ? (
+            <>
+              {/* Hero photo */}
+              <View style={styles.heroWrap}>
+                {tonight.imageUri ? (
+                  <Image source={{ uri: tonight.imageUri }} style={styles.heroImage} />
+                ) : (
+                  <View style={[styles.heroImage, styles.heroPlaceholder]}>
+                    <Text style={[typography.label12, { color: colors.textLight }]}>vanavond</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Kicker */}
+              <Text style={[typography.folio, styles.kicker]}>vanavond</Text>
+
+              {/* Title */}
+              <View style={styles.titleBlock}>
+                {lead.length > 0 && (
+                  <Text style={[typography.hero32Bold, styles.titleLine]}>{lead}</Text>
+                )}
+                <Text style={[typography.heroItalic, styles.titleLine]}>{tail}</Text>
+              </View>
+
+              {/* Meta row */}
+              <View style={styles.metaRow}>
+                {(tonight as any).duration ? (
+                  <>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="time-outline" size={13} color={colors.textLight} />
+                      <Text style={styles.metaText}>{(tonight as any).duration} min</Text>
+                    </View>
+                    <View style={styles.metaDot} />
+                  </>
+                ) : null}
+                <View style={styles.metaItem}>
+                  <Ionicons name="people-outline" size={13} color={colors.textLight} />
+                  <Text style={styles.metaText}>voor {(tonight as any).servings ?? 4}</Text>
+                </View>
+              </View>
+            </>
+          ) : (
+            /* Lege staat: niets gepland */
+            <View style={styles.emptyWrap}>
               <View style={[styles.heroImage, styles.heroPlaceholder]}>
-                <Text style={[typography.label12, { color: colors.textLight }]}>
-                  vanavond
+                <Ionicons name="moon-outline" size={36} color={colors.textFaint} />
+              </View>
+              <Text style={[typography.folio, styles.kicker]}>vanavond</Text>
+              <View style={styles.titleBlock}>
+                <Text style={[typography.hero32Bold, { fontSize: 26, textAlign: 'center' }]}>
+                  Geen maaltijd gepland
+                </Text>
+                <Text style={[typography.heroItalic, { fontSize: 18, textAlign: 'center' }]}>
+                  voor vanavond.
                 </Text>
               </View>
-            )}
-          </View>
-
-          {/* Kicker */}
-          <Text style={[typography.folio, styles.kicker]}>vanavond</Text>
-
-          {/* Title — Fraunces with italic terracotta accent */}
-          <View style={styles.titleBlock}>
-            {lead.length > 0 && (
-              <Text style={[typography.hero32Bold, styles.titleLine]}>{lead}</Text>
-            )}
-            <Text style={[typography.heroItalic, styles.titleLine]}>{tail}</Text>
-          </View>
-
-          {/* Meta row */}
-          {tonight && (
-            <View style={styles.metaRow}>
-              <View style={styles.metaItem}>
-                <Ionicons name="time-outline" size={13} color={colors.textLight} />
-                <Text style={styles.metaText}>{tonight.totalTime ?? 45} min</Text>
-              </View>
-              <View style={styles.metaDot} />
-              <View style={styles.metaItem}>
-                <Ionicons name="people-outline" size={13} color={colors.textLight} />
-                <Text style={styles.metaText}>voor {tonight.servings ?? 4}</Text>
-              </View>
+              <Text style={[typography.bodyItalic, { textAlign: 'center', marginTop: spacing.sm }]}>
+                Voeg een recept toe aan je weekplanner!
+              </Text>
             </View>
           )}
 
@@ -118,19 +149,23 @@ export default function HomeScreen() {
 
           {/* CTA stack */}
           <View style={styles.ctaStack}>
-            {tonight && (
+            {tonight ? (
               <TouchableOpacity
                 style={styles.cta}
                 onPress={() => router.push(`/recipes/${tonight.id}`)}
                 activeOpacity={0.85}
               >
                 <Text style={typography.buttonLabel}>begin met koken</Text>
-                <Ionicons
-                  name="arrow-forward"
-                  size={14}
-                  color={PAPER}
-                  style={{ marginLeft: 10 }}
-                />
+                <Ionicons name="arrow-forward" size={14} color={PAPER} style={{ marginLeft: 10 }} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.cta}
+                onPress={() => router.push('/(tabs)/weekplanner')}
+                activeOpacity={0.85}
+              >
+                <Text style={typography.buttonLabel}>plan iets in</Text>
+                <Ionicons name="arrow-forward" size={14} color={PAPER} style={{ marginLeft: 10 }} />
               </TouchableOpacity>
             )}
 
@@ -140,7 +175,9 @@ export default function HomeScreen() {
               activeOpacity={0.6}
             >
               <Ionicons name="sparkles-outline" size={12} color={colors.textLight} />
-              <Text style={styles.surpriseText}>verras me met iets anders</Text>
+              <Text style={styles.surpriseText}>
+                {tonight ? 'verras me met iets anders' : 'bekijk alle recepten'}
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -170,6 +207,7 @@ const styles = StyleSheet.create({
   },
 
   heroWrap: { alignItems: 'center', marginVertical: spacing.md },
+  emptyWrap: { alignItems: 'center', marginVertical: spacing.md },
 
   heroImage: {
     width: 240,

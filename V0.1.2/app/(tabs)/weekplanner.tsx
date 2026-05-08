@@ -19,16 +19,31 @@ import { useRecipes } from '../../features/recipes/hooks';
 import { useWeekPlannerStore } from '../../store/weekPlannerStore';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
+import type { Recipe } from '../../types/recipe';
 
 const DAY_KEYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
 const DAY_LABELS = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export default function WeekPlannerScreen() {
   const router = useRouter();
   const { recipes, isLoading } = useRecipes();
   const { mealPlan, addMeal, clearDay } = useWeekPlannerStore();
+
   const [pickerDay, setPickerDay] = useState<string | null>(null);
   const [pickerQuery, setPickerQuery] = useState('');
+  const [prefModalVisible, setPrefModalVisible] = useState(false);
+  const [prefVeg, setPrefVeg] = useState(false);
+  const [prefSnel, setPrefSnel] = useState(false);
+  const [prefMaxMin, setPrefMaxMin] = useState('');
 
   const weekDays = useMemo(() => {
     const today = new Date();
@@ -44,16 +59,21 @@ export default function WeekPlannerScreen() {
   const weekLabel = useMemo(() => {
     const d = new Date();
     const onejan = new Date(d.getFullYear(), 0, 1);
-    const weekNum = Math.ceil((((d.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
+    const weekNum = Math.ceil(
+      ((d.getTime() - onejan.getTime()) / 86400000 + onejan.getDay() + 1) / 7,
+    );
     const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
     return `week ${weekNum} · ${months[d.getMonth()]}`;
   }, []);
 
-  const getRecipe = useCallback((key: string) => {
-    const ids = mealPlan[key];
-    if (!ids?.length) return null;
-    return recipes.find(r => r.id === ids[0]) ?? null;
-  }, [mealPlan, recipes]);
+  const getRecipe = useCallback(
+    (key: string) => {
+      const ids = mealPlan[key];
+      if (!ids?.length) return null;
+      return recipes.find((r) => r.id === ids[0]) ?? null;
+    },
+    [mealPlan, recipes],
+  );
 
   const filteredPickerRecipes = useMemo(() => {
     if (!pickerQuery.trim()) return recipes;
@@ -61,25 +81,62 @@ export default function WeekPlannerScreen() {
     return recipes.filter((r) => r.title.toLowerCase().includes(q));
   }, [recipes, pickerQuery]);
 
-  const handleAdd = useCallback((dayKey: string, recipeId: string) => {
-    clearDay(dayKey);
-    addMeal(dayKey, recipeId);
-    setPickerDay(null);
-    setPickerQuery('');
-  }, [clearDay, addMeal]);
+  const handleAdd = useCallback(
+    (dayKey: string, recipeId: string) => {
+      clearDay(dayKey);
+      addMeal(dayKey, recipeId);
+      setPickerDay(null);
+      setPickerQuery('');
+    },
+    [clearDay, addMeal],
+  );
 
-  const fillGaps = useCallback(() => {
+  const applyFillGaps = useCallback(
+    (pool: Recipe[]) => {
+      if (!pool.length) {
+        Alert.alert('Geen recepten', 'Geen recepten gevonden met deze filters.');
+        return;
+      }
+      const emptyDays = weekDays.filter(({ key }) => !mealPlan[key]?.length);
+      if (!emptyDays.length) {
+        Alert.alert('Volledig', 'Alle dagen zijn al ingevuld.');
+        return;
+      }
+
+      // Already-used IDs this week to maximise variety
+      const usedIds = new Set(
+        weekDays.flatMap(({ key }) => mealPlan[key] ?? []),
+      );
+      const preferred = shuffle(pool.filter((r) => !usedIds.has(r.id)));
+      const fallback = shuffle(pool.filter((r) => usedIds.has(r.id)));
+      const ordered = [...preferred, ...fallback];
+
+      emptyDays.forEach(({ key }, i) => {
+        const recipe = ordered[i % ordered.length];
+        addMeal(key, recipe.id);
+      });
+    },
+    [weekDays, mealPlan, addMeal],
+  );
+
+  const handleFillGaps = useCallback(() => {
     if (!recipes.length) {
       Alert.alert('Geen recepten', 'Voeg eerst recepten toe aan je verzameling.');
       return;
     }
-    weekDays.forEach(({ key }) => {
-      if (!mealPlan[key]?.length) {
-        const recipe = recipes[Math.floor(Math.random() * recipes.length)];
-        addMeal(key, recipe.id);
-      }
-    });
-  }, [recipes, mealPlan, weekDays, addMeal]);
+    setPrefModalVisible(true);
+  }, [recipes]);
+
+  const confirmFillGaps = useCallback(() => {
+    setPrefModalVisible(false);
+    const maxMin = prefMaxMin.trim() ? parseInt(prefMaxMin, 10) : undefined;
+    let pool = [...recipes];
+    if (prefVeg) pool = pool.filter((r) => r.category === 'Vegetarisch');
+    if (prefSnel) pool = pool.filter((r) => r.category === 'Snel' || (r.duration != null && r.duration <= 30));
+    if (maxMin && maxMin > 0) pool = pool.filter((r) => !r.duration || r.duration <= maxMin);
+    if (!pool.length) pool = [...recipes]; // fallback to all
+    applyFillGaps(pool);
+  }, [recipes, prefVeg, prefSnel, prefMaxMin, applyFillGaps]);
 
   if (isLoading) return <LoadingScreen />;
 
@@ -140,13 +197,13 @@ export default function WeekPlannerScreen() {
         </View>
 
         {/* Footer */}
-        <TouchableOpacity style={styles.footerHint} onPress={fillGaps} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.footerHint} onPress={handleFillGaps} activeOpacity={0.7}>
           <Ionicons name="sparkles-outline" size={12} color={colors.primary} />
           <Text style={styles.footerHintText}>laat ons de gaten vullen</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Recipe picker modal */}
+      {/* ── Recipe picker modal ── */}
       <Modal
         visible={!!pickerDay}
         animationType="slide"
@@ -174,7 +231,7 @@ export default function WeekPlannerScreen() {
           </View>
           <FlatList
             data={filteredPickerRecipes}
-            keyExtractor={r => r.id}
+            keyExtractor={(r) => r.id}
             contentContainerStyle={{ padding: spacing.md, gap: 10 }}
             ListEmptyComponent={
               <Text style={{ textAlign: 'center', color: colors.textLight, marginTop: 40 }}>
@@ -194,9 +251,16 @@ export default function WeekPlannerScreen() {
                 )}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.pickerTitle}>{item.title}</Text>
-                  {item.category ? (
-                    <Text style={typography.label12}>{item.category}</Text>
-                  ) : null}
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                    {item.category ? (
+                      <Text style={[typography.label12, { fontSize: 8 }]}>{item.category}</Text>
+                    ) : null}
+                    {item.duration ? (
+                      <Text style={[typography.label12, { fontSize: 8, color: colors.textFaint }]}>
+                        {item.duration} min
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
               </TouchableOpacity>
@@ -204,7 +268,85 @@ export default function WeekPlannerScreen() {
           />
         </SafeAreaView>
       </Modal>
+
+      {/* ── Preferences modal ── */}
+      <Modal
+        visible={prefModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setPrefModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modal}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Voorkeuren</Text>
+            <TouchableOpacity onPress={() => setPrefModalVisible(false)} hitSlop={8}>
+              <Ionicons name="close" size={24} color={colors.textDark} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: 20 }}>
+            <Text style={[typography.bodyItalic, { marginBottom: spacing.sm }]}>
+              Pas de filter aan om de lege dagen te vullen.
+            </Text>
+
+            <PrefToggle
+              icon="leaf-outline"
+              label="Alleen vegetarisch"
+              value={prefVeg}
+              onToggle={() => setPrefVeg((v) => !v)}
+            />
+            <PrefToggle
+              icon="flash-outline"
+              label="Alleen snel (&lt;30 min)"
+              value={prefSnel}
+              onToggle={() => setPrefSnel((v) => !v)}
+            />
+
+            <View>
+              <Text style={styles.prefLabel}>Max. kooktijd (minuten)</Text>
+              <TextInput
+                style={styles.prefInput}
+                value={prefMaxMin}
+                onChangeText={setPrefMaxMin}
+                placeholder="bv. 45"
+                placeholderTextColor={colors.textFaint}
+                keyboardType="number-pad"
+                returnKeyType="done"
+              />
+            </View>
+
+            <TouchableOpacity style={styles.prefCta} onPress={confirmFillGaps} activeOpacity={0.85}>
+              <Ionicons name="sparkles-outline" size={14} color={colors.background} style={{ marginRight: 8 }} />
+              <Text style={typography.buttonLabel}>vul de gaten</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.prefSkip}
+              onPress={() => { setPrefModalVisible(false); applyFillGaps(recipes); }}
+              activeOpacity={0.6}
+            >
+              <Text style={styles.prefSkipText}>willekeurig zonder filter</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
+  );
+}
+
+function PrefToggle({
+  icon, label, value, onToggle,
+}: { icon: string; label: string; value: boolean; onToggle: () => void }) {
+  return (
+    <TouchableOpacity style={styles.prefToggleRow} onPress={onToggle} activeOpacity={0.7}>
+      <Ionicons name={icon as any} size={18} color={value ? colors.primary : colors.textLight} />
+      <Text style={[styles.prefToggleLabel, value && { color: colors.primary }]}>{label}</Text>
+      <Ionicons
+        name={value ? 'checkmark-circle' : 'ellipse-outline'}
+        size={20}
+        color={value ? colors.primary : colors.textFaint}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -232,12 +374,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textLight,
   },
-  recipeRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
+  recipeRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   thumb: { width: 32, height: 32, borderRadius: 16 },
   thumbPlaceholder: { backgroundColor: colors.backgroundLight },
   recipeTitle: {
@@ -281,6 +418,20 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   modal: { flex: 1, backgroundColor: colors.background },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderColor,
+  },
+  modalTitle: {
+    fontFamily: fonts.display,
+    fontSize: 18,
+    color: colors.textDark,
+  },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -296,20 +447,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textDark,
     paddingVertical: 6,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.borderColor,
-  },
-  modalTitle: {
-    fontFamily: fonts.display,
-    fontSize: 18,
-    color: colors.textDark,
   },
   pickerRow: {
     flexDirection: 'row',
@@ -327,5 +464,52 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textDark,
     marginBottom: 2,
+  },
+  // Preferences
+  prefToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderSoft,
+  },
+  prefToggleLabel: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.textDark,
+  },
+  prefLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: colors.textLight,
+    marginBottom: 8,
+  },
+  prefInput: {
+    fontFamily: fonts.display,
+    fontSize: 16,
+    color: colors.textDark,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderColor,
+    paddingVertical: 8,
+  },
+  prefCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.textDark,
+    paddingVertical: 14,
+    borderRadius: 999,
+    marginTop: spacing.sm,
+  },
+  prefSkip: { alignItems: 'center', paddingVertical: spacing.sm },
+  prefSkipText: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.textFaint,
   },
 });

@@ -14,7 +14,10 @@ export async function extractImageFromUrl(url: string): Promise<string | undefin
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+        'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'nl-NL,nl;q=0.9,en;q=0.8',
       },
     });
     if (!response.ok) return undefined;
@@ -36,50 +39,108 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
   const candidates = new Map<string, ImageCandidate>();
 
   const add = (rawUrl: string, score: number) => {
-    const url = normalizeUrl(rawUrl, baseUrl);
-    if (!isValidImageUrl(url)) return;
-    const key = canonicalKey(url);
-    if (!candidates.has(key)) candidates.set(key, { url, score });
+    const resolved = normalizeUrl(rawUrl, baseUrl);
+    if (!isValidImageUrl(resolved)) return;
+    const key = canonicalKey(resolved);
+    if (!candidates.has(key)) candidates.set(key, { url: resolved, score });
   };
 
-  // JSON-LD
-  for (const block of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
-    try { extractJsonLdImages(JSON.parse(block[1].trim())).forEach((u) => add(u, 90)); } catch { /* skip */ }
+  // 1. JSON-LD (highest quality)
+  for (const block of html.matchAll(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  )) {
+    try {
+      extractJsonLdImages(JSON.parse(block[1].trim())).forEach((u) => add(u, 90));
+    } catch { /* skip */ }
   }
 
-  // og:image — parse robustly to handle apostrophes in URLs
+  // 2. Next.js __NEXT_DATA__ (covers Jumbo, AH, Albert Heijn etc.)
+  const nextDataMatch = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (nextDataMatch) {
+    try {
+      const nextData = JSON.parse(nextDataMatch[1]);
+      extractNestedImages(nextData).forEach((u) => add(u, 88));
+    } catch { /* skip */ }
+  }
+
+  // 3. Nuxt / Vue __NUXT__ hydration data
+  const nuxtMatch = html.match(/window\.__NUXT__\s*=\s*(\{[\s\S]*?\});\s*(?:<\/script>|$)/i);
+  if (nuxtMatch) {
+    try {
+      const nuxtData = JSON.parse(nuxtMatch[1]);
+      extractNestedImages(nuxtData).forEach((u) => add(u, 85));
+    } catch { /* skip */ }
+  }
+
+  // 4. og:image meta tag
   const ogUrl = extractMetaUrl(html, 'og:image', 'property');
   if (ogUrl) add(ogUrl, 95);
 
   const twitterUrl = extractMetaUrl(html, 'twitter:image', 'name');
-  if (twitterUrl) add(twitterUrl, 88);
+  if (twitterUrl) add(twitterUrl, 82);
 
-  // <img> tags
-  for (const match of html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*/gi)) {
-    add(match[1], 50);
+  const twitterUrlContent = extractMetaUrl(html, 'twitter:image:src', 'name');
+  if (twitterUrlContent) add(twitterUrlContent, 82);
+
+  // 5. itemProp="image" (Schema.org microdata)
+  for (const m of html.matchAll(/itemprop=["']image["'][^>]+(?:content|src)=["']([^"']+)["']/gi)) {
+    add(m[1], 80);
+  }
+  for (const m of html.matchAll(/(?:content|src)=["']([^"']+)["'][^>]+itemprop=["']image["']/gi)) {
+    add(m[1], 80);
+  }
+
+  // 6. <img> tags with food-related class names
+  for (const m of html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*/gi)) {
+    const tag = m[0].toLowerCase();
+    if (/recipe|hero|featured|food|dish|meal|recept|gerecht/.test(tag)) {
+      add(m[1], 70);
+    } else {
+      add(m[1], 40);
+    }
   }
 
   return Array.from(candidates.values());
 }
 
+function extractNestedImages(obj: unknown, depth = 0): string[] {
+  if (depth > 8 || !obj || typeof obj !== 'object') return [];
+  const results: string[] = [];
+  if (Array.isArray(obj)) {
+    for (const item of obj) results.push(...extractNestedImages(item, depth + 1));
+    return results;
+  }
+  const o = obj as Record<string, unknown>;
+  for (const key of Object.keys(o)) {
+    const val = o[key];
+    if (typeof val === 'string') {
+      if (
+        (key === 'image' || key === 'imageUrl' || key === 'img' || key === 'photo' || key === 'thumbnail' || key === 'src') &&
+        (val.startsWith('http') || val.startsWith('/'))
+      ) {
+        results.push(val);
+      }
+    } else if (val && typeof val === 'object') {
+      results.push(...extractNestedImages(val, depth + 1));
+    }
+  }
+  return results;
+}
+
 function extractMetaUrl(html: string, key: string, attr: string): string | null {
-  // Find the <meta> tag containing the property/name
   const tagRe = new RegExp(`<meta\\s[^>]*${attr}=["']${key}["'][^>]*>`, 'i');
   const tag = html.match(tagRe)?.[0];
   if (!tag) return null;
 
-  // Extract content= with delimiter tracking so apostrophes in URLs don't break it
   const idx = tag.search(/\bcontent\s*=/i);
   if (idx === -1) return null;
-  const after = tag.slice(idx).replace(/^\bcontent\s*=\s*/i, '').replace(/^content\s*=/i, '');
+  const after = tag.slice(idx).replace(/^content\s*=\s*/i, '');
   const delim = after[0];
   if (delim === '"') {
-    // double-quoted: apostrophes inside are fine
     const end = after.indexOf('"', 1);
     return end === -1 ? null : after.slice(1, end) || null;
   }
   if (delim === "'") {
-    // single-quoted: read until closing quote followed by space or >
     const inner = after.slice(1);
     const close = inner.search(/'(?=\s|>|\/)/);
     return close === -1 ? inner.replace(/[>].*/, '').trim() || null : inner.slice(0, close) || null;
@@ -115,7 +176,9 @@ function extractJsonLdImages(data: unknown): string[] {
 function normalizeUrl(url: string, baseUrl: string): string {
   url = url.trim();
   if (url.startsWith('//')) return 'https:' + url;
-  if (url.startsWith('/')) { try { return new URL(baseUrl).origin + url; } catch { return url; } }
+  if (url.startsWith('/')) {
+    try { return new URL(baseUrl).origin + url; } catch { return url; }
+  }
   if (url.startsWith('http')) return url;
   try { return new URL(url, baseUrl).toString(); } catch { return url; }
 }
@@ -128,17 +191,21 @@ function isValidImageUrl(url: string): boolean {
   if (!url || url.includes('javascript:') || url.startsWith('data:')) return false;
   try {
     const { pathname, hostname } = new URL(url);
-    if (/\.(jpg|jpeg|png|webp|gif|avif|bmp)$/i.test(pathname)) return true;
+    if (/\.(jpg|jpeg|png|webp|gif|avif|bmp)(\?|$)/i.test(pathname)) return true;
     const cdnHosts = new Set([
       'recipe-service.prod.cloud.jumbo.com',
       'images.ctfassets.net', 'res.cloudinary.com', 'cdn.sanity.io',
       'media.contentful.com', 'images.squarespace-cdn.com', 'i.imgur.com',
       'static.ah.nl', 'cdn.ah.nl', 'images.immediate.co.uk',
-      'img.youtube.com', 'i.ytimg.com',
+      'img.youtube.com', 'i.ytimg.com', 'media.24kitchen.nl',
+      'www.spar.nl', 'static.colruytgroup.com', 'images.colruytgroup.com',
+      'api.ah.nl', 'jumbo.com',
     ]);
     if (cdnHosts.has(hostname)) return true;
-    if (/^(?:img|images?|cdn|media|photos?|static|assets)\./i.test(hostname)) return true;
-    if (/\/(?:photos?|images?|imgs?|pictures?|fotos?|media)\//i.test(pathname)) return true;
+    if (/^(?:img|images?|cdn|media|photos?|static|assets|content|upload)\./i.test(hostname)) return true;
+    if (/\/(?:photos?|images?|imgs?|pictures?|fotos?|media|uploads?|content)\//i.test(pathname)) return true;
+    // Allow anything from the same domain that looks like a media path
+    if (/\/(recipe|recept|dish|food|meal)\//i.test(pathname)) return true;
   } catch { return false; }
   return false;
 }
@@ -148,21 +215,20 @@ async function downloadImage(imageUrl: string): Promise<string | undefined> {
   try {
     const safeUrl = encodeImageUrl(imageUrl);
 
-    // Fetch the image bytes directly — avoids expo downloadAsync failures
-    // on extensionless CDN URLs returning application/octet-stream
     const response = await fetch(safeUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+        'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
         Accept: 'image/*,*/*',
       },
     });
     if (!response.ok) return undefined;
 
     const ct = response.headers.get('content-type') ?? '';
+    // Reject HTML pages masquerading as images
+    if (ct.includes('text/html')) return undefined;
     const ext = contentTypeToExt(ct) ?? guessExtFromUrl(imageUrl);
 
-    // Use blob() → FileReader for base64 — this is the only reliable path on Hermes/RN
-    // because spreading large Uint8Arrays with String.fromCharCode causes stack overflows
     const blob = await response.blob();
     const base64 = await blobToBase64(blob);
     if (!base64) return undefined;
@@ -177,7 +243,13 @@ async function downloadImage(imageUrl: string): Promise<string | undefined> {
     await FS.writeAsStringAsync(filepath, base64, { encoding: FS.EncodingType.Base64 });
 
     const info = await FS.getInfoAsync(filepath);
-    return info.exists ? filepath : undefined;
+    if (!info.exists) return undefined;
+    // Reject tiny files (< 2 KB) — likely placeholder/error pages
+    if ((info as any).size < 2048) {
+      await FS.deleteAsync(filepath, { idempotent: true });
+      return undefined;
+    }
+    return filepath;
   } catch {
     return undefined;
   }
@@ -188,7 +260,6 @@ function blobToBase64(blob: Blob): Promise<string | null> {
     const reader = new FileReader();
     reader.onloadend = () => {
       const result = reader.result as string;
-      // result is "data:image/jpeg;base64,<data>" — strip the prefix
       const comma = result.indexOf(',');
       resolve(comma !== -1 ? result.slice(comma + 1) : null);
     };
@@ -200,10 +271,13 @@ function blobToBase64(blob: Blob): Promise<string | null> {
 function encodeImageUrl(url: string): string {
   try {
     const u = new URL(url);
-    u.pathname = u.pathname.split('/').map((seg) => {
-      try { return encodeURIComponent(decodeURIComponent(seg)); }
-      catch { return encodeURIComponent(seg); }
-    }).join('/');
+    u.pathname = u.pathname
+      .split('/')
+      .map((seg) => {
+        try { return encodeURIComponent(decodeURIComponent(seg)); }
+        catch { return encodeURIComponent(seg); }
+      })
+      .join('/');
     return u.toString();
   } catch { return url; }
 }

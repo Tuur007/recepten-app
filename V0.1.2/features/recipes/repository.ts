@@ -13,11 +13,14 @@ interface RecipeRow {
   category: string;
   is_favorite: number;
   image_uri: string | null;
+  allergens: string | null;
   created_at: string;
   updated_at: string;
 }
 
 function rowToRecipe(row: RecipeRow): Recipe {
+  let allergens: string[] = [];
+  try { allergens = JSON.parse(row.allergens ?? '[]'); } catch { allergens = []; }
   return {
     id: row.id,
     title: row.title,
@@ -28,6 +31,7 @@ function rowToRecipe(row: RecipeRow): Recipe {
     category: (row.category ?? '') as Recipe['category'],
     isFavorite: row.is_favorite === 1,
     imageUri: row.image_uri ?? undefined,
+    allergens,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -53,8 +57,8 @@ export const RecipeRepository = {
     const id = generateId();
     const now = new Date().toISOString();
     await db.runAsync(
-      `INSERT INTO recipes (id, title, ingredients, steps, source_url, duration, category, is_favorite, image_uri, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO recipes (id, title, ingredients, steps, source_url, duration, category, is_favorite, image_uri, allergens, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         input.title,
@@ -65,6 +69,7 @@ export const RecipeRepository = {
         input.category ?? '',
         input.isFavorite ? 1 : 0,
         input.imageUri ?? null,
+        JSON.stringify(input.allergens ?? []),
         now,
         now,
       ],
@@ -74,6 +79,7 @@ export const RecipeRepository = {
       ...input,
       category: input.category ?? '',
       isFavorite: input.isFavorite ?? false,
+      allergens: input.allergens ?? [],
       createdAt: now,
       updatedAt: now,
     };
@@ -95,7 +101,7 @@ export const RecipeRepository = {
 
     await db.runAsync(
       `UPDATE recipes
-         SET title = ?, ingredients = ?, steps = ?, source_url = ?, duration = ?, category = ?, is_favorite = ?, image_uri = ?, updated_at = ?
+         SET title = ?, ingredients = ?, steps = ?, source_url = ?, duration = ?, category = ?, is_favorite = ?, image_uri = ?, allergens = ?, updated_at = ?
        WHERE id = ?`,
       [
         merged.title,
@@ -106,6 +112,7 @@ export const RecipeRepository = {
         merged.category ?? '',
         merged.isFavorite ? 1 : 0,
         merged.imageUri ?? null,
+        JSON.stringify(merged.allergens ?? []),
         now,
         id,
       ],

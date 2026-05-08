@@ -21,7 +21,8 @@ import { CategoryPicker } from '../../../features/recipes/components/CategoryPic
 import { AppTextInput } from '../../../components/ui/AppTextInput';
 import { Button } from '../../../components/ui/Button';
 import { LoadingScreen } from '../../../components/LoadingScreen';
-import { colors, spacing } from '../../../constants/Designsystem';
+import { colors, spacing, fonts } from '../../../constants/Designsystem';
+import { ALLERGENS } from '../../../types/recipe';
 
 export default function EditRecipeScreen() {
   const router = useRouter();
@@ -44,6 +45,7 @@ export default function EditRecipeScreen() {
         ),
         imageUri: recipe.imageUri,
         duration: recipe.duration ?? recipe.totalTime,
+        allergens: recipe.allergens ?? [],
       });
       setInitialized(true);
     }
@@ -75,6 +77,7 @@ export default function EditRecipeScreen() {
         steps: form.validSteps,
         imageUri: form.imageUri,
         duration: form.duration,
+        allergens: form.allergens,
       });
       router.back();
     } catch {
@@ -148,6 +151,27 @@ export default function EditRecipeScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Allergenen</Text>
+            <View style={styles.allergenGrid}>
+              {ALLERGENS.map((allergen) => {
+                const active = form.allergens.includes(allergen);
+                return (
+                  <TouchableOpacity
+                    key={allergen}
+                    style={[styles.allergenChip, active && styles.allergenChipActive]}
+                    onPress={() => form.toggleAllergen(allergen)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.allergenChipText, active && styles.allergenChipTextActive]}>
+                      {allergen}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -177,4 +201,25 @@ const styles = StyleSheet.create({
   sectionContent: { gap: 8 },
   addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
   addRowBtnText: { fontSize: 14, color: colors.primary, fontWeight: '500' },
+  allergenGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  allergenChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.borderColor,
+    backgroundColor: colors.background,
+  },
+  allergenChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  allergenChipText: {
+    fontFamily: fonts.display,
+    fontSize: 13,
+    color: colors.textLight,
+  },
+  allergenChipTextActive: {
+    color: colors.white,
+  },
 });

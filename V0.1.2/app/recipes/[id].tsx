@@ -22,6 +22,7 @@ import { LoadingScreen } from '../../components/LoadingScreen';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { generateId } from '../../utils/id';
 import { Ingredient } from '../../types/recipe';
+import { ALLERGENS } from '../../types/recipe';
 
 const PAPER = colors.background;
 
@@ -303,6 +304,20 @@ export default function RecipeDetailScreen() {
             </View>
           ))}
         </View>
+
+        {/* Allergenen */}
+        {recipe.allergens?.length > 0 && (
+          <>
+            <Section title="iii. allergenen" count={recipe.allergens.length} />
+            <View style={styles.allergenRow}>
+              {recipe.allergens.map((a) => (
+                <View key={a} style={styles.allergenChip}>
+                  <Text style={styles.allergenChipText}>{a}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Sticky CTA */}
@@ -628,6 +643,28 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  allergenRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.lg,
+    gap: 8,
+    marginBottom: spacing.md,
+  },
+  allergenChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: colors.backgroundLight,
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
+  },
+  allergenChipText: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.textLight,
   },
   // Modal
   modal: { flex: 1, backgroundColor: PAPER },

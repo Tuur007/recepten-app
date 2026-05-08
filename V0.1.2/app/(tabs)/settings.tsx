@@ -15,6 +15,8 @@ import { useCategories } from '../../store/categoriesStore';
 import { Category } from '../../features/categories/repository';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 
+type SectionKey = 'recipe' | 'grocery' | null;
+
 export default function SettingsScreen() {
   const {
     recipeCategories,
@@ -27,8 +29,9 @@ export default function SettingsScreen() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
-  const [addingType, setAddingType] = useState<'recipe' | 'grocery' | null>(null);
+  const [addingType, setAddingType] = useState<SectionKey>(null);
   const [newName, setNewName] = useState('');
+  const [expandedSection, setExpandedSection] = useState<SectionKey>(null);
   const newInputRef = useRef<TextInput>(null);
 
   const startEdit = (cat: Category) => {
@@ -38,10 +41,7 @@ export default function SettingsScreen() {
   };
 
   const saveEdit = async () => {
-    if (!editingId || !editingName.trim()) {
-      setEditingId(null);
-      return;
-    }
+    if (!editingId || !editingName.trim()) { setEditingId(null); return; }
     await updateCategory(editingId, editingName.trim());
     setEditingId(null);
     setEditingName('');
@@ -49,8 +49,8 @@ export default function SettingsScreen() {
 
   const confirmDelete = (cat: Category) => {
     Alert.alert(
-      'Categorie verwijderen',
-      `Weet je zeker dat je "${cat.name}" wilt verwijderen?`,
+      'Verwijderen',
+      `"${cat.name}" verwijderen?`,
       [
         { text: 'Annuleren', style: 'cancel' },
         { text: 'Verwijderen', style: 'destructive', onPress: () => removeCategory(cat.id) },
@@ -60,24 +60,22 @@ export default function SettingsScreen() {
 
   const startAdd = (type: 'recipe' | 'grocery') => {
     setAddingType(type);
+    setExpandedSection(type);
     setNewName('');
     setEditingId(null);
-    setTimeout(() => newInputRef.current?.focus(), 100);
+    setTimeout(() => newInputRef.current?.focus(), 120);
   };
 
   const saveNew = async () => {
-    if (!newName.trim() || !addingType) {
-      setAddingType(null);
-      return;
-    }
-    if (addingType === 'recipe') {
-      await addRecipeCategory(newName.trim());
-    } else {
-      await addGroceryCategory(newName.trim());
-    }
+    if (!newName.trim() || !addingType) { setAddingType(null); return; }
+    if (addingType === 'recipe') await addRecipeCategory(newName.trim());
+    else await addGroceryCategory(newName.trim());
     setNewName('');
     setAddingType(null);
   };
+
+  const toggleSection = (key: 'recipe' | 'grocery') =>
+    setExpandedSection((prev) => (prev === key ? null : key));
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -89,71 +87,127 @@ export default function SettingsScreen() {
 
         {/* Title */}
         <View style={styles.titleBlock}>
-          <Text style={[typography.hero32Bold, { fontSize: 38 }]}>Meer</Text>
-          <Text style={[typography.heroItalic, { fontSize: 38 }]}>opties.</Text>
+          <Text style={[typography.hero32Bold, { fontSize: 36 }]}>Meer</Text>
+          <Text style={[typography.heroItalic, { fontSize: 36 }]}>opties.</Text>
         </View>
 
-        {/* Section: Receptcategorieën */}
-        <SectionHeader title="Receptcategorieën" />
-        {recipeCategories.map((cat) => (
-          <CategoryRow
-            key={cat.id}
-            cat={cat}
-            isEditing={editingId === cat.id}
-            editValue={editingName}
-            onEditChange={setEditingName}
-            onEditSubmit={saveEdit}
-            onEditStart={() => startEdit(cat)}
-            onDelete={() => confirmDelete(cat)}
-          />
-        ))}
-        {addingType === 'recipe' ? (
-          <AddRow
-            inputRef={newInputRef}
-            value={newName}
-            onChange={setNewName}
-            onSubmit={saveNew}
-            onCancel={() => setAddingType(null)}
-          />
-        ) : (
-          <AddButton onPress={() => startAdd('recipe')} />
-        )}
+        {/* ── Receptcategorieën ── */}
+        <SectionCard
+          icon="book-outline"
+          title="Receptcategorieën"
+          count={recipeCategories.length}
+          expanded={expandedSection === 'recipe'}
+          onToggle={() => toggleSection('recipe')}
+        >
+          {recipeCategories.map((cat) => (
+            <CategoryRow
+              key={cat.id}
+              cat={cat}
+              isEditing={editingId === cat.id}
+              editValue={editingName}
+              onEditChange={setEditingName}
+              onEditSubmit={saveEdit}
+              onEditStart={() => startEdit(cat)}
+              onDelete={() => confirmDelete(cat)}
+            />
+          ))}
+          {addingType === 'recipe' ? (
+            <AddRow
+              inputRef={newInputRef}
+              value={newName}
+              onChange={setNewName}
+              onSubmit={saveNew}
+              onCancel={() => setAddingType(null)}
+            />
+          ) : (
+            <AddButton label="Categorie toevoegen" onPress={() => startAdd('recipe')} />
+          )}
+        </SectionCard>
 
-        {/* Section: Boodschappencategorieën */}
-        <SectionHeader title="Boodschappencategorieën" />
-        {groceryCategories.map((cat) => (
-          <CategoryRow
-            key={cat.id}
-            cat={cat}
-            isEditing={editingId === cat.id}
-            editValue={editingName}
-            onEditChange={setEditingName}
-            onEditSubmit={saveEdit}
-            onEditStart={() => startEdit(cat)}
-            onDelete={() => confirmDelete(cat)}
-          />
-        ))}
-        {addingType === 'grocery' ? (
-          <AddRow
-            inputRef={newInputRef}
-            value={newName}
-            onChange={setNewName}
-            onSubmit={saveNew}
-            onCancel={() => setAddingType(null)}
-          />
-        ) : (
-          <AddButton onPress={() => startAdd('grocery')} />
-        )}
+        {/* ── Boodschappencategorieën ── */}
+        <SectionCard
+          icon="bag-outline"
+          title="Boodschappencategorieën"
+          count={groceryCategories.length}
+          expanded={expandedSection === 'grocery'}
+          onToggle={() => toggleSection('grocery')}
+        >
+          {groceryCategories.map((cat) => (
+            <CategoryRow
+              key={cat.id}
+              cat={cat}
+              isEditing={editingId === cat.id}
+              editValue={editingName}
+              onEditChange={setEditingName}
+              onEditSubmit={saveEdit}
+              onEditStart={() => startEdit(cat)}
+              onDelete={() => confirmDelete(cat)}
+            />
+          ))}
+          {addingType === 'grocery' ? (
+            <AddRow
+              inputRef={newInputRef}
+              value={newName}
+              onChange={setNewName}
+              onSubmit={saveNew}
+              onCancel={() => setAddingType(null)}
+            />
+          ) : (
+            <AddButton label="Categorie toevoegen" onPress={() => startAdd('grocery')} />
+          )}
+        </SectionCard>
+
+        {/* ── Over de app ── */}
+        <View style={[styles.sectionCard, { marginTop: spacing.md }]}>
+          <View style={styles.cardHeaderStatic}>
+            <View style={styles.cardIconWrap}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.textLight} />
+            </View>
+            <Text style={styles.cardTitle}>Over de app</Text>
+          </View>
+          <View style={styles.cardBody}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Versie</Text>
+              <Text style={styles.infoValue}>v1.1.0</Text>
+            </View>
+            <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+              <Text style={styles.infoLabel}>Gebouwd met</Text>
+              <Text style={styles.infoValue}>Expo + SQLite</Text>
+            </View>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function SectionHeader({ title }: { title: string }) {
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+interface SectionCardProps {
+  icon: string;
+  title: string;
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+function SectionCard({ icon, title, count, expanded, onToggle, children }: SectionCardProps) {
   return (
-    <View style={styles.sectionHeader}>
-      <Text style={typography.folioBold}>{title}</Text>
-      <View style={styles.rule} />
+    <View style={[styles.sectionCard, { marginTop: spacing.md }]}>
+      <TouchableOpacity style={styles.cardHeader} onPress={onToggle} activeOpacity={0.7}>
+        <View style={styles.cardIconWrap}>
+          <Ionicons name={icon as any} size={18} color={colors.textLight} />
+        </View>
+        <Text style={styles.cardTitle}>{title}</Text>
+        <Text style={styles.cardCount}>{count}</Text>
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={colors.textFaint}
+        />
+      </TouchableOpacity>
+      {expanded && <View style={styles.cardBody}>{children}</View>}
     </View>
   );
 }
@@ -169,13 +223,7 @@ interface CategoryRowProps {
 }
 
 function CategoryRow({
-  cat,
-  isEditing,
-  editValue,
-  onEditChange,
-  onEditSubmit,
-  onEditStart,
-  onDelete,
+  cat, isEditing, editValue, onEditChange, onEditSubmit, onEditStart, onDelete,
 }: CategoryRowProps) {
   return (
     <View style={styles.catRow}>
@@ -194,10 +242,10 @@ function CategoryRow({
       )}
       <View style={styles.catActions}>
         <TouchableOpacity onPress={onEditStart} hitSlop={8} style={styles.iconBtn}>
-          <Ionicons name="pencil-outline" size={16} color={colors.textLight} />
+          <Ionicons name="pencil-outline" size={15} color={colors.textFaint} />
         </TouchableOpacity>
         <TouchableOpacity onPress={onDelete} hitSlop={8} style={styles.iconBtn}>
-          <Ionicons name="trash-outline" size={16} color={colors.textLight} />
+          <Ionicons name="trash-outline" size={15} color={colors.textFaint} />
         </TouchableOpacity>
       </View>
     </View>
@@ -238,76 +286,130 @@ function AddRow({ inputRef, value, onChange, onSubmit, onCancel }: AddRowProps) 
   );
 }
 
-function AddButton({ onPress }: { onPress: () => void }) {
+function AddButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.addRow} onPress={onPress} activeOpacity={0.7}>
-      <Ionicons name="add" size={16} color={colors.primary} />
-      <Text style={styles.addText}>Voeg categorie toe</Text>
+      <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+      <Text style={styles.addText}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
+// ── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  folio: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
+  folio: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   titleBlock: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
-    marginBottom: spacing.xl,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.xl,
     marginBottom: spacing.sm,
   },
-  rule: { flex: 1, height: 1, backgroundColor: colors.borderColor },
+
+  sectionCard: {
+    marginHorizontal: spacing.lg,
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.background,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: spacing.md,
+  },
+  cardHeaderStatic: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: spacing.md,
+  },
+  cardIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: colors.backgroundLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTitle: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.textDark,
+  },
+  cardCount: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    color: colors.textFaint,
+    letterSpacing: 1,
+    marginRight: 4,
+  },
+  cardBody: {
+    borderTopWidth: 0.5,
+    borderTopColor: colors.borderSoft,
+  },
+
   catRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: colors.borderSoft,
   },
   catName: {
     flex: 1,
     fontFamily: fonts.display,
-    fontSize: 16,
+    fontSize: 15,
     color: colors.textDark,
   },
   catInput: {
     flex: 1,
     fontFamily: fonts.display,
-    fontSize: 16,
+    fontSize: 15,
     color: colors.textDark,
-    paddingVertical: 4,
+    paddingVertical: 2,
     borderBottomWidth: 1,
     borderBottomColor: colors.primary,
   },
-  catActions: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  iconBtn: {
-    padding: 8,
-  },
+  catActions: { flexDirection: 'row', gap: 2 },
+  iconBtn: { padding: 8 },
+
   addRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   addText: {
     fontFamily: fonts.displayItalic,
     fontStyle: 'italic',
-    fontSize: 14,
+    fontSize: 13,
     color: colors.primary,
+  },
+
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderSoft,
+  },
+  infoLabel: {
+    fontFamily: fonts.display,
+    fontSize: 14,
+    color: colors.textLight,
+  },
+  infoValue: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    color: colors.textDark,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });

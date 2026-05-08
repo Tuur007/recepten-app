@@ -6,6 +6,7 @@ interface GroceryRow {
   id: string;
   name: string;
   unit: string;
+  category: string;
   sources: string;
   total_quantity: number;
   checked: number;
@@ -23,6 +24,7 @@ function rowToItem(row: GroceryRow): GroceryItem {
     id: row.id,
     name: row.name,
     unit: row.unit,
+    category: row.category ?? '',
     sources,
     totalQuantity: row.total_quantity ?? computeTotalQuantity(sources),
     checked: row.checked === 1,
@@ -33,34 +35,35 @@ function rowToItem(row: GroceryRow): GroceryItem {
 export const GroceryRepository = {
   async getAll(db: SQLiteDatabase): Promise<GroceryItem[]> {
     const rows = await db.getAllAsync<GroceryRow>(
-      'SELECT id, name, unit, sources, total_quantity, checked, created_at FROM grocery_items ORDER BY checked ASC, created_at DESC',
+      'SELECT id, name, unit, category, sources, total_quantity, checked, created_at FROM grocery_items ORDER BY checked ASC, created_at DESC',
     );
     return rows.map(rowToItem);
   },
 
   async create(db: SQLiteDatabase, input: GroceryItemInput): Promise<GroceryItem> {
     if (!input.name?.trim()) throw new Error('Item name is required');
-    
+
     const id = generateId();
     const now = new Date().toISOString();
     const totalQuantity = computeTotalQuantity(input.sources);
-    
+
     await db.runAsync(
-      `INSERT INTO grocery_items (id, name, unit, sources, total_quantity, checked, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, input.name, input.unit, JSON.stringify(input.sources), totalQuantity, input.checked ? 1 : 0, now],
+      `INSERT INTO grocery_items (id, name, unit, category, sources, total_quantity, checked, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, input.name, input.unit, input.category ?? '', JSON.stringify(input.sources), totalQuantity, input.checked ? 1 : 0, now],
     );
-    return { id, ...input, totalQuantity, createdAt: now };
+    return { id, ...input, category: input.category ?? '', totalQuantity, createdAt: now };
   },
 
   async upsertMany(db: SQLiteDatabase, items: GroceryItem[]): Promise<void> {
     for (const item of items) {
       await db.runAsync(
-        `INSERT INTO grocery_items (id, name, unit, sources, total_quantity, checked, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO grocery_items (id, name, unit, category, sources, total_quantity, checked, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name,
            unit = excluded.unit,
+           category = excluded.category,
            sources = excluded.sources,
            total_quantity = excluded.total_quantity,
            checked = excluded.checked`,
@@ -68,6 +71,7 @@ export const GroceryRepository = {
           item.id,
           item.name,
           item.unit,
+          item.category ?? '',
           JSON.stringify(item.sources),
           item.totalQuantity,
           item.checked ? 1 : 0,
@@ -83,6 +87,7 @@ export const GroceryRepository = {
 
     if (changes.name !== undefined) { fields.push('name = ?'); values.push(changes.name); }
     if (changes.unit !== undefined) { fields.push('unit = ?'); values.push(changes.unit); }
+    if (changes.category !== undefined) { fields.push('category = ?'); values.push(changes.category); }
     if (changes.checked !== undefined) { fields.push('checked = ?'); values.push(changes.checked ? 1 : 0); }
     if (changes.sources !== undefined) {
       fields.push('sources = ?');

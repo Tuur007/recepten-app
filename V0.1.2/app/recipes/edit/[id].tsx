@@ -49,7 +49,10 @@ export default function EditRecipeScreen() {
       });
       setInitialized(true);
     }
-  }, [recipe, initialized, form]);
+    // form is excluded: useRecipeForm returns a new object every render,
+    // adding it would cause an infinite loop. initialized guards single-run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipe, initialized]);
 
   if (isLoading) return <LoadingScreen />;
 

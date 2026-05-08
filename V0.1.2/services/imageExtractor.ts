@@ -1,6 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+declare const __DEV__: boolean;
+
 interface ImageCandidate {
   url: string;
   score: number;
+  source: string;
 }
 
 let FS: typeof import('expo-file-system') | null = null;
@@ -10,83 +14,83 @@ try {
   // native module unavailable (Expo Snack / web)
 }
 
-// All downloaded images land in the same dir as saveRecipeImage() so
-// deleteRecipeImage() can clean them up correctly.
+// All downloaded images land in the same dir managed by imageStorage.ts
+// so deleteRecipeImage() can clean them up correctly.
 function getImageDir(): string {
   return FS?.documentDirectory ? `${FS.documentDirectory}recipes_images` : '';
 }
 
-// ─── Public API ─────────────────────────────────────────────────────────────
+// ─── Public API ──────────────────────────────────────────────────────────────
 
 export async function extractImageFromUrl(url: string): Promise<string | undefined> {
-  log('extractImageFromUrl start', url);
+  log('start', url);
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12_000);
+    const timer = setTimeout(() => controller.abort(), 15_000);
 
     let response: Response;
     try {
       response = await fetch(url, {
         signal: controller.signal,
         headers: {
-          'User-Agent':
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'User-Agent': UA,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'nl-NL,nl;q=0.9,en;q=0.8',
+          'Accept-Encoding': 'gzip, deflate, br',
         },
       });
     } finally {
       clearTimeout(timer);
     }
 
-    log('HTML fetch status', response.status, response.url);
+    log('html status', response.status, response.url);
     if (!response.ok) {
-      log('HTML fetch failed', response.status);
+      log('html fetch failed', response.status);
       return undefined;
     }
 
     const html = await response.text();
-    const finalUrl = response.url || url; // follow redirects
+    const finalUrl = response.url || url;
     const candidates = extractImageCandidates(html, finalUrl);
-    log('candidates found', candidates.length, candidates.map((c) => `${c.score} ${c.url}`));
+    log('candidates', candidates.length, candidates.slice(0, 5).map(c => `[${c.score}:${c.source}] ${c.url.slice(0, 70)}`));
 
     if (candidates.length === 0) {
-      log('no candidates — giving up');
+      log('no candidates');
       return undefined;
     }
 
-    const sorted = candidates.sort((a, b) => b.score - a.score);
-    for (const candidate of sorted) {
-      log('trying candidate', candidate.url, 'score', candidate.score);
-      const result = await downloadImageWithRetry(candidate.url, finalUrl);
+    for (let i = 0; i < Math.min(candidates.length, 6); i++) {
+      const c = candidates[i];
+      log(`try [${i}] ${c.source}`, c.url.slice(0, 80));
+      const result = await downloadImageWithRetry(c.url, finalUrl);
       if (result) {
-        log('download succeeded →', result);
+        log('success', result);
         return result;
       }
-      log('candidate failed, trying next');
+      log(`candidate [${i}] failed, next`);
     }
 
-    log('all candidates exhausted');
+    log('all candidates failed');
     return undefined;
   } catch (err) {
-    log('extractImageFromUrl error', err);
+    log('error', err);
     return undefined;
   }
 }
 
-// ─── Download (native, no FileReader) ───────────────────────────────────────
+// ─── Download ────────────────────────────────────────────────────────────────
 
 async function downloadImageWithRetry(
   imageUrl: string,
   referer: string,
-  maxRetries = 2,
+  maxAttempts = 2,
 ): Promise<string | undefined> {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const result = await downloadImage(imageUrl, referer);
     if (result) return result;
-    if (attempt < maxRetries) {
-      log(`retry ${attempt}/${maxRetries - 1} for`, imageUrl);
-      await sleep(800 * attempt);
+    if (attempt < maxAttempts) {
+      log(`retry ${attempt}/${maxAttempts - 1}`);
+      await sleep(600 * attempt);
     }
   }
   return undefined;
@@ -94,26 +98,17 @@ async function downloadImageWithRetry(
 
 async function downloadImage(imageUrl: string, referer: string): Promise<string | undefined> {
   if (!FS) {
-    log('expo-file-system not available');
+    log('expo-file-system unavailable');
     return undefined;
   }
 
   const safeUrl = encodeImageUrl(imageUrl);
-  log('downloadImage', safeUrl, '(referer:', referer, ')');
-
   const dir = getImageDir();
-  if (!dir) {
-    log('no documentDirectory');
-    return undefined;
-  }
+  if (!dir) return undefined;
 
-  // Ensure directory exists
   try {
     const dirInfo = await FS.getInfoAsync(dir);
-    if (!dirInfo.exists) {
-      await FS.makeDirectoryAsync(dir, { intermediates: true });
-      log('created dir', dir);
-    }
+    if (!dirInfo.exists) await FS.makeDirectoryAsync(dir, { intermediates: true });
   } catch (err) {
     log('mkdir error', err);
     return undefined;
@@ -124,38 +119,45 @@ async function downloadImage(imageUrl: string, referer: string): Promise<string 
   const filepath = `${dir}/${filename}`;
 
   try {
-    // FS.downloadAsync is a native downloader — no Blob, no FileReader, no base64 in JS.
-    // This is the reliable way to download binary files in Expo/React Native.
-    const result = await FS.downloadAsync(safeUrl, filepath, {
+    // Use FS.downloadAsync (native downloader) — avoids the FileReader/Blob
+    // path which is unreliable in React Native.
+    const downloadPromise = FS.downloadAsync(safeUrl, filepath, {
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        Accept: 'image/avif,image/webp,image/*,*/*;q=0.8',
+        'User-Agent': UA,
+        'Accept': 'image/avif,image/webp,image/*,*/*;q=0.8',
         'Accept-Language': 'nl-NL,nl;q=0.9,en;q=0.8',
-        Referer: referer,
+        'Referer': referer,
       },
     });
 
-    log('download result status', result.status, 'headers', JSON.stringify(result.headers));
+    // FS.downloadAsync has no built-in timeout — race against 20 s.
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('download timeout')), 20_000),
+    );
+
+    const result = await Promise.race([downloadPromise, timeoutPromise]);
+
+    log('dl status', result.status, 'url', safeUrl.slice(0, 70));
 
     if (result.status !== 200) {
-      log('non-200 status', result.status, '— deleting partial file');
+      log('non-200', result.status);
       await FS.deleteAsync(filepath, { idempotent: true });
       return undefined;
     }
 
-    const ct = (result.headers?.['content-type'] ?? result.headers?.['Content-Type'] ?? '').toLowerCase();
+    // Content-type check — headers keys may be any casing
+    const ct = getHeader(result.headers as Record<string, string>, 'content-type').toLowerCase();
     log('content-type', ct);
 
-    if (ct.includes('text/html') || ct.includes('application/json')) {
-      log('server returned non-image content-type — rejecting');
+    if (ct && (ct.includes('text/html') || ct.includes('application/json'))) {
+      log('non-image content-type', ct);
       await FS.deleteAsync(filepath, { idempotent: true });
       return undefined;
     }
 
     const info = await FS.getInfoAsync(filepath);
     if (!info.exists) {
-      log('file does not exist after download');
+      log('file missing after download');
       return undefined;
     }
 
@@ -163,7 +165,7 @@ async function downloadImage(imageUrl: string, referer: string): Promise<string 
     log('file size', size, 'bytes');
 
     if (size < 2048) {
-      log('file too small (< 2 KB) — likely error page, deleting');
+      log('too small, rejecting');
       await FS.deleteAsync(filepath, { idempotent: true });
       return undefined;
     }
@@ -171,114 +173,140 @@ async function downloadImage(imageUrl: string, referer: string): Promise<string 
     // Rename to correct extension based on actual content-type
     const actualExt = contentTypeToExt(ct) ?? ext;
     if (actualExt !== ext) {
-      const correctedPath = filepath.replace(new RegExp(`\\.${ext}$`), `.${actualExt}`);
+      const correctedPath = filepath.slice(0, -ext.length) + actualExt;
       try {
         await FS.moveAsync({ from: filepath, to: correctedPath });
-        log('renamed to correct extension', correctedPath);
+        log('renamed to correct ext', correctedPath);
         return correctedPath;
       } catch {
-        // keep original path if rename fails
+        // keep original if rename fails — still a valid file
       }
     }
 
     return filepath;
-  } catch (err) {
-    log('downloadAsync error', err);
-    // Clean up partial file
+  } catch (err: unknown) {
+    log('downloadAsync error', err instanceof Error ? err.message : err);
     try { await FS.deleteAsync(filepath, { idempotent: true }); } catch { /* ignore */ }
     return undefined;
   }
 }
 
-// ─── HTML extraction ─────────────────────────────────────────────────────────
+// ─── HTML image extraction ───────────────────────────────────────────────────
 
 function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[] {
   const candidates = new Map<string, ImageCandidate>();
 
-  const add = (rawUrl: string, score: number) => {
+  const add = (rawUrl: string, score: number, source: string) => {
+    if (!rawUrl) return;
     const resolved = normalizeUrl(rawUrl, baseUrl);
-    if (!isValidImageUrl(resolved)) return;
+    if (!resolved || !isValidImageUrl(resolved)) return;
     const key = canonicalKey(resolved);
-    if (!candidates.has(key)) candidates.set(key, { url: resolved, score });
+    if (!candidates.has(key)) candidates.set(key, { url: resolved, score, source });
   };
 
-  // 1. og:image — highest quality, most reliable
-  const ogUrl = extractMetaUrl(html, 'og:image', 'property');
-  if (ogUrl) add(ogUrl, 95);
+  // 1. og:image:secure_url (highest priority — explicit HTTPS)
+  const ogSecure = extractMetaUrl(html, 'og:image:secure_url', 'property');
+  if (ogSecure) add(ogSecure, 96, 'og:image:secure_url');
 
-  // 2. JSON-LD Recipe.image
+  // 2. og:image
+  const ogUrl = extractMetaUrl(html, 'og:image', 'property');
+  if (ogUrl) add(ogUrl, 95, 'og:image');
+
+  // 3. JSON-LD Recipe.image
   for (const block of html.matchAll(
     /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
   )) {
     try {
-      extractJsonLdImages(JSON.parse(block[1].trim())).forEach((u) => add(u, 90));
-    } catch { /* skip */ }
+      extractJsonLdImages(JSON.parse(block[1].trim())).forEach((u) => add(u, 90, 'json-ld'));
+    } catch { /* skip bad JSON */ }
   }
 
-  // 3. Next.js __NEXT_DATA__ (Jumbo, AH etc.)
+  // 4. Next.js __NEXT_DATA__ (Jumbo, AH, etc.)
   const nextDataMatch = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
   if (nextDataMatch) {
     try {
-      extractNestedImages(JSON.parse(nextDataMatch[1])).forEach((u) => add(u, 88));
+      extractNestedImages(JSON.parse(nextDataMatch[1])).forEach((u) => add(u, 88, '__NEXT_DATA__'));
     } catch { /* skip */ }
   }
 
-  // 4. Nuxt / Vue __NUXT__ hydration
-  const nuxtMatch = html.match(/window\.__NUXT__\s*=\s*(\{[\s\S]*?\});\s*(?:<\/script>|$)/i);
+  // 5. Nuxt / Vue hydration
+  const nuxtMatch = html.match(/window\.__NUXT__\s*=\s*(\{[\s\S]*?\});\s*(?:<\/script>|window\.|$)/i);
   if (nuxtMatch) {
     try {
-      extractNestedImages(JSON.parse(nuxtMatch[1])).forEach((u) => add(u, 85));
+      extractNestedImages(JSON.parse(nuxtMatch[1])).forEach((u) => add(u, 85, '__NUXT__'));
     } catch { /* skip */ }
   }
 
-  // 5. twitter:image
-  const twitterUrl = extractMetaUrl(html, 'twitter:image', 'name');
-  if (twitterUrl) add(twitterUrl, 82);
-  const twitterUrlSrc = extractMetaUrl(html, 'twitter:image:src', 'name');
-  if (twitterUrlSrc) add(twitterUrlSrc, 82);
+  // 6. twitter:image
+  const twUrl = extractMetaUrl(html, 'twitter:image', 'name');
+  if (twUrl) add(twUrl, 82, 'twitter:image');
+  const twSrc = extractMetaUrl(html, 'twitter:image:src', 'name');
+  if (twSrc) add(twSrc, 82, 'twitter:image:src');
 
-  // 6. Schema.org microdata itemProp="image"
+  // 7. <link rel="image_src">
+  const linkImg = html.match(/<link[^>]+rel=["']image_src["'][^>]+href=["']([^"']+)["']/i)
+               ?? html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']image_src["']/i);
+  if (linkImg) add(linkImg[1], 83, 'link[image_src]');
+
+  // 8. Schema.org microdata
   for (const m of html.matchAll(/itemprop=["']image["'][^>]+(?:content|src)=["']([^"']+)["']/gi)) {
-    add(m[1], 80);
+    add(m[1], 80, 'microdata');
   }
   for (const m of html.matchAll(/(?:content|src)=["']([^"']+)["'][^>]+itemprop=["']image["']/gi)) {
-    add(m[1], 80);
+    add(m[1], 80, 'microdata');
   }
 
-  // 7. data-src / lazy-loaded images (srcset first src)
+  // 9. data-src (lazy-loaded images)
   for (const m of html.matchAll(/<img[^>]+data-src=["']([^"']+)["'][^>]*/gi)) {
     const tag = m[0].toLowerCase();
-    const score = /recipe|hero|featured|food|dish|meal|recept|gerecht/.test(tag) ? 72 : 38;
-    add(m[1], score);
+    const food = /recipe|hero|featured|food|dish|meal|recept|gerecht/.test(tag);
+    add(m[1], food ? 72 : 38, 'img[data-src]');
   }
 
-  // 8. Regular img src
+  // 10. srcset — pick the highest-resolution URL
+  for (const m of html.matchAll(/<(?:img|source)[^>]+srcset=["']([^"']+)["'][^>]*/gi)) {
+    const tag = m[0].toLowerCase();
+    const food = /recipe|hero|featured|food|dish|meal|recept|gerecht/.test(tag);
+    const parts = m[1].trim().split(',').map((s) => s.trim().split(/\s+/));
+    let best: string | null = null;
+    let bestW = 0;
+    for (const [u, w] of parts) {
+      if (!u) continue;
+      const width = parseInt((w ?? '0').replace(/[^0-9]/g, '')) || 0;
+      if (width > bestW || !best) { bestW = width; best = u; }
+    }
+    if (best) add(best, food ? 71 : 37, `srcset(${bestW}w)`);
+  }
+
+  // 11. Regular img src (lowest priority)
   for (const m of html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*/gi)) {
     const tag = m[0].toLowerCase();
-    const score = /recipe|hero|featured|food|dish|meal|recept|gerecht/.test(tag) ? 70 : 35;
-    add(m[1], score);
+    const food = /recipe|hero|featured|food|dish|meal|recept|gerecht/.test(tag);
+    add(m[1], food ? 70 : 35, 'img[src]');
   }
 
-  return Array.from(candidates.values());
+  return Array.from(candidates.values()).sort((a, b) => b.score - a.score);
 }
 
+// Recursively walks JSON tree looking for image URLs.
+// Depth 15 covers real-world structures like AH's dehydratedState (depth 11).
 function extractNestedImages(obj: unknown, depth = 0): string[] {
-  if (depth > 8 || !obj || typeof obj !== 'object') return [];
+  if (depth > 15 || !obj || typeof obj !== 'object') return [];
   const results: string[] = [];
   if (Array.isArray(obj)) {
     for (const item of obj) results.push(...extractNestedImages(item, depth + 1));
     return results;
   }
   const o = obj as Record<string, unknown>;
+  const imageKeys = new Set([
+    'image', 'imageUrl', 'img', 'photo', 'thumbnail', 'src',
+    'imageUri', 'coverImage', 'heroImage', 'picture',
+    'imageHires', 'originalImage', 'mainImage', 'poster',
+  ]);
   for (const key of Object.keys(o)) {
     const val = o[key];
     if (typeof val === 'string') {
-      if (
-        (key === 'image' || key === 'imageUrl' || key === 'img' ||
-         key === 'photo' || key === 'thumbnail' || key === 'src' ||
-         key === 'imageUri' || key === 'coverImage' || key === 'heroImage') &&
-        (val.startsWith('http') || val.startsWith('/'))
-      ) {
+      if (imageKeys.has(key) && (val.startsWith('http') || val.startsWith('/'))) {
         results.push(val);
       }
     } else if (val && typeof val === 'object') {
@@ -292,7 +320,6 @@ function extractMetaUrl(html: string, key: string, attr: string): string | null 
   const tagRe = new RegExp(`<meta\\s[^>]*${attr}=["']${key}["'][^>]*>`, 'i');
   const tag = html.match(tagRe)?.[0];
   if (!tag) return null;
-
   const idx = tag.search(/\bcontent\s*=/i);
   if (idx === -1) return null;
   const after = tag.slice(idx).replace(/^content\s*=\s*/i, '');
@@ -330,7 +357,7 @@ function extractJsonLdImages(data: unknown): string[] {
     if (typeof o.url === 'string') out.push(o.url);
     if (typeof o.contentUrl === 'string') out.push(o.contentUrl);
   }
-  if (Array.isArray(obj['@graph'])) out.push(...obj['@graph'].flatMap(extractJsonLdImages));
+  if (Array.isArray(obj['@graph'])) out.push(...(obj['@graph'] as unknown[]).flatMap(extractJsonLdImages));
   return out;
 }
 
@@ -338,6 +365,7 @@ function extractJsonLdImages(data: unknown): string[] {
 
 function normalizeUrl(url: string, baseUrl: string): string {
   url = url.trim();
+  if (!url) return '';
   if (url.startsWith('//')) return 'https:' + url;
   if (url.startsWith('/')) {
     try { return new URL(baseUrl).origin + url; } catch { return url; }
@@ -388,6 +416,7 @@ function encodeImageUrl(url: string): string {
 }
 
 function contentTypeToExt(ct: string): string | null {
+  if (!ct) return null;
   if (ct.includes('png')) return 'png';
   if (ct.includes('webp')) return 'webp';
   if (ct.includes('gif')) return 'gif';
@@ -401,12 +430,23 @@ function guessExtFromUrl(url: string): string {
   return m ? (m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase()) : 'jpg';
 }
 
+// Case-insensitive header lookup (HTTP headers are case-insensitive by spec)
+function getHeader(headers: Record<string, string>, name: string): string {
+  if (!headers) return '';
+  const lower = name.toLowerCase();
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === lower) return headers[key] ?? '';
+  }
+  return '';
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function log(...args: unknown[]): void {
-  if (__DEV__) {
-    console.log('[ImageExtractor]', ...args);
-  }
+  if (__DEV__) console.log('[ImageExtractor]', ...args);
 }
+
+const UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';

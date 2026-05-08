@@ -558,6 +558,8 @@ function isValidImageUrl(url: string): boolean {
       'www.colruyt.be', 'colruyt.be',
       'api.ah.nl', 'jumbo.com', 'dagelijksekost.een.be',
       'img.kidskitchen.nl', 'images.nieuwsblad.be',
+      // Scaleflex Filerobot CDN — used by Colruyt.be recipes
+      'fgdjrynm.filerobot.com', 'filerobot.com',
     ]);
     if (cdnHosts.has(hostname)) return true;
     // Generic CDN/image subdomain patterns

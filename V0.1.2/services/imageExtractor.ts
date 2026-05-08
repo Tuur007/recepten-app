@@ -1,4 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * imageExtractor.ts
+ *
+ * Full pipeline with step-by-step logging.  Every decision is printed to the
+ * Expo console under the [IE] tag so you can trace exactly where it fails.
+ *
+ * Extraction priority (highest first):
+ *   96  og:image:secure_url
+ *   95  og:image
+ *   90  JSON-LD Recipe.image
+ *   88  __NEXT_DATA__   (Next.js)
+ *   87  __NUXT_DATA__   (Nuxt 3 — Colruyt, etc.)
+ *   85  window.__NUXT__ (Nuxt 2)
+ *   84  window.__INITIAL_STATE__
+ *   83  <link rel="image_src">
+ *   82  twitter:image / twitter:image:src
+ *   80  microdata itemprop="image"
+ *   72  img[data-src/data-image/data-lazy-src] with food keyword
+ *   71  srcset best-width with food keyword
+ *   70  img[src] with food keyword
+ *   50  any CDN/image URL found in raw HTML text
+ *   38  img[data-*] without food keyword
+ *   37  srcset without food keyword
+ *   35  img[src] without food keyword
+ */
+
 declare const __DEV__: boolean;
 
 interface ImageCandidate {
@@ -7,207 +33,296 @@ interface ImageCandidate {
   source: string;
 }
 
+// expo-file-system is a native module — load dynamically so the module works
+// in environments where it is absent (web, tests).
 let FS: typeof import('expo-file-system') | null = null;
 try {
   FS = require('expo-file-system');
 } catch {
-  // native module unavailable (Expo Snack / web)
+  // Native module unavailable — download will fall back to fetch+ArrayBuffer.
 }
 
-// All downloaded images land in the same dir managed by imageStorage.ts
-// so deleteRecipeImage() can clean them up correctly.
 function getImageDir(): string {
   return FS?.documentDirectory ? `${FS.documentDirectory}recipes_images` : '';
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
+// ─── Public entry point ───────────────────────────────────────────────────────
 
 export async function extractImageFromUrl(url: string): Promise<string | undefined> {
-  log('start', url);
+  log('━━━ extractImageFromUrl START', url);
+
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15_000);
-
-    let response: Response;
+    // ── Step 1: fetch page HTML ───────────────────────────────────────────────
+    log('[1] fetching HTML…');
+    let html: string;
+    let finalUrl: string;
     try {
-      response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': UA,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'nl-NL,nl;q=0.9,en;q=0.8',
-          'Accept-Encoding': 'gzip, deflate, br',
-        },
-      });
-    } finally {
-      clearTimeout(timer);
-    }
-
-    log('html status', response.status, response.url);
-    if (!response.ok) {
-      log('html fetch failed', response.status);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15_000);
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          signal: controller.signal,
+          redirect: 'follow',
+          headers: {
+            'User-Agent': UA,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'nl-BE,nl;q=0.9,en;q=0.8',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+      finalUrl = response.url || url;
+      log(`[1] HTTP ${response.status} finalUrl=${finalUrl}`);
+      if (!response.ok) {
+        log('[1] FAIL — non-200, aborting');
+        return undefined;
+      }
+      html = await response.text();
+      log(`[1] HTML length=${html.length} chars`);
+    } catch (err: unknown) {
+      log('[1] FAIL — fetch error:', err instanceof Error ? err.message : err);
       return undefined;
     }
 
-    const html = await response.text();
-    const finalUrl = response.url || url;
+    // ── Step 2: extract candidates ────────────────────────────────────────────
+    log('[2] extracting image candidates…');
     const candidates = extractImageCandidates(html, finalUrl);
-    log('candidates found:', candidates.length);
-    candidates.slice(0, 8).forEach((c, i) =>
-      log(`  [${i}] score=${c.score} src=${c.source} url=${c.url.slice(0, 90)}`),
+    log(`[2] ${candidates.length} candidates found:`);
+    candidates.slice(0, 10).forEach((c, i) =>
+      log(`    [${i}] score=${c.score} src=${c.source} url=${c.url.slice(0, 90)}`),
     );
 
     if (candidates.length === 0) {
-      log('no candidates');
+      log('[2] FAIL — no candidates found');
       return undefined;
     }
 
-    for (let i = 0; i < Math.min(candidates.length, 6); i++) {
+    // ── Step 3: try each candidate ────────────────────────────────────────────
+    log('[3] attempting downloads…');
+    for (let i = 0; i < Math.min(candidates.length, 8); i++) {
       const c = candidates[i];
-      log(`try [${i}] ${c.source}`, c.url.slice(0, 80));
-      const result = await downloadImageWithRetry(c.url, finalUrl);
+      log(`[3.${i}] trying score=${c.score} src=${c.source} url=${c.url.slice(0, 90)}`);
+      const result = await downloadWithRetry(c.url, finalUrl, 2);
       if (result) {
-        log('success', result);
+        log(`[3.${i}] SUCCESS → ${result}`);
         return result;
       }
-      log(`candidate [${i}] failed, next`);
+      log(`[3.${i}] failed, next candidate`);
     }
 
-    log('all candidates failed');
+    log('[3] FAIL — all candidates exhausted');
     return undefined;
-  } catch (err) {
-    log('error', err);
+  } catch (err: unknown) {
+    log('UNEXPECTED ERROR:', err instanceof Error ? err.message : err);
     return undefined;
   }
 }
 
-// ─── Download ────────────────────────────────────────────────────────────────
+// ─── Download with retry ──────────────────────────────────────────────────────
 
-async function downloadImageWithRetry(
+async function downloadWithRetry(
   imageUrl: string,
   referer: string,
-  maxAttempts = 2,
+  maxAttempts: number,
 ): Promise<string | undefined> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const result = await downloadImage(imageUrl, referer);
+    const result = await downloadImage(imageUrl, referer, attempt);
     if (result) return result;
     if (attempt < maxAttempts) {
-      log(`retry ${attempt}/${maxAttempts - 1}`);
-      await sleep(600 * attempt);
+      log(`  retry ${attempt}/${maxAttempts}…`);
+      await sleep(700 * attempt);
     }
   }
   return undefined;
 }
 
-async function downloadImage(imageUrl: string, referer: string): Promise<string | undefined> {
-  if (!FS) {
-    log('expo-file-system unavailable');
-    return undefined;
-  }
+// ─── Core download ────────────────────────────────────────────────────────────
 
-  const safeUrl = encodeImageUrl(imageUrl);
+async function downloadImage(
+  imageUrl: string,
+  referer: string,
+  attempt: number,
+): Promise<string | undefined> {
   const dir = getImageDir();
-  if (!dir) return undefined;
+  const safeUrl = encodeImageUrl(imageUrl);
+  const guessedExt = guessExtFromUrl(imageUrl);
+  const filename = `recipe_${Date.now()}_${Math.random().toString(36).slice(2, 9)}.${guessedExt}`;
+  const filepath = dir ? `${dir}/${filename}` : '';
 
-  try {
-    const dirInfo = await FS.getInfoAsync(dir);
-    if (!dirInfo.exists) await FS.makeDirectoryAsync(dir, { intermediates: true });
-  } catch (err) {
-    log('mkdir error', err);
-    return undefined;
+  log(`  [dl attempt=${attempt}] url=${safeUrl.slice(0, 80)}`);
+  log(`  [dl] referer=${referer.slice(0, 60)}`);
+  log(`  [dl] target=${filepath}`);
+
+  // Ensure directory exists
+  if (FS && dir) {
+    try {
+      const dirInfo = await FS.getInfoAsync(dir);
+      if (!dirInfo.exists) {
+        log('  [dl] creating dir…');
+        await FS.makeDirectoryAsync(dir, { intermediates: true });
+      }
+    } catch (err) {
+      log('  [dl] mkdir error:', err instanceof Error ? err.message : err);
+      return undefined;
+    }
   }
 
-  const ext = guessExtFromUrl(imageUrl);
-  const filename = `recipe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
-  const filepath = `${dir}/${filename}`;
+  // ── Strategy A: FS.downloadAsync (native, best for RN) ───────────────────
+  if (FS && dir) {
+    try {
+      log('  [dl] strategy=FS.downloadAsync');
+      const downloadPromise = FS.downloadAsync(safeUrl, filepath, {
+        headers: buildImageHeaders(referer),
+      });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('download timeout 20s')), 20_000),
+      );
+      const result = await Promise.race([downloadPromise, timeoutPromise]);
 
+      log(`  [dl] downloadAsync status=${result.status}`);
+      const ct = getHeader(result.headers as Record<string, string>, 'content-type').toLowerCase();
+      log(`  [dl] content-type="${ct}"`);
+
+      if (result.status !== 200) {
+        log(`  [dl] FAIL: status ${result.status}`);
+        await safeDelete(filepath);
+        // Fall through to strategy B
+      } else if (ct && (ct.includes('text/html') || ct.includes('application/json'))) {
+        log(`  [dl] FAIL: non-image content-type "${ct}"`);
+        await safeDelete(filepath);
+        // Fall through to strategy B
+      } else {
+        const info = await FS.getInfoAsync(filepath);
+        if (!info.exists) {
+          log('  [dl] FAIL: file missing after download');
+          return undefined;
+        }
+        const size = (info as any).size ?? 0;
+        log(`  [dl] file size=${size} bytes`);
+        if (size < 2048) {
+          log('  [dl] FAIL: too small (<2KB), placeholder');
+          await safeDelete(filepath);
+          return undefined;
+        }
+        // Rename to correct extension if content-type differs
+        const actualExt = contentTypeToExt(ct) ?? guessedExt;
+        if (actualExt !== guessedExt) {
+          const corrected = filepath.slice(0, -guessedExt.length) + actualExt;
+          try { await FS.moveAsync({ from: filepath, to: corrected }); return corrected; } catch { /* keep original */ }
+        }
+        log('  [dl] strategy A: SUCCESS');
+        return filepath;
+      }
+    } catch (err: unknown) {
+      log('  [dl] strategy A error:', err instanceof Error ? err.message : err);
+      await safeDelete(filepath);
+    }
+  }
+
+  // ── Strategy B: fetch + ArrayBuffer (fallback for Snack / failed A) ───────
+  log('  [dl] strategy=fetch+ArrayBuffer');
   try {
-    // Use FS.downloadAsync (native downloader) — avoids the FileReader/Blob
-    // path which is unreliable in React Native.
-    const downloadPromise = FS.downloadAsync(safeUrl, filepath, {
-      headers: {
-        'User-Agent': UA,
-        'Accept': 'image/avif,image/webp,image/*,*/*;q=0.8',
-        'Accept-Language': 'nl-NL,nl;q=0.9,en;q=0.8',
-        'Referer': referer,
-      },
-    });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20_000);
+    let response: Response;
+    try {
+      response = await fetch(safeUrl, {
+        signal: ctrl.signal,
+        redirect: 'follow',
+        headers: buildImageHeaders(referer),
+      });
+    } finally {
+      clearTimeout(timer);
+    }
 
-    // FS.downloadAsync has no built-in timeout — race against 20 s.
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('download timeout')), 20_000),
-    );
+    log(`  [dl] fetch status=${response.status} finalUrl=${response.url}`);
+    const ct = (response.headers.get('content-type') ?? '').toLowerCase();
+    log(`  [dl] content-type="${ct}"`);
 
-    const result = await Promise.race([downloadPromise, timeoutPromise]);
-
-    log('dl status', result.status, 'url', safeUrl.slice(0, 70));
-
-    if (result.status !== 200) {
-      log('non-200', result.status);
-      await FS.deleteAsync(filepath, { idempotent: true });
+    if (!response.ok) {
+      log(`  [dl] FAIL: HTTP ${response.status}`);
+      return undefined;
+    }
+    if (ct.includes('text/html')) {
+      log('  [dl] FAIL: got HTML (CDN error page)');
       return undefined;
     }
 
-    // Content-type check — headers keys may be any casing
-    const ct = getHeader(result.headers as Record<string, string>, 'content-type').toLowerCase();
-    log('content-type', ct);
+    const buf = await response.arrayBuffer();
+    const bytes = buf.byteLength;
+    log(`  [dl] buffer size=${bytes} bytes`);
 
-    if (ct && (ct.includes('text/html') || ct.includes('application/json'))) {
-      log('non-image content-type', ct);
-      await FS.deleteAsync(filepath, { idempotent: true });
+    if (bytes < 2048) {
+      log('  [dl] FAIL: buffer too small (<2KB)');
       return undefined;
     }
 
-    const info = await FS.getInfoAsync(filepath);
-    if (!info.exists) {
-      log('file missing after download');
+    // Validate magic bytes
+    const magic = new Uint8Array(buf.slice(0, 4));
+    const isImage =
+      (magic[0] === 0xFF && magic[1] === 0xD8) || // JPEG
+      (magic[0] === 0x89 && magic[1] === 0x50) || // PNG
+      (magic[0] === 0x52 && magic[1] === 0x49) || // WEBP (RIFF)
+      (magic[0] === 0x47 && magic[1] === 0x49) || // GIF
+      (magic[0] === 0x00 && magic[2] === 0x00);   // AVIF (ftyp)
+    log(`  [dl] magic bytes: [${[...magic].join(',')}] isImage=${isImage}`);
+    if (!isImage && ct && !ct.includes('image/') && !ct.includes('application/octet-stream')) {
+      log('  [dl] FAIL: magic bytes do not look like an image');
       return undefined;
     }
 
-    const size = (info as any).size ?? 0;
-    log('file size', size, 'bytes');
-
-    if (size < 2048) {
-      log('too small, rejecting');
-      await FS.deleteAsync(filepath, { idempotent: true });
-      return undefined;
-    }
-
-    // Rename to correct extension based on actual content-type
-    const actualExt = contentTypeToExt(ct) ?? ext;
-    if (actualExt !== ext) {
-      const correctedPath = filepath.slice(0, -ext.length) + actualExt;
+    // Write file with FS if available, otherwise return data URI (fallback)
+    if (FS && dir) {
+      const actualExt = contentTypeToExt(ct) ?? guessedExt;
+      const fbPath = `${dir}/recipe_${Date.now()}_fb.${actualExt}`;
       try {
-        await FS.moveAsync({ from: filepath, to: correctedPath });
-        log('renamed to correct ext', correctedPath);
-        return correctedPath;
-      } catch {
-        // keep original if rename fails — still a valid file
+        // expo-file-system has no writeArrayBuffer; use base64
+        const b64 = arrayBufferToBase64(buf);
+        await FS.writeAsStringAsync(fbPath, b64, { encoding: 'base64' });
+        const info = await FS.getInfoAsync(fbPath);
+        const savedSize = (info as any).size ?? 0;
+        log(`  [dl] strategy B writeAsStringAsync: ${fbPath} (${savedSize} bytes)`);
+        if (savedSize > 100) {
+          log('  [dl] strategy B: SUCCESS');
+          return fbPath;
+        }
+        await safeDelete(fbPath);
+      } catch (writeErr) {
+        log('  [dl] writeAsStringAsync error:', writeErr instanceof Error ? writeErr.message : writeErr);
       }
     }
 
-    return filepath;
+    // If FS is unavailable (Expo Snack web), return data URI so the Image
+    // component can still render it — not persisted but visible.
+    const actualExt = contentTypeToExt(ct) ?? guessedExt;
+    const mime = extToMime(actualExt);
+    const b64 = arrayBufferToBase64(buf);
+    const dataUri = `data:${mime};base64,${b64}`;
+    log(`  [dl] strategy B (data URI fallback): length=${dataUri.length}`);
+    return dataUri;
   } catch (err: unknown) {
-    log('downloadAsync error', err instanceof Error ? err.message : err);
-    try { await FS.deleteAsync(filepath, { idempotent: true }); } catch { /* ignore */ }
+    log('  [dl] strategy B error:', err instanceof Error ? err.message : err);
     return undefined;
   }
 }
 
-// ─── HTML image extraction ───────────────────────────────────────────────────
+// ─── HTML image extraction ────────────────────────────────────────────────────
 
 function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[] {
   const candidates = new Map<string, ImageCandidate>();
 
   const add = (rawUrl: string, score: number, source: string) => {
-    if (!rawUrl) return;
-    const resolved = normalizeUrl(rawUrl, baseUrl);
+    if (!rawUrl?.trim()) return;
+    const resolved = normalizeUrl(rawUrl.trim(), baseUrl);
     if (!resolved || !isValidImageUrl(resolved)) return;
     const key = canonicalKey(resolved);
     if (!candidates.has(key)) candidates.set(key, { url: resolved, score, source });
   };
 
-  // 1. og:image:secure_url (highest priority — explicit HTTPS)
+  // 1. og:image:secure_url
   const ogSecure = extractMetaUrl(html, 'og:image:secure_url', 'property');
   if (ogSecure) add(ogSecure, 96, 'og:image:secure_url');
 
@@ -221,10 +336,10 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
   )) {
     try {
       extractJsonLdImages(JSON.parse(block[1].trim())).forEach((u) => add(u, 90, 'json-ld'));
-    } catch { /* skip bad JSON */ }
+    } catch { /* skip malformed JSON-LD */ }
   }
 
-  // 4. Next.js __NEXT_DATA__ (Jumbo, AH, etc.)
+  // 4. Next.js __NEXT_DATA__
   const nextDataMatch = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
   if (nextDataMatch) {
     try {
@@ -232,7 +347,7 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     } catch { /* skip */ }
   }
 
-  // 5a. Nuxt 3 — <script id="__NUXT_DATA__" type="application/json"> (Colruyt, etc.)
+  // 5a. Nuxt 3 — <script id="__NUXT_DATA__" type="application/json">
   const nuxt3DataMatch = html.match(/<script[^>]+id=["']__NUXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
   if (nuxt3DataMatch) {
     try {
@@ -248,18 +363,26 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     } catch { /* skip */ }
   }
 
-  // 6. twitter:image
+  // 6. window.__INITIAL_STATE__
+  const initialStateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\})\s*(?:;?\s*<\/script>|;\s*(?:window\.|$))/i);
+  if (initialStateMatch) {
+    try {
+      extractNestedImages(JSON.parse(initialStateMatch[1])).forEach((u) => add(u, 84, '__INITIAL_STATE__'));
+    } catch { /* skip */ }
+  }
+
+  // 7. <link rel="image_src">
+  const linkImg = html.match(/<link[^>]+rel=["']image_src["'][^>]+href=["']([^"']+)["']/i)
+    ?? html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']image_src["']/i);
+  if (linkImg) add(linkImg[1], 83, 'link[image_src]');
+
+  // 8. twitter:image
   const twUrl = extractMetaUrl(html, 'twitter:image', 'name');
   if (twUrl) add(twUrl, 82, 'twitter:image');
   const twSrc = extractMetaUrl(html, 'twitter:image:src', 'name');
   if (twSrc) add(twSrc, 82, 'twitter:image:src');
 
-  // 7. <link rel="image_src">
-  const linkImg = html.match(/<link[^>]+rel=["']image_src["'][^>]+href=["']([^"']+)["']/i)
-               ?? html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']image_src["']/i);
-  if (linkImg) add(linkImg[1], 83, 'link[image_src]');
-
-  // 8. Schema.org microdata
+  // 9. Schema.org microdata itemprop="image"
   for (const m of html.matchAll(/itemprop=["']image["'][^>]+(?:content|src)=["']([^"']+)["']/gi)) {
     add(m[1], 80, 'microdata');
   }
@@ -267,17 +390,15 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     add(m[1], 80, 'microdata');
   }
 
-  // 9. data-src / data-image / data-lazy-src (lazy-loaded images)
+  // 10. data-src / data-image / data-lazy-src / data-original
   for (const m of html.matchAll(/<img[^>]+data-(?:src|image|lazy-src|original)=["']([^"']+)["'][^>]*/gi)) {
-    const tag = m[0].toLowerCase();
-    const food = /recipe|hero|featured|food|dish|meal|recept|gerecht/.test(tag);
-    add(m[1], food ? 72 : 38, 'img[data-src]');
+    const food = /recipe|hero|featured|food|dish|meal|recept|gerecht/i.test(m[0]);
+    add(m[1], food ? 72 : 38, 'img[data-*]');
   }
 
-  // 10. srcset — pick the highest-resolution URL
+  // 11. srcset — best resolution (highest w descriptor)
   for (const m of html.matchAll(/<(?:img|source)[^>]+srcset=["']([^"']+)["'][^>]*/gi)) {
-    const tag = m[0].toLowerCase();
-    const food = /recipe|hero|featured|food|dish|meal|recept|gerecht/.test(tag);
+    const food = /recipe|hero|featured|food|dish|meal|recept|gerecht/i.test(m[0]);
     const parts = m[1].trim().split(',').map((s) => s.trim().split(/\s+/));
     let best: string | null = null;
     let bestW = 0;
@@ -289,78 +410,39 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     if (best) add(best, food ? 71 : 37, `srcset(${bestW}w)`);
   }
 
-  // 11. Regular img src (lowest priority)
+  // 12. Regular img[src]
   for (const m of html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*/gi)) {
-    const tag = m[0].toLowerCase();
-    const food = /recipe|hero|featured|food|dish|meal|recept|gerecht/.test(tag);
+    const food = /recipe|hero|featured|food|dish|meal|recept|gerecht/i.test(m[0]);
     add(m[1], food ? 70 : 35, 'img[src]');
+  }
+
+  // 13. Any URL in raw HTML text that looks like a CDN image (catch-all)
+  for (const m of html.matchAll(/"(https?:\/\/[^"]{10,300})"/g)) {
+    const u = m[1];
+    if (/(colruyt|\.jpg|\.jpeg|\.png|\.webp|\.avif)(\?|")/i.test(u + '"')) {
+      add(u, 50, 'raw-html-url');
+    }
   }
 
   const sorted = Array.from(candidates.values()).sort((a, b) => b.score - a.score);
 
   if (sorted.length === 0) {
-    // Dump extraction signals to console so the dev can diagnose unknown sites
-    log('NO_CANDIDATES — signals:',
+    log('NO_CANDIDATES — diagnostic dump:',
       'og:image=' + !!extractMetaUrl(html, 'og:image', 'property'),
-      'json-ld=' + (html.match(/<script[^>]+application\/ld\+json/i) ? html.match(/<script[^>]+application\/ld\+json/gi)!.length : 0),
+      'json-ld-blocks=' + (html.match(/<script[^>]+application\/ld\+json/gi)?.length ?? 0),
       '__NEXT_DATA__=' + /<script[^>]+id=["']__NEXT_DATA__/.test(html),
       '__NUXT_DATA__=' + /<script[^>]+id=["']__NUXT_DATA__/.test(html),
       '__NUXT__=' + /window\.__NUXT__/.test(html),
-      'imgs=' + (html.match(/<img\s/gi) ?? []).length,
+      '__INITIAL_STATE__=' + /window\.__INITIAL_STATE__/.test(html),
+      'img-count=' + (html.match(/<img\s/gi)?.length ?? 0),
     );
-    log('HTML_SAMPLE (first 600 chars):', html.slice(0, 600).replace(/\s+/g, ' '));
+    log('HTML_HEAD:', html.slice(0, 800).replace(/\s+/g, ' '));
   }
 
   return sorted;
 }
 
-// Recursively walks JSON tree looking for image URLs.
-// Depth 15 covers real-world structures like AH's dehydratedState (depth 11).
-function extractNestedImages(obj: unknown, depth = 0): string[] {
-  if (depth > 15 || !obj || typeof obj !== 'object') return [];
-  const results: string[] = [];
-  if (Array.isArray(obj)) {
-    for (const item of obj) results.push(...extractNestedImages(item, depth + 1));
-    return results;
-  }
-  const o = obj as Record<string, unknown>;
-  const imageKeys = new Set([
-    'image', 'imageUrl', 'img', 'photo', 'thumbnail', 'src',
-    'imageUri', 'coverImage', 'heroImage', 'picture',
-    'imageHires', 'originalImage', 'mainImage', 'poster',
-  ]);
-  for (const key of Object.keys(o)) {
-    const val = o[key];
-    if (typeof val === 'string') {
-      if (imageKeys.has(key) && (val.startsWith('http') || val.startsWith('/'))) {
-        results.push(val);
-      }
-    } else if (val && typeof val === 'object') {
-      results.push(...extractNestedImages(val, depth + 1));
-    }
-  }
-  return results;
-}
-
-function extractMetaUrl(html: string, key: string, attr: string): string | null {
-  const tagRe = new RegExp(`<meta\\s[^>]*${attr}=["']${key}["'][^>]*>`, 'i');
-  const tag = html.match(tagRe)?.[0];
-  if (!tag) return null;
-  const idx = tag.search(/\bcontent\s*=/i);
-  if (idx === -1) return null;
-  const after = tag.slice(idx).replace(/^content\s*=\s*/i, '');
-  const delim = after[0];
-  if (delim === '"') {
-    const end = after.indexOf('"', 1);
-    return end === -1 ? null : after.slice(1, end) || null;
-  }
-  if (delim === "'") {
-    const inner = after.slice(1);
-    const close = inner.search(/'(?=\s|>|\/)/);
-    return close === -1 ? inner.replace(/[>].*/, '').trim() || null : inner.slice(0, close) || null;
-  }
-  return null;
-}
+// ─── JSON-LD image extraction ─────────────────────────────────────────────────
 
 function extractJsonLdImages(data: unknown): string[] {
   if (!data || typeof data !== 'object') return [];
@@ -383,11 +465,65 @@ function extractJsonLdImages(data: unknown): string[] {
     if (typeof o.url === 'string') out.push(o.url);
     if (typeof o.contentUrl === 'string') out.push(o.contentUrl);
   }
-  if (Array.isArray(obj['@graph'])) out.push(...(obj['@graph'] as unknown[]).flatMap(extractJsonLdImages));
+  if (Array.isArray(obj['@graph'])) {
+    out.push(...(obj['@graph'] as unknown[]).flatMap(extractJsonLdImages));
+  }
   return out;
 }
 
-// ─── URL helpers ─────────────────────────────────────────────────────────────
+// ─── Nested JSON image walk ───────────────────────────────────────────────────
+
+// Depth 15 covers AH's dehydratedState (depth 11) and other deep SSR blobs.
+function extractNestedImages(obj: unknown, depth = 0): string[] {
+  if (depth > 15 || !obj || typeof obj !== 'object') return [];
+  const results: string[] = [];
+  if (Array.isArray(obj)) {
+    for (const item of obj) results.push(...extractNestedImages(item, depth + 1));
+    return results;
+  }
+  const o = obj as Record<string, unknown>;
+  const imageKeys = new Set([
+    'image', 'imageUrl', 'img', 'photo', 'thumbnail', 'src',
+    'imageUri', 'coverImage', 'heroImage', 'picture',
+    'imageHires', 'originalImage', 'mainImage', 'poster',
+    'imageSource', 'imageLink', 'photoUrl',
+  ]);
+  for (const key of Object.keys(o)) {
+    const val = o[key];
+    if (typeof val === 'string') {
+      if (imageKeys.has(key) && (val.startsWith('http') || val.startsWith('/'))) {
+        results.push(val);
+      }
+    } else if (val && typeof val === 'object') {
+      results.push(...extractNestedImages(val, depth + 1));
+    }
+  }
+  return results;
+}
+
+// ─── Meta tag extraction ──────────────────────────────────────────────────────
+
+function extractMetaUrl(html: string, key: string, attr: string): string | null {
+  const tagRe = new RegExp(`<meta\\s[^>]*${attr}=["']${key}["'][^>]*>`, 'i');
+  const tag = html.match(tagRe)?.[0];
+  if (!tag) return null;
+  const idx = tag.search(/\bcontent\s*=/i);
+  if (idx === -1) return null;
+  const after = tag.slice(idx).replace(/^content\s*=\s*/i, '');
+  const delim = after[0];
+  if (delim === '"') {
+    const end = after.indexOf('"', 1);
+    return end === -1 ? null : after.slice(1, end) || null;
+  }
+  if (delim === "'") {
+    const inner = after.slice(1);
+    const close = inner.search(/'(?=\s|>|\/)/);
+    return close === -1 ? inner.replace(/[>].*/, '').trim() || null : inner.slice(0, close) || null;
+  }
+  return null;
+}
+
+// ─── URL helpers ──────────────────────────────────────────────────────────────
 
 function normalizeUrl(url: string, baseUrl: string): string {
   url = url.trim();
@@ -408,20 +544,25 @@ function isValidImageUrl(url: string): boolean {
   if (!url || url.includes('javascript:') || url.startsWith('data:')) return false;
   try {
     const { pathname, hostname } = new URL(url);
+    // Known image extensions
     if (/\.(jpg|jpeg|png|webp|gif|avif|bmp)(\?|$)/i.test(pathname)) return true;
+    // Known CDN / image-serving hosts
     const cdnHosts = new Set([
       'recipe-service.prod.cloud.jumbo.com',
       'images.ctfassets.net', 'res.cloudinary.com', 'cdn.sanity.io',
       'media.contentful.com', 'images.squarespace-cdn.com', 'i.imgur.com',
       'static.ah.nl', 'cdn.ah.nl', 'images.immediate.co.uk',
       'img.youtube.com', 'i.ytimg.com', 'media.24kitchen.nl',
-      'www.spar.nl', 'static.colruytgroup.com', 'images.colruytgroup.com',
+      'www.spar.nl',
+      'static.colruytgroup.com', 'images.colruytgroup.com',
       'www.colruyt.be', 'colruyt.be',
       'api.ah.nl', 'jumbo.com', 'dagelijksekost.een.be',
       'img.kidskitchen.nl', 'images.nieuwsblad.be',
     ]);
     if (cdnHosts.has(hostname)) return true;
+    // Generic CDN/image subdomain patterns
     if (/^(?:img|images?|cdn|media|photos?|static|assets|content|upload)\./i.test(hostname)) return true;
+    // Path-based patterns
     if (/\/(?:photos?|images?|imgs?|pictures?|fotos?|media|uploads?|content)\//i.test(pathname)) return true;
     if (/\/(recipe|recept|dish|food|meal)\//i.test(pathname)) return true;
   } catch { return false; }
@@ -457,7 +598,11 @@ function guessExtFromUrl(url: string): string {
   return m ? (m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase()) : 'jpg';
 }
 
-// Case-insensitive header lookup (HTTP headers are case-insensitive by spec)
+function extToMime(ext: string): string {
+  const map: Record<string, string> = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif' };
+  return map[ext] ?? 'image/jpeg';
+}
+
 function getHeader(headers: Record<string, string>, name: string): string {
   if (!headers) return '';
   const lower = name.toLowerCase();
@@ -467,12 +612,36 @@ function getHeader(headers: Record<string, string>, name: string): string {
   return '';
 }
 
+function buildImageHeaders(referer: string): Record<string, string> {
+  return {
+    'User-Agent': UA,
+    'Accept': 'image/avif,image/webp,image/jpeg,image/*,*/*;q=0.8',
+    'Accept-Language': 'nl-BE,nl;q=0.9,en;q=0.8',
+    'Referer': referer,
+    'Origin': (() => { try { return new URL(referer).origin; } catch { return referer; } })(),
+  };
+}
+
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+async function safeDelete(path: string): Promise<void> {
+  if (!FS || !path) return;
+  try { await FS.deleteAsync(path, { idempotent: true }); } catch { /* ignore */ }
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function log(...args: unknown[]): void {
-  if (__DEV__) console.log('[ImageExtractor]', ...args);
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log('[IE]', ...args);
+  }
 }
 
 const UA =

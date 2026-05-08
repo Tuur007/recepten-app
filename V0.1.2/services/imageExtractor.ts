@@ -52,7 +52,10 @@ export async function extractImageFromUrl(url: string): Promise<string | undefin
     const html = await response.text();
     const finalUrl = response.url || url;
     const candidates = extractImageCandidates(html, finalUrl);
-    log('candidates', candidates.length, candidates.slice(0, 5).map(c => `[${c.score}:${c.source}] ${c.url.slice(0, 70)}`));
+    log('candidates found:', candidates.length);
+    candidates.slice(0, 8).forEach((c, i) =>
+      log(`  [${i}] score=${c.score} src=${c.source} url=${c.url.slice(0, 90)}`),
+    );
 
     if (candidates.length === 0) {
       log('no candidates');
@@ -229,8 +232,16 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     } catch { /* skip */ }
   }
 
-  // 5. Nuxt / Vue hydration
-  const nuxtMatch = html.match(/window\.__NUXT__\s*=\s*(\{[\s\S]*?\});\s*(?:<\/script>|window\.|$)/i);
+  // 5a. Nuxt 3 — <script id="__NUXT_DATA__" type="application/json"> (Colruyt, etc.)
+  const nuxt3DataMatch = html.match(/<script[^>]+id=["']__NUXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (nuxt3DataMatch) {
+    try {
+      extractNestedImages(JSON.parse(nuxt3DataMatch[1])).forEach((u) => add(u, 87, '__NUXT_DATA__'));
+    } catch { /* skip */ }
+  }
+
+  // 5b. Nuxt 2 — window.__NUXT__ = {...} (semicolon optional)
+  const nuxtMatch = html.match(/window\.__NUXT__\s*=\s*(\{[\s\S]*?\})\s*(?:;?\s*<\/script>|;\s*(?:window\.|$))/i);
   if (nuxtMatch) {
     try {
       extractNestedImages(JSON.parse(nuxtMatch[1])).forEach((u) => add(u, 85, '__NUXT__'));
@@ -256,8 +267,8 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     add(m[1], 80, 'microdata');
   }
 
-  // 9. data-src (lazy-loaded images)
-  for (const m of html.matchAll(/<img[^>]+data-src=["']([^"']+)["'][^>]*/gi)) {
+  // 9. data-src / data-image / data-lazy-src (lazy-loaded images)
+  for (const m of html.matchAll(/<img[^>]+data-(?:src|image|lazy-src|original)=["']([^"']+)["'][^>]*/gi)) {
     const tag = m[0].toLowerCase();
     const food = /recipe|hero|featured|food|dish|meal|recept|gerecht/.test(tag);
     add(m[1], food ? 72 : 38, 'img[data-src]');
@@ -285,7 +296,22 @@ function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[]
     add(m[1], food ? 70 : 35, 'img[src]');
   }
 
-  return Array.from(candidates.values()).sort((a, b) => b.score - a.score);
+  const sorted = Array.from(candidates.values()).sort((a, b) => b.score - a.score);
+
+  if (sorted.length === 0) {
+    // Dump extraction signals to console so the dev can diagnose unknown sites
+    log('NO_CANDIDATES — signals:',
+      'og:image=' + !!extractMetaUrl(html, 'og:image', 'property'),
+      'json-ld=' + (html.match(/<script[^>]+application\/ld\+json/i) ? html.match(/<script[^>]+application\/ld\+json/gi)!.length : 0),
+      '__NEXT_DATA__=' + /<script[^>]+id=["']__NEXT_DATA__/.test(html),
+      '__NUXT_DATA__=' + /<script[^>]+id=["']__NUXT_DATA__/.test(html),
+      '__NUXT__=' + /window\.__NUXT__/.test(html),
+      'imgs=' + (html.match(/<img\s/gi) ?? []).length,
+    );
+    log('HTML_SAMPLE (first 600 chars):', html.slice(0, 600).replace(/\s+/g, ' '));
+  }
+
+  return sorted;
 }
 
 // Recursively walks JSON tree looking for image URLs.
@@ -390,6 +416,7 @@ function isValidImageUrl(url: string): boolean {
       'static.ah.nl', 'cdn.ah.nl', 'images.immediate.co.uk',
       'img.youtube.com', 'i.ytimg.com', 'media.24kitchen.nl',
       'www.spar.nl', 'static.colruytgroup.com', 'images.colruytgroup.com',
+      'www.colruyt.be', 'colruyt.be',
       'api.ah.nl', 'jumbo.com', 'dagelijksekost.een.be',
       'img.kidskitchen.nl', 'images.nieuwsblad.be',
     ]);

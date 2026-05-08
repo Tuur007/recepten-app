@@ -12,6 +12,25 @@ export const RECIPE_CATEGORIES = [
 
 export type RecipeCategory = (typeof RECIPE_CATEGORIES)[number] | '';
 
+export const ALLERGENS = [
+  'Gluten',
+  'Schaaldieren',
+  'Eieren',
+  'Vis',
+  'Pinda\'s',
+  'Soja',
+  'Melk',
+  'Noten',
+  'Selderij',
+  'Mosterd',
+  'Sesamzaad',
+  'Sulfiet',
+  'Lupine',
+  'Weekdieren',
+] as const;
+
+export type Allergen = (typeof ALLERGENS)[number];
+
 export interface Ingredient {
   id: string;
   name: string;
@@ -29,6 +48,7 @@ export interface Recipe {
   category: RecipeCategory;
   isFavorite: boolean;
   imageUri?: string;
+  allergens: string[];
   createdAt: string;
   updatedAt: string;
 }

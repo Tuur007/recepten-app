@@ -9,6 +9,7 @@ export interface GroceryItem {
   id: string;
   name: string;
   unit: string;
+  category: string;
   sources: SourceLineage[];
   totalQuantity: number; // always === sum(sources.map(s => s.quantity))
   checked: boolean;

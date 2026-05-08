@@ -13,6 +13,7 @@ export interface RecipeFormState {
   steps: string[];
   imageUri?: string;
   duration?: number;
+  allergens: string[];
 }
 
 export function useRecipeForm(initial?: Partial<RecipeFormState>) {
@@ -26,6 +27,7 @@ export function useRecipeForm(initial?: Partial<RecipeFormState>) {
   );
   const [imageUri, setImageUri] = useState<string | undefined>(initial?.imageUri);
   const [duration, setDuration] = useState<number | undefined>(initial?.duration);
+  const [allergens, setAllergens] = useState<string[]>(initial?.allergens ?? []);
 
   const updateIngredient = (index: number, updated: Ingredient) =>
     setIngredients((prev) => prev.map((ing, i) => (i === index ? updated : ing)));
@@ -44,6 +46,11 @@ export function useRecipeForm(initial?: Partial<RecipeFormState>) {
 
   const addStep = () => setSteps((prev) => [...prev, '']);
 
+  const toggleAllergen = (allergen: string) =>
+    setAllergens((prev) =>
+      prev.includes(allergen) ? prev.filter((a) => a !== allergen) : [...prev, allergen],
+    );
+
   const reset = (values: RecipeFormState) => {
     setTitle(values.title);
     setCategory(values.category);
@@ -51,6 +58,7 @@ export function useRecipeForm(initial?: Partial<RecipeFormState>) {
     setSteps(values.steps.length > 0 ? values.steps : ['']);
     setImageUri(values.imageUri);
     setDuration(values.duration);
+    setAllergens(values.allergens ?? []);
   };
 
   const validIngredients = ingredients.filter((i) => i.name.trim());
@@ -62,6 +70,7 @@ export function useRecipeForm(initial?: Partial<RecipeFormState>) {
     ingredients, steps,
     imageUri, setImageUri,
     duration, setDuration,
+    allergens, setAllergens, toggleAllergen,
     updateIngredient, removeIngredient, addIngredient,
     updateStep, removeStep, addStep,
     reset,

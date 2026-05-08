@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useGrocery } from '../../features/grocery/hooks';
 import { useRecipes } from '../../features/recipes/hooks';
+import { useCategories } from '../../store/categoriesStore';
 import { GroceryItem } from '../../features/grocery/components/GroceryItem';
 import { AddFromRecipeModal } from '../../features/grocery/components/AddFromRecipeModal';
 import { LoadingScreen } from '../../components/LoadingScreen';
@@ -33,38 +35,55 @@ export default function GroceryScreen() {
     clearChecked,
   } = useGrocery();
   const { recipes } = useRecipes();
+  const { groceryCategories } = useCategories();
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [newItemName, setNewItemName] = useState('');
+  const [recipeModalVisible, setRecipeModalVisible] = useState(false);
+  const [manualModalVisible, setManualModalVisible] = useState(false);
+
+  // Manual add form state
+  const [manualName, setManualName] = useState('');
+  const [manualQty, setManualQty] = useState('');
+  const [manualUnit, setManualUnit] = useState('');
+  const [manualCategory, setManualCategory] = useState('');
 
   if (isLoading) return <LoadingScreen />;
 
-  const handleAddManual = async () => {
-    const name = newItemName.trim();
+  const resetManualForm = () => {
+    setManualName('');
+    setManualQty('');
+    setManualUnit('');
+    setManualCategory('');
+  };
+
+  const handleSaveManual = async () => {
+    const name = manualName.trim();
     if (!name) return;
+    const qty = parseFloat(manualQty) || 1;
     await addManual({
       name,
-      unit: '',
+      unit: manualUnit.trim(),
+      category: manualCategory,
       sources: [
         {
           sourceId: 'manual',
           sourceType: 'manual',
           sourceName: 'Handmatig',
-          quantity: 1,
+          quantity: qty,
         },
       ],
       checked: false,
     });
-    setNewItemName('');
+    resetManualForm();
+    setManualModalVisible(false);
   };
 
   const handleAddFromRecipe = async (recipe: Recipe, ingredientIds: string[]) => {
-  const filteredIngredients = recipe.ingredients.filter((ing) =>
-    ingredientIds.includes(ing.id)
-  );
-  await addFromRecipe(filteredIngredients, recipe.id, recipe.title);
-  setModalVisible(false);
-};
+    const filteredIngredients = recipe.ingredients.filter((ing) =>
+      ingredientIds.includes(ing.id)
+    );
+    await addFromRecipe(filteredIngredients, recipe.id, recipe.title);
+    setRecipeModalVisible(false);
+  };
 
   const totalCount = uncheckedItems.length + checkedItems.length;
 
@@ -84,37 +103,28 @@ export default function GroceryScreen() {
             <Text style={typography.folio}>lijst · {totalCount}</Text>
           </View>
 
-          {/* Title */}
-          <View style={styles.titleBlock}>
-            <Text style={[typography.hero32Bold, { fontSize: 38 }]}>De</Text>
-            <Text style={[typography.heroItalic, { fontSize: 38 }]}>boodschappen.</Text>
-          </View>
-
-          {/* Add item row */}
-          <View style={styles.addRow}>
-            <TextInput
-              style={styles.addInput}
-              placeholder="Iets toevoegen…"
-              placeholderTextColor={colors.textFaint}
-              value={newItemName}
-              onChangeText={setNewItemName}
-              onSubmitEditing={handleAddManual}
-              returnKeyType="done"
-            />
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={handleAddManual}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="add" size={18} color={colors.background} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.recipeBtn}
-              onPress={() => setModalVisible(true)}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="book-outline" size={18} color={colors.textDark} />
-            </TouchableOpacity>
+          {/* Title + action buttons */}
+          <View style={styles.titleRow}>
+            <View>
+              <Text style={[typography.hero32Bold, { fontSize: 38 }]}>De</Text>
+              <Text style={[typography.heroItalic, { fontSize: 38 }]}>boodschappen.</Text>
+            </View>
+            <View style={styles.actionBtns}>
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={() => setManualModalVisible(true)}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="add" size={20} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.recipeBtn}
+                onPress={() => setRecipeModalVisible(true)}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="book-outline" size={18} color={colors.textDark} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Unchecked items */}
@@ -167,11 +177,121 @@ export default function GroceryScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* Manual add modal */}
+      <Modal
+        visible={manualModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => { resetManualForm(); setManualModalVisible(false); }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom']}>
+            {/* Modal header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => { resetManualForm(); setManualModalVisible(false); }} hitSlop={8}>
+                <Ionicons name="close" size={22} color={colors.textLight} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Item toevoegen</Text>
+              <TouchableOpacity
+                onPress={handleSaveManual}
+                disabled={!manualName.trim()}
+                hitSlop={8}
+              >
+                <Text style={[styles.modalSave, !manualName.trim() && { opacity: 0.35 }]}>
+                  Voeg toe
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.modalContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Name */}
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Naam</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={manualName}
+                  onChangeText={setManualName}
+                  placeholder="bv. melk"
+                  placeholderTextColor={colors.textFaint}
+                  autoFocus
+                  returnKeyType="next"
+                />
+              </View>
+
+              {/* Qty + Unit row */}
+              <View style={styles.rowFields}>
+                <View style={[styles.fieldGroup, { flex: 1 }]}>
+                  <Text style={styles.fieldLabel}>Hoeveelheid</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    value={manualQty}
+                    onChangeText={setManualQty}
+                    placeholder="1"
+                    placeholderTextColor={colors.textFaint}
+                    keyboardType="decimal-pad"
+                    returnKeyType="next"
+                  />
+                </View>
+                <View style={[styles.fieldGroup, { flex: 1 }]}>
+                  <Text style={styles.fieldLabel}>Eenheid</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    value={manualUnit}
+                    onChangeText={setManualUnit}
+                    placeholder="bv. liter"
+                    placeholderTextColor={colors.textFaint}
+                    returnKeyType="done"
+                  />
+                </View>
+              </View>
+
+              {/* Category */}
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Categorie</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.catChips}
+                >
+                  {/* "Geen" chip */}
+                  <TouchableOpacity
+                    key="none"
+                    style={[styles.catChip, manualCategory === '' && styles.catChipActive]}
+                    onPress={() => setManualCategory('')}
+                  >
+                    <Text style={[styles.catChipText, manualCategory === '' && styles.catChipTextActive]}>
+                      Geen
+                    </Text>
+                  </TouchableOpacity>
+                  {groceryCategories.map((cat) => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[styles.catChip, manualCategory === cat.name && styles.catChipActive]}
+                      onPress={() => setManualCategory(cat.name)}
+                    >
+                      <Text style={[styles.catChipText, manualCategory === cat.name && styles.catChipTextActive]}>
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <AddFromRecipeModal
-        visible={modalVisible}
+        visible={recipeModalVisible}
         recipes={recipes}
         onConfirm={handleAddFromRecipe}
-        onClose={() => setModalVisible(false)}
+        onClose={() => setRecipeModalVisible(false)}
       />
     </SafeAreaView>
   );
@@ -187,42 +307,34 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
 
-  titleBlock: {
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
   },
 
-  addRow: {
+  actionBtns: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-  },
-
-  addInput: {
-    flex: 1,
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.textDark,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderColor,
-    paddingVertical: 10,
+    alignItems: 'center',
+    paddingBottom: 4,
   },
 
   addBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.textDark,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   recipeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.borderColor,
     alignItems: 'center',
@@ -232,7 +344,7 @@ const styles = StyleSheet.create({
   itemList: {
     paddingHorizontal: spacing.lg,
     gap: 8,
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
   },
 
   checkedHeader: {
@@ -256,5 +368,81 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xxl,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
+  },
+
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderColor,
+  },
+  modalTitle: {
+    fontFamily: fonts.display,
+    fontSize: 16,
+    color: colors.textDark,
+  },
+  modalSave: {
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.primary,
+  },
+  modalContent: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  fieldGroup: {
+    gap: 6,
+  },
+  fieldLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: colors.textFaint,
+  },
+  fieldInput: {
+    fontFamily: fonts.display,
+    fontSize: 16,
+    color: colors.textDark,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderColor,
+    paddingVertical: 8,
+  },
+  rowFields: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  catChips: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  catChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.borderColor,
+    backgroundColor: colors.background,
+  },
+  catChipActive: {
+    backgroundColor: colors.textDark,
+    borderColor: colors.textDark,
+  },
+  catChipText: {
+    fontFamily: fonts.display,
+    fontSize: 13,
+    color: colors.textLight,
+  },
+  catChipTextActive: {
+    color: colors.background,
   },
 });

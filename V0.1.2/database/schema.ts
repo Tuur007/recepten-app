@@ -63,4 +63,8 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE recipes ADD COLUMN duration INTEGER`,
   // v7: categories table (no ALTER needed — table created fresh via CREATE IF NOT EXISTS)
   `SELECT 1`,
+  // v8: grocery_items category column
+  `ALTER TABLE grocery_items ADD COLUMN category TEXT NOT NULL DEFAULT ''`,
+  // v9: recipe allergens column
+  `ALTER TABLE recipes ADD COLUMN allergens TEXT NOT NULL DEFAULT '[]'`,
 ];

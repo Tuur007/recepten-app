@@ -20,7 +20,8 @@ import { StepInput } from '../../features/recipes/components/StepInput';
 import { CategoryPicker } from '../../features/recipes/components/CategoryPicker';
 import { AppTextInput } from '../../components/ui/AppTextInput';
 import { Button } from '../../components/ui/Button';
-import { colors } from '../../constants/Designsystem';
+import { colors, fonts } from '../../constants/Designsystem';
+import { ALLERGENS } from '../../types/recipe';
 
 export default function NewRecipeScreen() {
   const router = useRouter();
@@ -44,6 +45,7 @@ export default function NewRecipeScreen() {
         ingredients: form.validIngredients,
         steps: form.validSteps,
         imageUri: form.imageUri,
+        allergens: form.allergens,
       });
       router.back();
     } catch {
@@ -120,6 +122,27 @@ export default function NewRecipeScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Allergenen</Text>
+            <View style={styles.allergenGrid}>
+              {ALLERGENS.map((allergen) => {
+                const active = form.allergens.includes(allergen);
+                return (
+                  <TouchableOpacity
+                    key={allergen}
+                    style={[styles.allergenChip, active && styles.allergenChipActive]}
+                    onPress={() => form.toggleAllergen(allergen)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.allergenChipText, active && styles.allergenChipTextActive]}>
+                      {allergen}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -144,4 +167,25 @@ const styles = StyleSheet.create({
   sectionContent: { gap: 8 },
   addRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
   addRowBtnText: { fontSize: 14, color: colors.primary, fontWeight: '500' },
+  allergenGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  allergenChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  allergenChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  allergenChipText: {
+    fontFamily: fonts.display,
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  allergenChipTextActive: {
+    color: colors.white,
+  },
 });

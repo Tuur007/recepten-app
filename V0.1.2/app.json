@@ -55,11 +55,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "eas": {
-        "projectId": "VERVANG_MET_JE_EAS_PROJECT_ID"
-      }
     }
   }
 }

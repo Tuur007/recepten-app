@@ -34,6 +34,9 @@ export default function EditRecipeScreen() {
   const recipe = recipes.find((r) => r.id === id);
   const form = useRecipeForm();
 
+  // form is excluded from deps: useRecipeForm returns a new object every render,
+  // so including it would cause an infinite re-run. initialized guards single-run.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (recipe && !initialized) {
       form.reset({
@@ -49,9 +52,6 @@ export default function EditRecipeScreen() {
       });
       setInitialized(true);
     }
-    // form is excluded: useRecipeForm returns a new object every render,
-    // adding it would cause an infinite loop. initialized guards single-run.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipe, initialized]);
 
   if (isLoading) return <LoadingScreen />;

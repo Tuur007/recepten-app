@@ -20,6 +20,7 @@ import { FilterBar } from '../../features/recipes/components/FilterBar';
 import { DifficultyBadge } from '../../components/ui/DifficultyBadge';
 import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
 import { LoadingScreen } from '../../components/LoadingScreen';
+import { getTotalCookingTime } from '../../utils/filterRecipes';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 
 const PAPER = colors.background;
@@ -169,6 +170,18 @@ export default function RecipesScreen() {
           onClearFilters={() => filters.clearAllFilters()}
         />
 
+        {/* Favorites section */}
+        {recipes.filter((r) => r.isFavorite).length > 0 && (
+          <View style={styles.favSection}>
+            <Text style={[typography.title18, { marginBottom: spacing.xs }]}>
+              ❤️ <Text style={{ fontStyle: 'italic' }}>Favorieten</Text>
+            </Text>
+            <Text style={[typography.body16, { color: colors.textLight }]}>
+              {recipes.filter((r) => r.isFavorite).length} recepten
+            </Text>
+          </View>
+        )}
+
         {/* Featured */}
         {featured ? (
           <TouchableOpacity
@@ -186,8 +199,10 @@ export default function RecipesScreen() {
               <Text style={[typography.title20, { fontSize: 22, flex: 1 }]} numberOfLines={2}>
                 {featured.title}
               </Text>
-              {featured.duration ? (
-                <Text style={typography.label12}>{featured.duration} min</Text>
+              {getTotalCookingTime(featured.preparationTime, featured.cookingTime) > 0 ? (
+                <Text style={typography.label12}>
+                  {getTotalCookingTime(featured.preparationTime, featured.cookingTime)} min
+                </Text>
               ) : null}
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
@@ -319,6 +334,11 @@ const styles = StyleSheet.create({
     height: 1.5,
     backgroundColor: colors.primary,
     marginTop: 2,
+  },
+  favSection: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
   },
   featuredWrap: {
     paddingHorizontal: spacing.lg,

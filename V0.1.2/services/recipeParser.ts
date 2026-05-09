@@ -1,4 +1,6 @@
 import { generateId } from '../utils/id';
+import { fetchImageWithRetry } from './imageExtractor';
+import { saveImageLocally, validateImageUri } from '../utils/imageStorage';
 
 export interface ParsedIngredient {
   id: string;
@@ -13,6 +15,37 @@ export interface ParsedRecipe {
   steps: string[];
   sourceUrl: string;
   duration?: number;
+  /** Raw remote image URL extracted from the page (og:image etc.) */
+  imageUrl?: string;
+}
+
+// ─── Image fetch + persist ────────────────────────────────────────────────────
+
+export async function extractAndSaveImage(url: string): Promise<string | undefined> {
+  try {
+    console.log(`🔵 [extractAndSaveImage] Fetching image: ${url}`);
+    const blob = await fetchImageWithRetry(url);
+    if (!blob) {
+      console.warn('[extractAndSaveImage] Could not fetch image blob');
+      return undefined;
+    }
+    console.log(`🔵 [extractAndSaveImage] Saving image (${blob.size} bytes)…`);
+    const savedPath = await saveImageLocally(blob);
+    if (!savedPath) {
+      console.warn('[extractAndSaveImage] Could not save image locally');
+      return undefined;
+    }
+    const valid = await validateImageUri(savedPath);
+    if (!valid) {
+      console.warn('[extractAndSaveImage] Saved file failed validation');
+      return undefined;
+    }
+    console.log(`✅ [extractAndSaveImage] Image ready: ${savedPath}`);
+    return savedPath;
+  } catch (e) {
+    console.error('[extractAndSaveImage] Failed:', e instanceof Error ? e.message : e);
+    return undefined;
+  }
 }
 
 export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
@@ -31,6 +64,9 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
 
   const html = await response.text();
 
+  // Extract og:image URL from the already-fetched HTML (used later to download image)
+  const imageUrl = extractOgImageUrl(html) ?? undefined;
+
   // Try all JSON-LD blocks — may contain Recipe schema
   const jsonLdRegex = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match: RegExpExecArray | null;
@@ -41,7 +77,7 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
       for (const node of recipes) {
         const parsed = extractFromJsonLd(node, url);
         if (parsed.title && (parsed.ingredients.length > 0 || parsed.steps.length > 0)) {
-          return parsed;
+          return { ...parsed, imageUrl };
         }
       }
     } catch {
@@ -54,7 +90,7 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
   if (dagMatch) {
     try {
       const obj = JSON.parse(dagMatch[1]) as Record<string, unknown>;
-      return extractDagelijksekost(obj, url);
+      return { ...extractDagelijksekost(obj, url), imageUrl };
     } catch {
       // fall through
     }
@@ -62,7 +98,7 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
 
   // Heuristic fallback
   const heuristic = tryParseHeuristic(html, url);
-  if (heuristic) return heuristic;
+  if (heuristic) return { ...heuristic, imageUrl };
 
   throw new Error('Kon geen recept vinden op deze pagina. Probeer een andere URL.');
 }
@@ -394,4 +430,21 @@ function stripTags(html: string): string {
 function stripSiteName(title: string): string {
   // Remove "| Site Name" or "- Site Name" suffixes
   return title.replace(/\s*[\|–—-]\s*[^|–—-]{3,50}$/, '').trim();
+}
+
+function extractOgImageUrl(html: string): string | null {
+  // og:image:secure_url preferred, then og:image, then twitter:image
+  const patterns = [
+    /<meta[^>]+property=["']og:image:secure_url["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image:secure_url["']/i,
+    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+    /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i,
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m?.[1]?.startsWith('http')) return m[1];
+  }
+  return null;
 }

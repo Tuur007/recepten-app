@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useRecipeStore } from '../../store/recipeStore';
 import { useRecipeForm } from '../../features/recipes/hooks/useRecipeForm';
-import { parseRecipeFromUrl } from '../../services/recipeParser';
+import { parseRecipeFromUrl, extractAndSaveImage } from '../../services/recipeParser';
 import { extractImageFromUrl } from '../../services/imageExtractor';
 import { IngredientInput } from '../../features/recipes/components/IngredientInput';
 import { StepInput } from '../../features/recipes/components/StepInput';
@@ -67,10 +67,25 @@ export default function ImportRecipeScreen() {
 
       parsedSourceUrl.current = parsed.sourceUrl;
 
+      // Try the fast path first: og:image URL already extracted during page parse.
+      // Fall back to the full HTML-scraping extractor if no og:image was found.
       let imageUri: string | undefined;
       try {
-        imageUri = await extractImageFromUrl(trimmedUrl);
-      } catch {
+        if (parsed.imageUrl) {
+          console.log(`🔵 [import] Using og:image URL: ${parsed.imageUrl}`);
+          imageUri = await extractAndSaveImage(parsed.imageUrl);
+        }
+        if (!imageUri) {
+          console.log('🔵 [import] Falling back to extractImageFromUrl…');
+          imageUri = await extractImageFromUrl(trimmedUrl);
+        }
+        if (imageUri) {
+          console.log(`✅ [import] imageUri resolved: ${imageUri}`);
+        } else {
+          console.warn('[import] No image found; recipe will show placeholder');
+        }
+      } catch (imgErr) {
+        console.warn('[import] Image extraction error (non-fatal):', imgErr instanceof Error ? imgErr.message : imgErr);
         imageUri = undefined;
       }
 
@@ -110,6 +125,7 @@ export default function ImportRecipeScreen() {
 
     setSaving(true);
     try {
+      console.log(`🔵 [import] Storing recipe with imageUri: ${form.imageUri ?? 'none'}`);
       await create({
         title: form.title.trim(),
         category: form.category,
@@ -121,6 +137,7 @@ export default function ImportRecipeScreen() {
         sourceUrl: parsedSourceUrl.current || undefined,
         allergens: form.allergens,
       });
+      console.log('✅ [import] Recipe saved successfully');
       router.back();
     } catch {
       Alert.alert('Fout', 'Kon recept niet opslaan. Probeer opnieuw.');

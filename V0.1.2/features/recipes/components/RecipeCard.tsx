@@ -16,6 +16,11 @@ interface RecipeCardProps {
   onToggleFavorite: (newFavorite: boolean) => void
 }
 
+function toDisplayUri(uri: string): string {
+  if (uri.startsWith('file://') || uri.startsWith('data:') || uri.startsWith('http')) return uri;
+  return `file://${uri}`;
+}
+
 export function RecipeCard({
   recipe,
   onPress,
@@ -27,7 +32,7 @@ export function RecipeCard({
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
       <View style={styles.imageContainer}>
         {recipe.imageUri ? (
-          <Image source={{ uri: recipe.imageUri }} style={styles.image} />
+          <Image source={{ uri: toDisplayUri(recipe.imageUri) }} style={styles.image} />
         ) : (
           <View style={[styles.imagePlaceholder, { backgroundColor: bgColor }]} />
         )}

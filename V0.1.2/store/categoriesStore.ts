@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Category, CategoryRepository } from '../features/categories/repository';
 
 interface CategoriesState {
@@ -46,7 +46,7 @@ export const useCategoriesStore = create<CategoriesState>((set) => ({
 
 export function useCategories() {
   const db = useSQLiteContext();
-  const repo = new CategoryRepository(db);
+  const repo = useMemo(() => new CategoryRepository(db), [db]);
   const {
     recipeCategories,
     groceryCategories,
@@ -64,20 +64,25 @@ export function useCategories() {
   useEffect(() => {
     if (hasLoaded) return;
     setLoading(true);
-    repo.getByType('recipe').then((cats) => setRecipeCategories(cats));
-    repo.getByType('grocery').then((cats) => {
-      setGroceryCategories(cats);
-      setLoading(false);
-      setLoaded(true);
-    });
-  }, [hasLoaded]);
+    Promise.all([repo.getByType('recipe'), repo.getByType('grocery')])
+      .then(([recipeCats, groceryCats]) => {
+        setRecipeCategories(recipeCats);
+        setGroceryCategories(groceryCats);
+        setLoaded(true);
+      })
+      .catch((err) => {
+        console.error('[useCategories] Load error:', err);
+        setLoaded(true);
+      })
+      .finally(() => setLoading(false));
+  }, [hasLoaded, repo, setRecipeCategories, setGroceryCategories, setLoading, setLoaded]);
 
   const addRecipeCategory = useCallback(
     async (name: string) => {
       const cat = await repo.create(name, 'recipe');
       addCategory(cat);
     },
-    [db],
+    [repo, addCategory],
   );
 
   const addGroceryCategory = useCallback(
@@ -85,7 +90,7 @@ export function useCategories() {
       const cat = await repo.create(name, 'grocery');
       addCategory(cat);
     },
-    [db],
+    [repo, addCategory],
   );
 
   const updateCategory = useCallback(
@@ -93,7 +98,7 @@ export function useCategories() {
       await repo.update(id, name);
       updateCategoryInStore(id, name);
     },
-    [db],
+    [repo, updateCategoryInStore],
   );
 
   const removeCategory = useCallback(
@@ -101,7 +106,7 @@ export function useCategories() {
       await repo.delete(id);
       removeCategoryFromStore(id);
     },
-    [db],
+    [repo, removeCategoryFromStore],
   );
 
   return {

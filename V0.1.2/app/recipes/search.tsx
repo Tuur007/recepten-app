@@ -1,12 +1,3 @@
-/**
- * FIX 1: ZOEKFUNCTIE RECEPTEN
- * 
- * Nieuw bestand: V0.1.2/app/recipes/search.tsx
- * 
- * PROBLEEM: Zoekknop werkt niet (onPress is leeg)
- * OPLOSSING: Maak search screen met filter op title + kategorie
- */
-
 import React, { useMemo, useState } from 'react';
 import {
   StyleSheet,

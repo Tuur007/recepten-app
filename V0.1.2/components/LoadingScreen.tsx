@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
-import { colors, typography, spacing } from '../constants/Designsystem'; // ✅ FIXED
+import { colors, typography, spacing } from '../constants/Designsystem';
 
 interface LoadingScreenProps {
   message?: string;
@@ -9,10 +9,7 @@ interface LoadingScreenProps {
 export function LoadingScreen({ message = 'Laden...' }: LoadingScreenProps) {
   return (
     <View style={styles.container}>
-      <ActivityIndicator 
-        size="large" 
-        color={colors.primary} // ✅ ORANGE
-      />
+      <ActivityIndicator size="large" color={colors.primary} />
       <Text style={[typography.body16, styles.message]}>{message}</Text>
     </View>
   );
@@ -21,7 +18,7 @@ export function LoadingScreen({ message = 'Laden...' }: LoadingScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background, // ✅ WARM CREAM
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.md,

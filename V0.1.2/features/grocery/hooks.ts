@@ -18,6 +18,7 @@ export function useGrocery() {
     addItem,
     updateItemInStore,
     removeItem,
+    clearChecked: clearCheckedInStore,
   } = useGroceryStore();
 
   useEffect(() => {
@@ -132,12 +133,9 @@ export function useGrocery() {
   );
 
   const clearChecked = useCallback(async (): Promise<void> => {
-    await db.withTransactionAsync(async () => {
-      await GroceryRepository.clearChecked(db);
-    });
-    const updated = await GroceryRepository.getAll(db);
-    setItems(updated);
-  }, [db, setItems]);
+    await GroceryRepository.clearChecked(db);
+    clearCheckedInStore();
+  }, [db, clearCheckedInStore]);
 
   return {
     items,

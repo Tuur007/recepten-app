@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, typography, spacing } from '../constants/Designsystem'; // ✅ FIXED
+import { colors, typography, spacing } from '../constants/Designsystem';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -47,7 +47,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, State> {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background, // ✅ WARM CREAM
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,

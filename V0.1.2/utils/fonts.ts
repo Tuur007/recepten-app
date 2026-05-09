@@ -1,17 +1,3 @@
-/**
- * 🔤 FONT LOADER — Onze Tafel Editorial
- *
- * Plaats dit bestand op: V0.1.2/utils/fonts.ts
- *
- * INSTALLEREN (run in V0.1.2/):
- *   npx expo install expo-font @expo-google-fonts/fraunces @expo-google-fonts/inter @expo-google-fonts/jetbrains-mono
- *
- * Daarna gebruiken in V0.1.2/app/_layout.tsx:
- *   import { useEditorialFonts } from '../utils/fonts';
- *   const fontsLoaded = useEditorialFonts();
- *   if (!fontsLoaded) return null;
- */
-
 import {
   useFonts as useFraunces,
   Fraunces_400Regular,

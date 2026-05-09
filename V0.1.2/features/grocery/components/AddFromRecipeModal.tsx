@@ -1,12 +1,3 @@
-/**
- * FIX 2: INGREDIËNTEN TOEVOEGEN - TWEE-STAPS FLOW
- * 
- * Vervang: V0.1.2/features/grocery/components/AddFromRecipeModal.tsx
- * 
- * PROBLEEM: Na recept selecteren, alle ingrediënten toevoegen
- * OPLOSSING: Eerst recept kiezen → dan ingrediënten checklist tonen → selectief toevoegen
- */
-
 import React, { useState } from 'react';
 import {
   FlatList,
@@ -16,7 +7,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography } from '../../../constants/Designsystem';

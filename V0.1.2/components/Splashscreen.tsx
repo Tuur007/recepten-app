@@ -4,7 +4,6 @@ import {
   StyleSheet,
   Text,
   Animated,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, shadows } from '../constants/Designsystem';

@@ -12,8 +12,6 @@ interface WeekPlannerState {
   clearDay: (day: string) => void;
 }
 
-const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-
 const initialMealPlan: MealPlan = {
   MON: [],
   TUE: [],

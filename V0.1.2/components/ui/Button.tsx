@@ -7,7 +7,7 @@ import {
   TouchableOpacityProps,
   ViewStyle,
 } from 'react-native';
-import { colors, spacing, shadows } from '../../constants/Designsystem'; // ✅ FIXED
+import { colors, spacing } from '../../constants/Designsystem';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -20,7 +20,7 @@ interface ButtonProps extends TouchableOpacityProps {
 
 const variantContainerStyle: Record<Variant, object> = {
   primary: {
-    backgroundColor: colors.primary, // ✅ #FF6B35 ORANGE
+    backgroundColor: colors.primary,
   },
   secondary: { 
     backgroundColor: colors.backgroundLight,

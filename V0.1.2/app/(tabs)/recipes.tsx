@@ -14,6 +14,11 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useRecipes } from '../../features/recipes/hooks';
 import { useCategories } from '../../store/categoriesStore';
+import { useFiltersStore } from '../../store/filtersStore';
+import { filterRecipes, sortRecipes } from '../../utils/filterRecipes';
+import { FilterBar } from '../../features/recipes/components/FilterBar';
+import { DifficultyBadge } from '../../components/ui/DifficultyBadge';
+import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 
@@ -28,19 +33,77 @@ export default function RecipesScreen() {
   const { recipes, isLoading } = useRecipes();
   const { recipeCategories } = useCategories();
   const [activeCat, setActiveCat] = useState('Alles');
+  const filters = useFiltersStore();
 
   const cats = useMemo(
     () => ['Alles', ...recipeCategories.map((c) => c.name)],
     [recipeCategories],
   );
 
-  const filtered = useMemo(() => {
+  const catFiltered = useMemo(() => {
     if (activeCat === 'Alles') return recipes;
     return recipes.filter((r) => r.category === activeCat);
   }, [recipes, activeCat]);
 
-  const featured = filtered[0];
-  const grid = useMemo(() => filtered.slice(1), [filtered]);
+  const filtered = useMemo(
+    () =>
+      filterRecipes(catFiltered, {
+        difficulty: filters.selectedDifficulty ?? undefined,
+        timeRange: filters.selectedTimeRange ?? undefined,
+        favoritesOnly: filters.favoritesOnly,
+      }),
+    [catFiltered, filters.selectedDifficulty, filters.selectedTimeRange, filters.favoritesOnly],
+  );
+
+  const sorted = useMemo(() => sortRecipes(filtered, filters.sortBy), [filtered, filters.sortBy]);
+
+  const featured = sorted[0];
+  const grid = useMemo(() => sorted.slice(1), [sorted]);
+
+  const filterChips = [
+    {
+      id: 'favorites',
+      label: '❤️ Favorieten',
+      active: filters.favoritesOnly,
+      onPress: () => filters.setFavoritesOnly(!filters.favoritesOnly),
+    },
+    {
+      id: 'easy',
+      label: 'Makkelijk',
+      active: filters.selectedDifficulty === 'easy',
+      onPress: () => filters.setDifficulty(filters.selectedDifficulty === 'easy' ? null : 'easy'),
+    },
+    {
+      id: 'medium',
+      label: 'Gemiddeld',
+      active: filters.selectedDifficulty === 'medium',
+      onPress: () => filters.setDifficulty(filters.selectedDifficulty === 'medium' ? null : 'medium'),
+    },
+    {
+      id: 'hard',
+      label: 'Lastig',
+      active: filters.selectedDifficulty === 'hard',
+      onPress: () => filters.setDifficulty(filters.selectedDifficulty === 'hard' ? null : 'hard'),
+    },
+    {
+      id: 'under15',
+      label: 'Onder 15m',
+      active: filters.selectedTimeRange === 'under15',
+      onPress: () => filters.setTimeRange(filters.selectedTimeRange === 'under15' ? null : 'under15'),
+    },
+    {
+      id: '15to30',
+      label: '15–30m',
+      active: filters.selectedTimeRange === '15to30',
+      onPress: () => filters.setTimeRange(filters.selectedTimeRange === '15to30' ? null : '15to30'),
+    },
+    {
+      id: 'over30',
+      label: '30m+',
+      active: filters.selectedTimeRange === 'over30',
+      onPress: () => filters.setTimeRange(filters.selectedTimeRange === 'over30' ? null : 'over30'),
+    },
+  ];
 
   if (isLoading) return <LoadingScreen />;
 
@@ -49,7 +112,7 @@ export default function RecipesScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Folio */}
         <View style={styles.folio}>
-          <Text style={typography.folio}>recepten · {filtered.length}</Text>
+          <Text style={typography.folio}>recepten · {sorted.length}</Text>
         </View>
 
         {/* Title + search + add + import */}
@@ -113,6 +176,12 @@ export default function RecipesScreen() {
           })}
         </ScrollView>
 
+        {/* Filter chips */}
+        <FilterBar
+          filters={filterChips}
+          onClearFilters={() => filters.clearAllFilters()}
+        />
+
         {/* Featured */}
         {featured ? (
           <TouchableOpacity
@@ -134,16 +203,26 @@ export default function RecipesScreen() {
                 <Text style={typography.label12}>{featured.duration} min</Text>
               ) : null}
             </View>
-            {featured.category ? (
-              <Text style={[typography.bodyItalic, { fontSize: 12, marginTop: 2 }]}>
-                {featured.category}
-              </Text>
-            ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              {featured.category ? (
+                <Text style={[typography.bodyItalic, { fontSize: 12 }]}>
+                  {featured.category}
+                </Text>
+              ) : null}
+              {featured.difficulty && <DifficultyBadge difficulty={featured.difficulty} size="small" />}
+              <CookingTimeDisplay
+                preparationTime={featured.preparationTime}
+                cookingTime={featured.cookingTime}
+                size="small"
+              />
+            </View>
           </TouchableOpacity>
         ) : (
           <View style={styles.emptyState}>
             <Text style={[typography.bodyItalic, { textAlign: 'center' }]}>
-              {activeCat === 'Alles'
+              {filters.hasActiveFilters()
+                ? 'Geen recepten gevonden met deze filters.'
+                : activeCat === 'Alles'
                 ? 'Nog geen recepten. Voeg er een toe!'
                 : `Geen recepten in "${activeCat}".`}
             </Text>
@@ -175,13 +254,16 @@ export default function RecipesScreen() {
               <Text style={styles.gridTitle} numberOfLines={2}>
                 {r.title}
               </Text>
-              {r.duration ? (
-                <Text style={[typography.label12, { marginTop: 3, fontSize: 8 }]}>
-                  {r.duration} min
-                </Text>
-              ) : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                {r.difficulty && <DifficultyBadge difficulty={r.difficulty} size="small" />}
+                <CookingTimeDisplay
+                  preparationTime={r.preparationTime}
+                  cookingTime={r.cookingTime}
+                  size="small"
+                />
+              </View>
               {r.category ? (
-                <Text style={[typography.label12, { marginTop: 1, fontSize: 8, color: colors.textFaint }]}>
+                <Text style={[typography.label12, { marginTop: 2, fontSize: 8, color: colors.textFaint }]}>
                   {r.category}
                 </Text>
               ) : null}

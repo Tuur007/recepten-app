@@ -67,4 +67,22 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE grocery_items ADD COLUMN category TEXT NOT NULL DEFAULT ''`,
   // v9: recipe allergens column
   `ALTER TABLE recipes ADD COLUMN allergens TEXT NOT NULL DEFAULT '[]'`,
+  // v10: recipe difficulty
+  `ALTER TABLE recipes ADD COLUMN difficulty TEXT`,
+  // v11: recipe preparation time (minutes)
+  `ALTER TABLE recipes ADD COLUMN preparation_time INTEGER`,
+  // v12: recipe cooking time (minutes)
+  `ALTER TABLE recipes ADD COLUMN cooking_time INTEGER`,
+  // v13: servings count
+  `ALTER TABLE recipes ADD COLUMN servings INTEGER`,
+  // v14: recipe rating
+  `ALTER TABLE recipes ADD COLUMN rating REAL`,
+  // v15: times cooked counter
+  `ALTER TABLE recipes ADD COLUMN times_cooked INTEGER NOT NULL DEFAULT 0`,
+  // v16: last cooked timestamp
+  `ALTER TABLE recipes ADD COLUMN last_cooked TEXT`,
+  // v17: recipe notes
+  `ALTER TABLE recipes ADD COLUMN notes TEXT`,
+  // v18: equipment list
+  `ALTER TABLE recipes ADD COLUMN equipment TEXT`,
 ];

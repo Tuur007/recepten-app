@@ -19,6 +19,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useGrocery } from '../../features/grocery/hooks';
 import { LoadingScreen } from '../../components/LoadingScreen';
+import { DifficultyBadge } from '../../components/ui/DifficultyBadge';
+import { FavoriteButton } from '../../components/ui/FavoriteButton';
+import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { generateId } from '../../utils/id';
 import { Ingredient } from '../../types/recipe';
@@ -171,16 +174,11 @@ export default function RecipeDetailScreen() {
           <TouchableOpacity onPress={() => router.push(`/recipes/edit/${recipe.id}`)} hitSlop={8}>
             <Ionicons name="pencil-outline" size={20} color={colors.textDark} />
           </TouchableOpacity>
-          <TouchableOpacity
+          <FavoriteButton
+            isFavorite={recipe.isFavorite}
             onPress={() => update(recipe.id, { isFavorite: !recipe.isFavorite })}
-            hitSlop={8}
-          >
-            <Ionicons
-              name={recipe.isFavorite ? 'bookmark' : 'bookmark-outline'}
-              size={20}
-              color={colors.textDark}
-            />
-          </TouchableOpacity>
+            size={22}
+          />
           <TouchableOpacity onPress={handleDeleteRecipe} hitSlop={8}>
             <Ionicons name="trash-outline" size={20} color={colors.textLight} />
           </TouchableOpacity>
@@ -194,6 +192,14 @@ export default function RecipeDetailScreen() {
             <Text style={[typography.hero32Bold, { fontSize: 42, marginTop: 8 }]}>{lead}</Text>
           )}
           <Text style={[typography.heroItalic, { fontSize: 42 }]}>{tail}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>
+            {recipe.difficulty && <DifficultyBadge difficulty={recipe.difficulty} size="medium" />}
+            <CookingTimeDisplay
+              preparationTime={recipe.preparationTime}
+              cookingTime={recipe.cookingTime}
+              size="medium"
+            />
+          </View>
         </View>
 
         {/* Hero photo */}

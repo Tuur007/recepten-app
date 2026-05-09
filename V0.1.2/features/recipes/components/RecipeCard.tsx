@@ -126,14 +126,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   body: {
-    padding: 12,
+    paddingTop: 14,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
     gap: 6,
   },
   title: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   meta: {
     flexDirection: 'row',

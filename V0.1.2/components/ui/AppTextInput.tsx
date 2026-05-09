@@ -6,7 +6,7 @@ import {
   View,
   Text,
 } from 'react-native';
-import { colors, spacing, typography } from '../../constants/Designsystem'; // ✅ FIXED
+import { colors, spacing, typography } from '../../constants/Designsystem';
 
 interface AppTextInputProps extends TextInputProps {
   label?: string;
@@ -45,10 +45,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   input: {
-    backgroundColor: colors.backgroundLight, // ✅ #F5F5F0
+    backgroundColor: colors.backgroundLight,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.borderColor, // ✅ #D1D1D1
+    borderColor: colors.borderColor,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     fontSize: 16,

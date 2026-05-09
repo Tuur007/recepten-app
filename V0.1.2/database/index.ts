@@ -8,6 +8,7 @@ import {
   MIGRATIONS,
 } from './schema';
 import { initImageDirectory } from '../utils/imageStorage';
+import { generateId } from '../utils/id';
 
 export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
   await initImageDirectory();
@@ -39,17 +40,15 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
   if ((catCount?.count ?? 0) === 0) {
     const now = new Date().toISOString();
     for (const name of DEFAULT_RECIPE_CATEGORIES) {
-      const id = `rc_${name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
       await db.runAsync(
         'INSERT OR IGNORE INTO categories (id, name, type, created_at) VALUES (?, ?, ?, ?)',
-        [id, name, 'recipe', now],
+        [generateId(), name, 'recipe', now],
       );
     }
     for (const name of DEFAULT_GROCERY_CATEGORIES) {
-      const id = `gc_${name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
       await db.runAsync(
         'INSERT OR IGNORE INTO categories (id, name, type, created_at) VALUES (?, ?, ?, ?)',
-        [id, name, 'grocery', now],
+        [generateId(), name, 'grocery', now],
       );
     }
   }

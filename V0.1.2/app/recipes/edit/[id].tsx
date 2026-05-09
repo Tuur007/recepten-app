@@ -44,7 +44,7 @@ export default function EditRecipeScreen() {
           typeof s === 'string' ? s : (s as { text?: string }).text ?? '',
         ),
         imageUri: recipe.imageUri,
-        duration: recipe.duration ?? recipe.totalTime,
+        duration: recipe.duration,
         allergens: recipe.allergens ?? [],
       });
       setInitialized(true);

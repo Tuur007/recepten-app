@@ -3,15 +3,6 @@ import { Ingredient } from '../types/recipe';
 import { generateId } from './id';
 import { normalizeIngredientName, normalizeUnit, areUnitsCompatible } from './normalize';
 
-/**
- * Merges recipe ingredients into the existing grocery list.
- *
- * Rules:
- *  - Same name + same unit + same sourceId  → quantity overwritten (idempotent re-add)
- *  - Same name + same unit + new sourceId   → source appended, totalQuantity recalculated
- *  - Same name + different unit             → kept as a separate row
- *  - New name                               → new row added
- */
 export function mergeIngredientsIntoGrocery(
   existing: GroceryItem[],
   ingredients: Ingredient[],
@@ -74,6 +65,7 @@ export function mergeIngredientsIntoGrocery(
         id: generateId(),
         name: ingredient.name,
         unit: ingredient.unit,
+        category: '',
         sources,
         totalQuantity: computeTotalQuantity(sources),
         checked: false,
@@ -85,10 +77,6 @@ export function mergeIngredientsIntoGrocery(
   return result;
 }
 
-/**
- * Removes all contributions of a given sourceId from the grocery list.
- * Items with no remaining sources are deleted entirely.
- */
 export function removeSourceFromGrocery(
   existing: GroceryItem[],
   sourceId: string,
@@ -101,7 +89,6 @@ export function removeSourceFromGrocery(
     .filter((item) => item.sources.length > 0);
 }
 
-/** Human-readable label showing recipe origins, e.g. "(Lasagna, Spaghetti)" */
 export function formatItemOrigin(item: GroceryItem): string {
   const recipeNames = item.sources
     .filter((s) => s.sourceType === 'recipe')

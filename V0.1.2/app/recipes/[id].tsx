@@ -55,7 +55,7 @@ export default function RecipeDetailScreen() {
 
   const recipe = recipes.find(r => r.id === id);
 
-  const baseServings = useMemo(() => (recipe as any)?.servings ?? 4, [recipe]);
+  const baseServings = 4;
   const currentServings = servings ?? baseServings;
 
   const scaledIngredients = useMemo(() => {
@@ -65,7 +65,7 @@ export default function RecipeDetailScreen() {
       ...ing,
       displayQty: formatQty(ing.quantity * ratio),
     }));
-  }, [recipe?.ingredients, currentServings, baseServings]);
+  }, [recipe?.ingredients, currentServings]);
 
   if (isLoading) return <LoadingScreen />;
   if (!recipe) {
@@ -155,8 +155,7 @@ export default function RecipeDetailScreen() {
   const { lead, tail } = splitTitle(recipe.title);
 
   const stats = [
-    { icon: 'time-outline', v: String((recipe as any).duration ?? (recipe as any).totalTime ?? '—'), u: 'min' },
-    { icon: 'flame-outline', v: String((recipe as any).calories ?? '—'), u: 'kcal' },
+    { icon: 'time-outline', v: recipe.duration != null ? String(recipe.duration) : '—', u: 'min' },
     { icon: 'restaurant-outline', v: String(recipe.ingredients?.length ?? 0), u: 'ing.' },
   ] as const;
 
@@ -195,9 +194,6 @@ export default function RecipeDetailScreen() {
             <Text style={[typography.hero32Bold, { fontSize: 42, marginTop: 8 }]}>{lead}</Text>
           )}
           <Text style={[typography.heroItalic, { fontSize: 42 }]}>{tail}</Text>
-          {(recipe as any).description ? (
-            <Text style={[typography.bodyItalic, { marginTop: 14 }]}>"{(recipe as any).description}"</Text>
-          ) : null}
         </View>
 
         {/* Hero photo */}

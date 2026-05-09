@@ -1,19 +1,3 @@
-/**
- * 🎨 DESIGN SYSTEM — "Onze Tafel" Editorial
- *
- * Vervang de inhoud van: V0.1.2/constants/Designsystem.ts
- *
- * Aesthetic: warm crème papier · ink deep · terracotta italic accent.
- * Type: Fraunces (display, italic accent), Inter (body), JetBrains Mono (folios/labels).
- *
- * BELANGRIJK: Voor de fonts moet je in expo-font de families laden.
- * Zie /utils/fonts.ts (apart bestand) voor de loader.
- */
-
-// ============================================================================
-// 🎨 COLORS — Warm cream paper + deep ink + terracotta
-// ============================================================================
-
 export const colors = {
   // Brand
   primary: '#C2492A',         // Terracotta (CTA, accent, italic emphasis)
@@ -83,10 +67,6 @@ export const colors = {
   },
 };
 
-// ============================================================================
-// 📐 SPACING — 8pt grid
-// ============================================================================
-
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -104,10 +84,6 @@ export const spacing = {
   extraLarge: 32,
   massive: 48,
 };
-
-// ============================================================================
-// 🔤 TYPOGRAPHY — Fraunces (display) · Inter (body) · JetBrains Mono (folio)
-// ============================================================================
 
 const FONT_DISPLAY = 'Fraunces_400Regular';
 const FONT_DISPLAY_ITALIC = 'Fraunces_400Italic';
@@ -254,7 +230,6 @@ export const typography = {
   },
 };
 
-// Font-family constants exporteren voor inline gebruik
 export const fonts = {
   display: FONT_DISPLAY,
   displayItalic: FONT_DISPLAY_ITALIC,
@@ -264,10 +239,6 @@ export const fonts = {
   mono: FONT_MONO,
   monoMedium: FONT_MONO_MEDIUM,
 };
-
-// ============================================================================
-// 🎯 SHADOWS — heel zacht, papier-achtig (geen drukke schaduwen)
-// ============================================================================
 
 export const shadows = {
   sm: {
@@ -307,10 +278,6 @@ export const shadows = {
   },
 };
 
-// ============================================================================
-// 🎨 BORDER RADIUS
-// ============================================================================
-
 export const borderRadius = {
   none: 0,
   xs: 2,
@@ -320,10 +287,6 @@ export const borderRadius = {
   xl: 16,
   full: 9999,
 };
-
-// ============================================================================
-// ⏱️ ANIMATIONS
-// ============================================================================
 
 export const animations = {
   fast: { duration: 150, easing: 'easeInOut' },
@@ -336,10 +299,6 @@ export const animations = {
     linear: 'linear',
   },
 };
-
-// ============================================================================
-// 🔘 COMPONENT PRESETS
-// ============================================================================
 
 export const componentStyles = {
   button: {
@@ -438,10 +397,6 @@ export const componentStyles = {
     marginVertical: spacing.md,
   },
 };
-
-// ============================================================================
-// 🎬 RESPONSIVE
-// ============================================================================
 
 export const responsive = {
   breakpoints: { small: 320, regular: 375, large: 428, tablet: 768 },

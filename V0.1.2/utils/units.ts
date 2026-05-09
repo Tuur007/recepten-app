@@ -1,11 +1,4 @@
-/**
- * Lijst van bekende maateenheden, van langst naar kortst gesorteerd.
- * Dit is belangrijk voor de regex-matching in parseIngredientString:
- * langere eenheden moeten eerst worden gecontroleerd om gedeeltelijke
- * overeenkomsten te voorkomen (bijv. 'el' voor 'eetlepel').
- *
- * Bevat Nederlandse én Engelse eenheden.
- */
+// Sorted longest-first so regex matches prefer longer units (e.g. 'eetlepel' before 'el').
 export const KNOWN_UNITS: string[] = [
   // --- Nederlands (lang naar kort) ---
   'eetlepels',
@@ -100,20 +93,10 @@ export const KNOWN_UNITS: string[] = [
   'pkg',
 ];
 
-/**
- * Normaliseert een eenheid naar kleine letters zonder spaties.
- */
 export function normalizeUnit(unit: string): string {
   return unit.toLowerCase().trim();
 }
 
-/**
- * Controleert of twee eenheden compatible zijn.
- *
- * Compatibiliteit wordt bepaald op basis van exacte overeenkomst
- * na normalisatie. Eenheidsconversie (bijv. g ↔ kg) is bewust
- * uitgesteld naar een toekomstige versie.
- */
 export function areUnitsCompatible(unit1: string, unit2: string): boolean {
   return normalizeUnit(unit1) === normalizeUnit(unit2);
 }

@@ -1,12 +1,3 @@
-/**
- * 🎨 HOME SCREEN — "Vanavond"
- *
- * Vervang: V0.1.2/app/(tabs)/home.tsx
- *
- * Editorial: één hero-foto, één recept, "verras me" als italic uitnodiging.
- * Geen stat cards meer — die conflicten met de rust-filosofie.
- */
-
 import React, { useMemo } from 'react';
 import {
   StyleSheet,
@@ -107,21 +98,14 @@ export default function HomeScreen() {
               </View>
 
               {/* Meta row */}
-              <View style={styles.metaRow}>
-                {(tonight as any).duration ? (
-                  <>
-                    <View style={styles.metaItem}>
-                      <Ionicons name="time-outline" size={13} color={colors.textLight} />
-                      <Text style={styles.metaText}>{(tonight as any).duration} min</Text>
-                    </View>
-                    <View style={styles.metaDot} />
-                  </>
-                ) : null}
-                <View style={styles.metaItem}>
-                  <Ionicons name="people-outline" size={13} color={colors.textLight} />
-                  <Text style={styles.metaText}>voor {(tonight as any).servings ?? 4}</Text>
+              {tonight.duration ? (
+                <View style={styles.metaRow}>
+                  <View style={styles.metaItem}>
+                    <Ionicons name="time-outline" size={13} color={colors.textLight} />
+                    <Text style={styles.metaText}>{tonight.duration} min</Text>
+                  </View>
                 </View>
-              </View>
+              ) : null}
             </>
           ) : (
             /* Lege staat: niets gepland */
@@ -242,13 +226,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     fontSize: 13,
     color: colors.textLight,
-  },
-
-  metaDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: colors.textFaint,
   },
 
   ctaStack: {

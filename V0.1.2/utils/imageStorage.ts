@@ -1,16 +1,12 @@
 import { generateId } from './id';
 
-// expo-file-system is a native module unavailable in environments like Expo Snack.
-// We load it dynamically so the rest of the app still boots when it's absent.
 let FS: typeof import('expo-file-system') | null = null;
 try {
   FS = require('expo-file-system');
 } catch {
-  // Native module not available (e.g. Expo Snack) — image features disabled.
+  // expo-file-system unavailable (e.g. Expo Snack) — image features disabled
 }
 
-// No trailing slash — imageExtractor.ts uses the same path without slash.
-// deleteRecipeImage checks startsWith(RECIPES_IMAGE_DIR + '/') to be safe.
 const RECIPES_IMAGE_DIR: string = FS?.documentDirectory
   ? `${FS.documentDirectory}recipes_images`
   : '';
@@ -20,13 +16,11 @@ export async function initImageDirectory(): Promise<void> {
   const dirInfo = await FS.getInfoAsync(RECIPES_IMAGE_DIR);
   if (!dirInfo.exists) {
     await FS.makeDirectoryAsync(RECIPES_IMAGE_DIR, { intermediates: true });
-    console.log('[ImageStorage] created dir', RECIPES_IMAGE_DIR);
   }
 }
 
 export async function saveRecipeImage(imageUri: string): Promise<string> {
   if (!FS || !RECIPES_IMAGE_DIR) return imageUri;
-  // Already in managed dir — no copy needed (e.g. from imageExtractor)
   if (imageUri.startsWith(RECIPES_IMAGE_DIR)) return imageUri;
   try {
     await initImageDirectory();
@@ -34,7 +28,6 @@ export async function saveRecipeImage(imageUri: string): Promise<string> {
     const filename = `${generateId()}.${ext === 'jpeg' ? 'jpg' : ext}`;
     const targetPath = `${RECIPES_IMAGE_DIR}/${filename}`;
     await FS.copyAsync({ from: imageUri, to: targetPath });
-    console.log('[ImageStorage] saved', imageUri, '→', targetPath);
     return targetPath;
   } catch (err) {
     console.error('[saveRecipeImage]', err);
@@ -45,10 +38,8 @@ export async function saveRecipeImage(imageUri: string): Promise<string> {
 export async function deleteRecipeImage(imageUri: string): Promise<void> {
   if (!FS || !RECIPES_IMAGE_DIR || !imageUri) return;
   try {
-    // Accept paths with or without trailing slash in dir name
     if (imageUri.startsWith(RECIPES_IMAGE_DIR)) {
       await FS.deleteAsync(imageUri, { idempotent: true });
-      console.log('[ImageStorage] deleted', imageUri);
     }
   } catch (err) {
     console.error('[deleteRecipeImage]', err);

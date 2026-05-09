@@ -76,6 +76,7 @@ export const RecipeRepository = {
   async create(db: SQLiteDatabase, input: RecipeInput): Promise<Recipe> {
     const id = generateId();
     const now = new Date().toISOString();
+    console.log(`[RecipeRepository.create] Storing imageUri: ${input.imageUri ?? 'null'}`);
     await db.runAsync(
       `INSERT INTO recipes (id, title, ingredients, steps, source_url, duration, category, is_favorite, image_uri, allergens, created_at, updated_at, difficulty, preparation_time, cooking_time, servings, rating, times_cooked, last_cooked, notes, equipment)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

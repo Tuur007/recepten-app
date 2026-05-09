@@ -32,6 +32,11 @@ import { ALLERGENS } from '../../types/recipe';
 
 const PAPER = colors.background;
 
+function toDisplayUri(uri: string): string {
+  if (uri.startsWith('file://') || uri.startsWith('data:') || uri.startsWith('http')) return uri;
+  return `file://${uri}`;
+}
+
 function stepText(step: unknown): string {
   if (typeof step === 'string') return step;
   if (step && typeof step === 'object' && 'text' in step) return String((step as { text: unknown }).text);
@@ -201,7 +206,7 @@ export default function RecipeDetailScreen() {
         {/* Hero photo */}
         <View style={{ marginTop: spacing.lg }}>
           {recipe.imageUri ? (
-            <Image source={{ uri: recipe.imageUri }} style={styles.hero} />
+            <Image source={{ uri: toDisplayUri(recipe.imageUri) }} style={styles.hero} />
           ) : (
             <View style={[styles.hero, { backgroundColor: colors.backgroundLight }]} />
           )}

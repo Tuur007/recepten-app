@@ -646,3 +646,37 @@ function log(...args: unknown[]): void {
 
 const UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+
+// ─── Simple blob fetcher with retry ──────────────────────────────────────────
+// Fetches a direct image URL and returns a Blob. Used by saveImageLocally.
+
+export async function fetchImageWithRetry(url: string, maxRetries = 3): Promise<Blob | null> {
+  if (!url || typeof url !== 'string') return null;
+  try { new URL(url); } catch {
+    console.warn(`[IE] fetchImageWithRetry: invalid URL: ${url}`);
+    return null;
+  }
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'User-Agent': UA, 'Accept': 'image/*,*/*;q=0.8' },
+      });
+      if (!res.ok) {
+        console.warn(`[IE] fetchImageWithRetry: HTTP ${res.status} on attempt ${i + 1}`);
+        continue;
+      }
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) {
+        console.warn(`[IE] fetchImageWithRetry: empty blob on attempt ${i + 1}`);
+        continue;
+      }
+      console.log(`[IE] fetchImageWithRetry: ✅ fetched ${blob.size} bytes from ${url.slice(0, 80)}`);
+      return blob;
+    } catch (e) {
+      console.warn(`[IE] fetchImageWithRetry attempt ${i + 1}:`, e instanceof Error ? e.message : e);
+      if (i < maxRetries - 1) await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+  return null;
+}

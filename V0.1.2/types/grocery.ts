@@ -14,6 +14,8 @@ export interface GroceryItem {
   totalQuantity: number; // always === sum(sources.map(s => s.quantity))
   checked: boolean;
   createdAt: string;
+  price?: number;
+  aisle?: string;
 }
 
 // totalQuantity is intentionally excluded from input — computed by computeTotalQuantity()

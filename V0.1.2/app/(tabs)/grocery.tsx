@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -14,18 +16,25 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useGrocery } from '../../features/grocery/hooks';
+import { useGroceryStore } from '../../store/groceryStore';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useCategories } from '../../store/categoriesStore';
-import { GroceryItem } from '../../features/grocery/components/GroceryItem';
+import { GroceryItemEnhanced } from '../../features/grocery/components/GroceryItemEnhanced';
+import { BulkActionsBar } from '../../features/grocery/components/BulkActionsBar';
+import { CategoryGroupHeader } from '../../features/grocery/components/CategoryGroupHeader';
 import { AddFromRecipeModal } from '../../features/grocery/components/AddFromRecipeModal';
 import { LoadingScreen } from '../../components/LoadingScreen';
+import { groupItems } from '../../utils/groceryGrouping';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import type { Recipe } from '../../types/recipe';
 
+type ListRow =
+  | { type: 'header'; aisle: string; count: number }
+  | { type: 'item'; data: ReturnType<typeof useGroceryStore.getState>['items'][number] };
+
 export default function GroceryScreen() {
   const {
-    uncheckedItems,
-    checkedItems,
+    items,
     isLoading,
     addManual,
     addFromRecipe,
@@ -37,14 +46,26 @@ export default function GroceryScreen() {
   const { recipes } = useRecipes();
   const { groceryCategories } = useCategories();
 
+  const checkedCount = useGroceryStore((s) => s.getCheckedCount());
+  const uncheckedCount = useGroceryStore((s) => s.getUncheckedCount());
+  const total = useGroceryStore((s) => s.getTotal());
+
   const [recipeModalVisible, setRecipeModalVisible] = useState(false);
   const [manualModalVisible, setManualModalVisible] = useState(false);
-
-  // Manual add form state
   const [manualName, setManualName] = useState('');
   const [manualQty, setManualQty] = useState('');
   const [manualUnit, setManualUnit] = useState('');
   const [manualCategory, setManualCategory] = useState('');
+
+  const listData = useMemo<ListRow[]>(() => {
+    const grouped = groupItems(items);
+    const rows: ListRow[] = [];
+    grouped.forEach((aisleItems, aisle) => {
+      rows.push({ type: 'header', aisle, count: aisleItems.length });
+      aisleItems.forEach((item) => rows.push({ type: 'item', data: item }));
+    });
+    return rows;
+  }, [items]);
 
   if (isLoading) return <LoadingScreen />;
 
@@ -63,14 +84,7 @@ export default function GroceryScreen() {
       name,
       unit: manualUnit.trim(),
       category: manualCategory,
-      sources: [
-        {
-          sourceId: 'manual',
-          sourceType: 'manual',
-          sourceName: 'Handmatig',
-          quantity: qty,
-        },
-      ],
+      sources: [{ sourceId: 'manual', sourceType: 'manual', sourceName: 'Handmatig', quantity: qty }],
       checked: false,
     });
     resetManualForm();
@@ -78,29 +92,50 @@ export default function GroceryScreen() {
   };
 
   const handleAddFromRecipe = async (recipe: Recipe, ingredientIds: string[]) => {
-    const filteredIngredients = recipe.ingredients.filter((ing) =>
-      ingredientIds.includes(ing.id)
-    );
-    await addFromRecipe(filteredIngredients, recipe.id, recipe.title);
+    const filtered = recipe.ingredients.filter((ing) => ingredientIds.includes(ing.id));
+    await addFromRecipe(filtered, recipe.id, recipe.title);
     setRecipeModalVisible(false);
   };
 
-  const totalCount = uncheckedItems.length + checkedItems.length;
+  const handleShare = async () => {
+    const text = items
+      .map(
+        (item) =>
+          `${item.checked ? '✓' : '○'} ${item.name}${item.totalQuantity > 0 ? ` (${item.totalQuantity}${item.unit ? ` ${item.unit}` : ''})` : ''}`,
+      )
+      .join('\n');
+    await Share.share({ message: text, title: 'Boodschappenlijst' });
+  };
+
+  const handleSelectAllUnchecked = () => {
+    useGroceryStore.getState().selectAll(true);
+  };
+
+  const handleClearChecked = async () => {
+    await clearChecked();
+  };
+
+  const renderItem = ({ item }: { item: ListRow }) => {
+    if (item.type === 'header') {
+      return <CategoryGroupHeader aisle={item.aisle} count={item.count} />;
+    }
+    return (
+      <GroceryItemEnhanced
+        item={item.data}
+        onToggleCheck={(id) => toggleChecked(id)}
+        onQuantityChange={(id, qty) => useGroceryStore.getState().updateQuantity(id, qty)}
+        onDelete={(id) => remove(id)}
+      />
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: spacing.xxl }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
           {/* Folio */}
           <View style={styles.folio}>
-            <Text style={typography.folio}>lijst · {totalCount}</Text>
+            <Text style={typography.folio}>lijst · {items.length}</Text>
           </View>
 
           {/* Title + action buttons */}
@@ -127,54 +162,42 @@ export default function GroceryScreen() {
             </View>
           </View>
 
-          {/* Unchecked items */}
-          {uncheckedItems.length > 0 && (
-            <View style={styles.itemList}>
-              {uncheckedItems.map((item) => (
-                <GroceryItem
-                  key={item.id}
-                  item={item}
-                  onToggle={() => toggleChecked(item.id)}
-                  onDelete={() => remove(item.id)}
-                  onRemoveSource={(sourceId) => removeSingleSource(item.id, sourceId)}
-                />
-              ))}
+          {/* Total price */}
+          {total > 0 && (
+            <View style={styles.totalBar}>
+              <Text style={styles.totalText}>Totaal: €{total.toFixed(2)}</Text>
             </View>
           )}
 
-          {/* Checked section */}
-          {checkedItems.length > 0 && (
-            <View style={{ marginTop: spacing.xl }}>
-              <View style={styles.checkedHeader}>
-                <Text style={typography.folioBold}>gedaan</Text>
-                <View style={styles.rule} />
-                <TouchableOpacity onPress={clearChecked} activeOpacity={0.7}>
-                  <Text style={styles.clearText}>wis alles</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={[styles.itemList, { marginTop: spacing.sm }]}>
-                {checkedItems.map((item) => (
-                  <GroceryItem
-                    key={item.id}
-                    item={item}
-                    onToggle={() => toggleChecked(item.id)}
-                    onDelete={() => remove(item.id)}
-                    onRemoveSource={(sourceId) => removeSingleSource(item.id, sourceId)}
-                  />
-                ))}
-              </View>
-            </View>
-          )}
-
-          {/* Empty state */}
-          {totalCount === 0 && (
+          {/* Grouped list */}
+          {items.length === 0 ? (
             <View style={styles.empty}>
               <Text style={[typography.bodyItalic, { textAlign: 'center' }]}>
                 Je lijst is leeg.{'\n'}Voeg iets toe of haal uit een recept.
               </Text>
             </View>
+          ) : (
+            <FlatList
+              data={listData}
+              keyExtractor={(row, idx) =>
+                row.type === 'header' ? `header-${row.aisle}` : row.data.id
+              }
+              renderItem={renderItem}
+              contentContainerStyle={{ paddingBottom: spacing.md }}
+              showsVerticalScrollIndicator={false}
+              style={{ flex: 1 }}
+            />
           )}
-        </ScrollView>
+
+          {/* Bulk actions */}
+          <BulkActionsBar
+            uncheckedCount={uncheckedCount}
+            checkedCount={checkedCount}
+            onSelectAllUnchecked={handleSelectAllUnchecked}
+            onClearChecked={handleClearChecked}
+            onShare={handleShare}
+          />
+        </View>
       </KeyboardAvoidingView>
 
       {/* Manual add modal */}
@@ -189,28 +212,19 @@ export default function GroceryScreen() {
           style={{ flex: 1 }}
         >
           <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom']}>
-            {/* Modal header */}
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => { resetManualForm(); setManualModalVisible(false); }} hitSlop={8}>
                 <Ionicons name="close" size={22} color={colors.textLight} />
               </TouchableOpacity>
               <Text style={styles.modalTitle}>Item toevoegen</Text>
-              <TouchableOpacity
-                onPress={handleSaveManual}
-                disabled={!manualName.trim()}
-                hitSlop={8}
-              >
+              <TouchableOpacity onPress={handleSaveManual} disabled={!manualName.trim()} hitSlop={8}>
                 <Text style={[styles.modalSave, !manualName.trim() && { opacity: 0.35 }]}>
                   Voeg toe
                 </Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              contentContainerStyle={styles.modalContent}
-              keyboardShouldPersistTaps="handled"
-            >
-              {/* Name */}
+            <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>Naam</Text>
                 <TextInput
@@ -224,7 +238,6 @@ export default function GroceryScreen() {
                 />
               </View>
 
-              {/* Qty + Unit row */}
               <View style={styles.rowFields}>
                 <View style={[styles.fieldGroup, { flex: 1 }]}>
                   <Text style={styles.fieldLabel}>Hoeveelheid</Text>
@@ -251,7 +264,6 @@ export default function GroceryScreen() {
                 </View>
               </View>
 
-              {/* Category */}
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>Categorie</Text>
                 <ScrollView
@@ -259,7 +271,6 @@ export default function GroceryScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.catChips}
                 >
-                  {/* "Geen" chip */}
                   <TouchableOpacity
                     key="none"
                     style={[styles.catChip, manualCategory === '' && styles.catChipActive]}
@@ -299,29 +310,21 @@ export default function GroceryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-
   folio: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
   },
-
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
-
-  actionBtns: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-    paddingBottom: 4,
-  },
-
+  actionBtns: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingBottom: 4 },
   addBtn: {
     width: 40,
     height: 40,
@@ -330,7 +333,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   recipeBtn: {
     width: 40,
     height: 40,
@@ -340,41 +342,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  itemList: {
+  totalBar: {
     paddingHorizontal: spacing.lg,
-    gap: 8,
-    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderColor,
   },
-
-  checkedHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: spacing.lg,
+  totalText: {
+    fontSize: 14,
+    color: colors.secondary,
+    fontFamily: 'Inter_600SemiBold',
   },
-
-  rule: { flex: 1, height: 1, backgroundColor: colors.borderColor },
-
-  clearText: {
-    fontFamily: fonts.mono,
-    fontSize: 9,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    color: colors.primary,
-  },
-
   empty: {
+    flex: 1,
     paddingTop: spacing.xxl,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
   },
-
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  modalContainer: { flex: 1, backgroundColor: colors.background },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -384,23 +369,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: colors.borderColor,
   },
-  modalTitle: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    color: colors.textDark,
-  },
-  modalSave: {
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.primary,
-  },
-  modalContent: {
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  fieldGroup: {
-    gap: 6,
-  },
+  modalTitle: { fontFamily: fonts.display, fontSize: 16, color: colors.textDark },
+  modalSave: { fontFamily: fonts.display, fontSize: 15, color: colors.primary },
+  modalContent: { padding: spacing.lg, gap: spacing.lg },
+  fieldGroup: { gap: 6 },
   fieldLabel: {
     fontFamily: fonts.mono,
     fontSize: 9,
@@ -416,15 +388,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderColor,
     paddingVertical: 8,
   },
-  rowFields: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  catChips: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 4,
-  },
+  rowFields: { flexDirection: 'row', gap: spacing.md },
+  catChips: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
   catChip: {
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -433,16 +398,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderColor,
     backgroundColor: colors.background,
   },
-  catChipActive: {
-    backgroundColor: colors.textDark,
-    borderColor: colors.textDark,
-  },
-  catChipText: {
-    fontFamily: fonts.display,
-    fontSize: 13,
-    color: colors.textLight,
-  },
-  catChipTextActive: {
-    color: colors.background,
-  },
+  catChipActive: { backgroundColor: colors.textDark, borderColor: colors.textDark },
+  catChipText: { fontFamily: fonts.display, fontSize: 13, color: colors.textLight },
+  catChipTextActive: { color: colors.background },
 });

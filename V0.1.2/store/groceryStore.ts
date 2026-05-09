@@ -14,9 +14,15 @@ interface GroceryState {
   updateItemInStore: (id: string, updates: Partial<GroceryItem>) => void;
   removeItem: (id: string) => void;
   clearChecked: () => void;
+  selectAll: (checked: boolean) => void;
+  deleteItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
+  getCheckedCount: () => number;
+  getUncheckedCount: () => number;
+  getTotal: () => number;
 }
 
-export const useGroceryStore = create<GroceryState>((set) => ({
+export const useGroceryStore = create<GroceryState>((set, get) => ({
   items: [],
   isLoading: false,
   hasLoaded: false,
@@ -41,4 +47,28 @@ export const useGroceryStore = create<GroceryState>((set) => ({
 
   clearChecked: () =>
     set((state) => ({ items: state.items.filter((i) => !i.checked) })),
+
+  selectAll: (checked) =>
+    set((state) => ({ items: state.items.map((i) => ({ ...i, checked })) })),
+
+  deleteItem: (id) =>
+    set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
+
+  updateQuantity: (id, quantity) =>
+    set((state) => ({
+      items: state.items.map((i) => (i.id === id ? { ...i, totalQuantity: quantity } : i)),
+    })),
+
+  getCheckedCount: () => get().items.filter((i) => i.checked).length,
+
+  getUncheckedCount: () => get().items.filter((i) => !i.checked).length,
+
+  getTotal: () =>
+    get().items.reduce(
+      (sum, item) =>
+        item.price != null && item.totalQuantity > 0
+          ? sum + item.price * (item.totalQuantity / 100)
+          : sum,
+      0,
+    ),
 }));

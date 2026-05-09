@@ -17,6 +17,8 @@ interface RecipeState {
   removeRecipe: (id: string) => void;
   setSortBy: (sort: SortOption) => void;
   recipeExists: (title: string, sourceUrl?: string) => boolean;
+  toggleFavorite: (id: string) => void;
+  incrementTimesCooked: (id: string) => void;
 }
 
 export const useRecipeStore = create<RecipeState>((set, get) => ({
@@ -43,6 +45,22 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     set((state) => ({ recipes: state.recipes.filter((r) => r.id !== id) })),
 
   setSortBy: (sort) => set({ sortBy: sort }),
+
+  toggleFavorite: (id) =>
+    set((state) => ({
+      recipes: state.recipes.map((r) =>
+        r.id === id ? { ...r, isFavorite: !r.isFavorite, updatedAt: new Date().toISOString() } : r,
+      ),
+    })),
+
+  incrementTimesCooked: (id) =>
+    set((state) => ({
+      recipes: state.recipes.map((r) =>
+        r.id === id
+          ? { ...r, timesCooked: (r.timesCooked ?? 0) + 1, lastCooked: new Date().toISOString(), updatedAt: new Date().toISOString() }
+          : r,
+      ),
+    })),
 
   recipeExists: (title, sourceUrl) => {
     const state = get();

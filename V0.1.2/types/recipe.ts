@@ -51,6 +51,15 @@ export interface Recipe {
   allergens: string[];
   createdAt: string;
   updatedAt: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  preparationTime?: number;
+  cookingTime?: number;
+  servings?: number;
+  rating?: number;
+  timesCooked?: number;
+  lastCooked?: string;
+  notes?: string;
+  equipment?: string[];
 }
 
 export type RecipeInput = Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>;

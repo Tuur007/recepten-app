@@ -85,4 +85,8 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE recipes ADD COLUMN notes TEXT`,
   // v18: equipment list
   `ALTER TABLE recipes ADD COLUMN equipment TEXT`,
+  // v19: grocery aisle grouping
+  `ALTER TABLE grocery_items ADD COLUMN aisle TEXT`,
+  // v20: grocery item price (per 100 units)
+  `ALTER TABLE grocery_items ADD COLUMN price REAL`,
 ];

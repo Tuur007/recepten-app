@@ -320,6 +320,29 @@ export default function RecipeDetailScreen() {
             </View>
           </>
         )}
+
+        {/* Beoordeling & notities */}
+        <View style={styles.ratingSection}>
+          <View style={styles.ratingRow}>
+            {[1, 2, 3, 4, 5].map((s) => (
+              <TouchableOpacity
+                key={s}
+                onPress={() => update(recipe.id, { rating: s === recipe.rating ? 0 : s })}
+                hitSlop={6}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={recipe.rating && s <= recipe.rating ? 'star' : 'star-outline'}
+                  size={28}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+          {recipe.notes ? (
+            <Text style={styles.notesText}>{recipe.notes}</Text>
+          ) : null}
+        </View>
       </ScrollView>
 
       {/* Sticky CTA */}
@@ -652,6 +675,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: 8,
     marginBottom: spacing.md,
+  },
+  ratingSection: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    gap: spacing.md,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  notesText: {
+    fontFamily: fonts.display,
+    fontStyle: 'italic',
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textMedium,
   },
   allergenChip: {
     paddingHorizontal: 10,

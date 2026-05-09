@@ -68,6 +68,19 @@ export function RecipeCard({
           </View>
         </View>
 
+        {recipe.rating && recipe.rating > 0 ? (
+          <View style={styles.starsRow}>
+            {[1, 2, 3, 4, 5].map((s) => (
+              <Ionicons
+                key={s}
+                name={s <= recipe.rating! ? 'star' : 'star-outline'}
+                size={10}
+                color={colors.primary}
+              />
+            ))}
+          </View>
+        ) : null}
+
         <Text style={styles.date}>
           {new Date(recipe.createdAt).toLocaleDateString('nl-NL', {
             month: 'short',
@@ -136,6 +149,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '500',
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 2,
   },
   date: {
     fontSize: 11,

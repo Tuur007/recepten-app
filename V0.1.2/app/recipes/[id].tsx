@@ -23,6 +23,7 @@ import { DifficultyBadge } from '../../components/ui/DifficultyBadge';
 import { FavoriteButton } from '../../components/ui/FavoriteButton';
 import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
 import { ServingsSelector } from '../../components/ui/ServingsSelector';
+import { StarRating } from '../../components/ui/StarRating';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { generateId } from '../../utils/id';
 import { scaleIngredients } from '../../utils/servingsScaler';
@@ -51,6 +52,8 @@ export default function RecipeDetailScreen() {
   const [newIngName, setNewIngName] = useState('');
   const [newIngQty, setNewIngQty] = useState('');
   const [newIngUnit, setNewIngUnit] = useState('');
+  const [notesEdit, setNotesEdit] = useState(false);
+  const [notesTxt, setNotesTxt] = useState(recipe?.notes ?? '');
 
   const recipe = recipes.find(r => r.id === id);
 
@@ -301,27 +304,74 @@ export default function RecipeDetailScreen() {
           </>
         )}
 
-        {/* Beoordeling & notities */}
+        {/* Beoordeling */}
         <View style={styles.ratingSection}>
-          <View style={styles.ratingRow}>
-            {[1, 2, 3, 4, 5].map((s) => (
-              <TouchableOpacity
-                key={s}
-                onPress={() => update(recipe.id, { rating: s === recipe.rating ? 0 : s })}
-                hitSlop={6}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={recipe.rating && s <= recipe.rating ? 'star' : 'star-outline'}
-                  size={28}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
-            ))}
+          <StarRating
+            rating={recipe.rating ?? 0}
+            size="large"
+            onRate={(r) => update(recipe.id, { rating: r === recipe.rating ? 0 : r })}
+          />
+        </View>
+
+        {/* Times cooked */}
+        <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
+          <TouchableOpacity
+            onPress={async () => {
+              await update(recipe.id, {
+                timesCooked: (recipe.timesCooked ?? 0) + 1,
+                lastCooked: new Date().toISOString(),
+              });
+              Alert.alert('✅ Klaar!', 'Dit recept is gemarkeerd als gekookt');
+            }}
+            style={styles.cookedBtn}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.cookedBtnText}>👨‍🍳 Ik heb dit gekookt</Text>
+          </TouchableOpacity>
+          {recipe.lastCooked && (
+            <Text style={styles.cookedMeta}>
+              Laatst: {new Date(recipe.lastCooked).toLocaleDateString('nl-NL')}
+            </Text>
+          )}
+          {(recipe.timesCooked ?? 0) > 0 && (
+            <Text style={styles.cookedMeta}>{recipe.timesCooked}x gekookt</Text>
+          )}
+        </View>
+
+        {/* Notities */}
+        <View style={styles.notesSection}>
+          <View style={styles.notesSectionHeader}>
+            <Text style={typography.folioBold}>notities</Text>
+            <TouchableOpacity onPress={() => setNotesEdit(!notesEdit)} hitSlop={8}>
+              <Ionicons name={notesEdit ? 'close' : 'pencil'} size={16} color={colors.primary} />
+            </TouchableOpacity>
           </View>
-          {recipe.notes ? (
-            <Text style={styles.notesText}>{recipe.notes}</Text>
-          ) : null}
+          {notesEdit ? (
+            <>
+              <TextInput
+                value={notesTxt}
+                onChangeText={setNotesTxt}
+                placeholder="Voeg notities toe..."
+                placeholderTextColor={colors.textFaint}
+                multiline
+                numberOfLines={4}
+                style={styles.notesInput}
+              />
+              <TouchableOpacity
+                onPress={async () => {
+                  await update(recipe.id, { notes: notesTxt });
+                  setNotesEdit(false);
+                }}
+                style={styles.notesSaveBtn}
+              >
+                <Text style={styles.notesSaveBtnText}>Opslaan</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text style={styles.notesText}>
+              {recipe.notes || 'Geen notities. Tap het potlood om toe te voegen.'}
+            </Text>
+          )}
         </View>
       </ScrollView>
 
@@ -649,14 +699,68 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: spacing.md,
   },
+  cookedBtn: {
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    borderRadius: 8,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  cookedBtnText: {
+    color: colors.secondary,
+    fontFamily: fonts.display,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  cookedMeta: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 0.5,
+    color: colors.textLight,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
   ratingSection: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     gap: spacing.md,
   },
-  ratingRow: {
+  notesSection: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  notesSectionHeader: {
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  notesInput: {
+    borderWidth: 1,
+    borderColor: colors.borderColor,
+    borderRadius: 8,
+    padding: spacing.md,
+    minHeight: 100,
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.textDark,
+    textAlignVertical: 'top',
+  },
+  notesSaveBtn: {
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  notesSaveBtnText: {
+    color: colors.background,
+    fontFamily: fonts.display,
+    fontWeight: '600',
+    fontSize: 14,
   },
   notesText: {
     fontFamily: fonts.display,
@@ -666,19 +770,18 @@ const styles = StyleSheet.create({
     color: colors.textMedium,
   },
   allergenChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 4,
-    backgroundColor: colors.backgroundLight,
-    borderWidth: 0.5,
-    borderColor: colors.borderColor,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
   },
   allergenChipText: {
     fontFamily: fonts.mono,
     fontSize: 9,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textLight,
+    color: colors.background,
+    fontWeight: '600',
   },
   // Modal
   modal: { flex: 1, backgroundColor: PAPER },

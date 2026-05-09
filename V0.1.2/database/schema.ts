@@ -89,4 +89,6 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE grocery_items ADD COLUMN aisle TEXT`,
   // v20: grocery item price (per 100 units)
   `ALTER TABLE grocery_items ADD COLUMN price REAL`,
+  // v21: backfill duration from prep + cooking times
+  `UPDATE recipes SET duration=COALESCE(preparation_time,0)+COALESCE(cooking_time,0) WHERE preparation_time IS NOT NULL OR cooking_time IS NOT NULL`,
 ];

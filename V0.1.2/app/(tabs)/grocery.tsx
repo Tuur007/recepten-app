@@ -25,6 +25,7 @@ import { CategoryGroupHeader } from '../../features/grocery/components/CategoryG
 import { AddFromRecipeModal } from '../../features/grocery/components/AddFromRecipeModal';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { groupItems } from '../../utils/groceryGrouping';
+import { DEFAULT_AISLES } from '../../constants/aisles';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import type { Recipe } from '../../types/recipe';
 
@@ -56,6 +57,8 @@ export default function GroceryScreen() {
   const [manualQty, setManualQty] = useState('');
   const [manualUnit, setManualUnit] = useState('');
   const [manualCategory, setManualCategory] = useState('');
+  const [manualPrice, setManualPrice] = useState('');
+  const [manualAisle, setManualAisle] = useState<string>(DEFAULT_AISLES[8]);
 
   const listData = useMemo<ListRow[]>(() => {
     const grouped = groupItems(items);
@@ -74,16 +77,21 @@ export default function GroceryScreen() {
     setManualQty('');
     setManualUnit('');
     setManualCategory('');
+    setManualPrice('');
+    setManualAisle(DEFAULT_AISLES[8]);
   };
 
   const handleSaveManual = async () => {
     const name = manualName.trim();
     if (!name) return;
     const qty = parseFloat(manualQty) || 1;
+    const price = parseFloat(manualPrice) || undefined;
     await addManual({
       name,
       unit: manualUnit.trim(),
       category: manualCategory,
+      aisle: manualAisle,
+      price,
       sources: [{ sourceId: 'manual', sourceType: 'manual', sourceName: 'Handmatig', quantity: qty }],
       checked: false,
     });
@@ -248,6 +256,19 @@ export default function GroceryScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Prijs (€)</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={manualPrice}
+                  onChangeText={setManualPrice}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.textFaint}
+                  keyboardType="decimal-pad"
+                  returnKeyType="done"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>Categorie</Text>
                 <ScrollView
                   horizontal
@@ -271,6 +292,27 @@ export default function GroceryScreen() {
                     >
                       <Text style={[styles.catChipText, manualCategory === cat.name && styles.catChipTextActive]}>
                         {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Gang</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.catChips}
+                >
+                  {DEFAULT_AISLES.map((a) => (
+                    <TouchableOpacity
+                      key={a}
+                      style={[styles.catChip, manualAisle === a && styles.catChipActive]}
+                      onPress={() => setManualAisle(a)}
+                    >
+                      <Text style={[styles.catChipText, manualAisle === a && styles.catChipTextActive]}>
+                        {a}
                       </Text>
                     </TouchableOpacity>
                   ))}

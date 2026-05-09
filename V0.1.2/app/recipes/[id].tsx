@@ -22,8 +22,10 @@ import { LoadingScreen } from '../../components/LoadingScreen';
 import { DifficultyBadge } from '../../components/ui/DifficultyBadge';
 import { FavoriteButton } from '../../components/ui/FavoriteButton';
 import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
+import { ServingsSelector } from '../../components/ui/ServingsSelector';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { generateId } from '../../utils/id';
+import { scaleIngredients } from '../../utils/servingsScaler';
 import { Ingredient } from '../../types/recipe';
 import { ALLERGENS } from '../../types/recipe';
 
@@ -33,12 +35,6 @@ function stepText(step: unknown): string {
   if (typeof step === 'string') return step;
   if (step && typeof step === 'object' && 'text' in step) return String((step as { text: unknown }).text);
   return '';
-}
-
-function formatQty(qty: number): string {
-  if (!qty) return '';
-  const rounded = Math.round(qty * 100) / 100;
-  return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '');
 }
 
 export default function RecipeDetailScreen() {
@@ -58,17 +54,14 @@ export default function RecipeDetailScreen() {
 
   const recipe = recipes.find(r => r.id === id);
 
-  const baseServings = 4;
+  // Use the recipe's own servings as the base; fall back to 4
+  const baseServings = recipe?.servings ?? 4;
   const currentServings = servings ?? baseServings;
 
   const scaledIngredients = useMemo(() => {
     if (!recipe?.ingredients) return [];
-    const ratio = currentServings / baseServings;
-    return recipe.ingredients.map(ing => ({
-      ...ing,
-      displayQty: formatQty(ing.quantity * ratio),
-    }));
-  }, [recipe?.ingredients, currentServings]);
+    return scaleIngredients(recipe.ingredients, baseServings, currentServings);
+  }, [recipe?.ingredients, baseServings, currentServings]);
 
   if (isLoading) return <LoadingScreen />;
   if (!recipe) {
@@ -220,27 +213,14 @@ export default function RecipeDetailScreen() {
               <Text style={typography.label12}>{s.u}</Text>
             </View>
           ))}
-          {/* Servings adjuster */}
-          <View style={styles.statCol}>
-            <Ionicons name="people-outline" size={16} color={colors.textLight} />
-            <View style={styles.servingsRow}>
-              <TouchableOpacity
-                onPress={() => setServings(Math.max(1, currentServings - 1))}
-                hitSlop={6}
-              >
-                <Ionicons name="remove" size={14} color={colors.primary} />
-              </TouchableOpacity>
-              <Text style={styles.statValue}>{currentServings}</Text>
-              <TouchableOpacity
-                onPress={() => setServings(currentServings + 1)}
-                hitSlop={6}
-              >
-                <Ionicons name="add" size={14} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-            <Text style={typography.label12}>pers.</Text>
-          </View>
         </View>
+
+        {/* Servings selector */}
+        <ServingsSelector
+          current={currentServings}
+          defaultServings={baseServings}
+          onChange={setServings}
+        />
 
         {/* Ingrediënten */}
         <Section title="i. ingrediënten" count={recipe.ingredients?.length ?? 0} />
@@ -515,13 +495,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.display,
     fontSize: 22,
     color: colors.textDark,
-    marginTop: 6,
-    marginBottom: 4,
-  },
-  servingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
     marginTop: 6,
     marginBottom: 4,
   },

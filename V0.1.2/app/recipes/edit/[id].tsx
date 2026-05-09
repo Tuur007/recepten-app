@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -30,6 +31,8 @@ export default function EditRecipeScreen() {
   const { recipes, isLoading, update } = useRecipes();
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [notes, setNotes] = useState('');
+  const notesAutoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const recipe = recipes.find((r) => r.id === id);
   const form = useRecipeForm();
@@ -47,12 +50,25 @@ export default function EditRecipeScreen() {
         duration: recipe.duration,
         allergens: recipe.allergens ?? [],
       });
+      setNotes(recipe.notes ?? '');
       setInitialized(true);
     }
     // form is excluded: useRecipeForm returns a new object every render,
     // adding it would cause an infinite loop. initialized guards single-run.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipe, initialized]);
+
+  useEffect(() => {
+    if (!initialized || !id) return;
+    if (notesAutoSaveTimer.current) clearTimeout(notesAutoSaveTimer.current);
+    notesAutoSaveTimer.current = setTimeout(() => {
+      update(id, { notes });
+    }, 800);
+    return () => {
+      if (notesAutoSaveTimer.current) clearTimeout(notesAutoSaveTimer.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes]);
 
   if (isLoading) return <LoadingScreen />;
 
@@ -81,6 +97,7 @@ export default function EditRecipeScreen() {
         imageUri: form.imageUri,
         duration: form.duration,
         allergens: form.allergens,
+        notes: notes.trim() || undefined,
       });
       router.back();
     } catch {
@@ -175,6 +192,24 @@ export default function EditRecipeScreen() {
               })}
             </View>
           </View>
+
+          <View style={styles.section}>
+            <View style={styles.notesTitleRow}>
+              <Text style={styles.sectionTitle}>Notities</Text>
+              <Text style={[styles.notesCounter, notes.length > 480 && styles.notesCounterWarn]}>
+                {notes.length}/500
+              </Text>
+            </View>
+            <TextInput
+              style={styles.notesInput}
+              value={notes}
+              onChangeText={(t) => setNotes(t.slice(0, 500))}
+              placeholder="Persoonlijke notities, tips, variaties…"
+              placeholderTextColor={colors.textFaint}
+              multiline
+              textAlignVertical="top"
+            />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -224,5 +259,29 @@ const styles = StyleSheet.create({
   },
   allergenChipTextActive: {
     color: colors.white,
+  },
+  notesTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  notesCounter: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    color: colors.textFaint,
+  },
+  notesCounterWarn: {
+    color: colors.primary,
+  },
+  notesInput: {
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.textDark,
+    borderWidth: 1,
+    borderColor: colors.borderColor,
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 120,
+    lineHeight: 22,
   },
 });

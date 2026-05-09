@@ -19,6 +19,8 @@ interface RecipeState {
   recipeExists: (title: string, sourceUrl?: string) => boolean;
   toggleFavorite: (id: string) => void;
   incrementTimesCooked: (id: string) => void;
+  updateRating: (id: string, rating: number) => void;
+  updateNotes: (id: string, notes: string) => void;
 }
 
 export const useRecipeStore = create<RecipeState>((set, get) => ({
@@ -59,6 +61,20 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
         r.id === id
           ? { ...r, timesCooked: (r.timesCooked ?? 0) + 1, lastCooked: new Date().toISOString(), updatedAt: new Date().toISOString() }
           : r,
+      ),
+    })),
+
+  updateRating: (id, rating) =>
+    set((state) => ({
+      recipes: state.recipes.map((r) =>
+        r.id === id ? { ...r, rating, updatedAt: new Date().toISOString() } : r,
+      ),
+    })),
+
+  updateNotes: (id, notes) =>
+    set((state) => ({
+      recipes: state.recipes.map((r) =>
+        r.id === id ? { ...r, notes, updatedAt: new Date().toISOString() } : r,
       ),
     })),
 

@@ -13,3 +13,4 @@ web-build/
 .env.local
 ios/
 android/
+google-service-account.json

@@ -6,27 +6,60 @@
     "orientation": "portrait",
     "scheme": "recepten",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tuur007.recepten"
+      "bundleIdentifier": "com.tuur007.recepten",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "De app gebruikt de camera om foto's van recepten te maken.",
+        "NSPhotoLibraryUsageDescription": "De app gebruikt de fotobibliotheek om afbeeldingen voor recepten te kiezen.",
+        "NSPhotoLibraryAddUsageDescription": "De app slaat receptfoto's op in je fotobibliotheek."
+      }
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#16a34a"
       },
-      "package": "com.tuur007.recepten"
+      "package": "com.tuur007.recepten",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "bundler": "metro",
-      "output": "static"
+      "output": "static",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "expo-file-system"
+      "expo-file-system",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "De app gebruikt de fotobibliotheek om afbeeldingen voor recepten te kiezen.",
+          "cameraPermission": "De app gebruikt de camera om foto's van recepten te maken."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "VERVANG_MET_JE_EAS_PROJECT_ID"
+      }
     }
   }
 }

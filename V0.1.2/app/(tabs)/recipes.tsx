@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useCategories } from '../../store/categoriesStore';
 import { useFiltersStore } from '../../store/filtersStore';
-import { filterRecipes, sortRecipes } from '../../utils/filterRecipes';
+import { useFilteredRecipes } from '../../features/recipes/hooks/useFilteredRecipes';
 import { FilterBar } from '../../features/recipes/components/FilterBar';
 import { DifficultyBadge } from '../../components/ui/DifficultyBadge';
 import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
@@ -45,20 +45,7 @@ export default function RecipesScreen() {
     return recipes.filter((r) => r.category === activeCat);
   }, [recipes, activeCat]);
 
-  const filtered = useMemo(
-    () =>
-      filterRecipes(catFiltered, {
-        difficulty: filters.selectedDifficulty ?? undefined,
-        timeRange: filters.selectedTimeRange ?? undefined,
-        favoritesOnly: filters.favoritesOnly,
-      }),
-    [catFiltered, filters.selectedDifficulty, filters.selectedTimeRange, filters.favoritesOnly],
-  );
-
-  const sorted = useMemo(() => sortRecipes(filtered, filters.sortBy), [filtered, filters.sortBy]);
-
-  const featured = sorted[0];
-  const grid = useMemo(() => sorted.slice(1), [sorted]);
+  const { sorted, featured, grid } = useFilteredRecipes(catFiltered);
 
   const filterChips = [
     {

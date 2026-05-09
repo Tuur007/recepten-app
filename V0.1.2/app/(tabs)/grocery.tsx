@@ -5,7 +5,6 @@ import {
   Modal,
   Platform,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -16,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useGrocery } from '../../features/grocery/hooks';
+import { useBulkActions } from '../../features/grocery/hooks/useBulkActions';
 import { useGroceryStore } from '../../store/groceryStore';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useCategories } from '../../store/categoriesStore';
@@ -41,8 +41,8 @@ export default function GroceryScreen() {
     removeSingleSource,
     toggleChecked,
     remove,
-    clearChecked,
   } = useGrocery();
+  const { selectAll, clearChecked, share } = useBulkActions();
   const { recipes } = useRecipes();
   const { groceryCategories } = useCategories();
 
@@ -97,23 +97,6 @@ export default function GroceryScreen() {
     setRecipeModalVisible(false);
   };
 
-  const handleShare = async () => {
-    const text = items
-      .map(
-        (item) =>
-          `${item.checked ? '✓' : '○'} ${item.name}${item.totalQuantity > 0 ? ` (${item.totalQuantity}${item.unit ? ` ${item.unit}` : ''})` : ''}`,
-      )
-      .join('\n');
-    await Share.share({ message: text, title: 'Boodschappenlijst' });
-  };
-
-  const handleSelectAllUnchecked = () => {
-    useGroceryStore.getState().selectAll(true);
-  };
-
-  const handleClearChecked = async () => {
-    await clearChecked();
-  };
 
   const renderItem = ({ item }: { item: ListRow }) => {
     if (item.type === 'header') {
@@ -193,9 +176,9 @@ export default function GroceryScreen() {
           <BulkActionsBar
             uncheckedCount={uncheckedCount}
             checkedCount={checkedCount}
-            onSelectAllUnchecked={handleSelectAllUnchecked}
-            onClearChecked={handleClearChecked}
-            onShare={handleShare}
+            onSelectAllUnchecked={selectAll}
+            onClearChecked={clearChecked}
+            onShare={share}
           />
         </View>
       </KeyboardAvoidingView>

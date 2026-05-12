@@ -31,9 +31,10 @@ export default function HomeScreen() {
   const todayKey = DAY_KEYS[new Date().getDay()];
 
   const tonight = useMemo(() => {
-    const plannedIds = mealPlan[todayKey];
-    if (plannedIds?.length) {
-      const planned = recipes.find(r => r.id === plannedIds[0]);
+    const day = mealPlan[todayKey];
+    const dinnerId = day?.dinner;
+    if (dinnerId) {
+      const planned = recipes.find(r => r.id === dinnerId);
       if (planned) return planned;
     }
     return null;

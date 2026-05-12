@@ -1,5 +1,6 @@
 import { View, Pressable, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { haptics } from '../../../utils/feedback';
 
 interface Props {
   quantity: number;
@@ -18,12 +19,18 @@ export function QuantityControls({
 }: Props) {
   const handleDec = () => {
     const next = Math.max(minQuantity, quantity - 0.5);
-    if (next >= minQuantity) onQuantityChange(next);
+    if (next !== quantity) {
+      haptics.selection();
+      onQuantityChange(next);
+    }
   };
 
   const handleInc = () => {
     const next = Math.min(maxQuantity, quantity + 0.5);
-    if (next <= maxQuantity) onQuantityChange(next);
+    if (next !== quantity) {
+      haptics.selection();
+      onQuantityChange(next);
+    }
   };
 
   const display = Math.round(quantity * 100) / 100;

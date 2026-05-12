@@ -1,25 +1,37 @@
 import { create } from 'zustand';
 
+export type MealType = 'lunch' | 'dinner';
+
+export interface DayPlan {
+  lunch: string | null;
+  dinner: string | null;
+}
+
 export interface MealPlan {
-  [day: string]: string[];
+  [day: string]: DayPlan;
 }
 
 interface WeekPlannerState {
   mealPlan: MealPlan;
   setMealPlan: (plan: MealPlan) => void;
-  addMeal: (day: string, recipeId: string) => void;
-  removeMeal: (day: string, recipeId: string) => void;
+  setMeal: (day: string, mealType: MealType, recipeId: string) => void;
+  removeMeal: (day: string, mealType: MealType) => void;
   clearDay: (day: string) => void;
+  clearAll: () => void;
+}
+
+function emptyDay(): DayPlan {
+  return { lunch: null, dinner: null };
 }
 
 const initialMealPlan: MealPlan = {
-  MON: [],
-  TUE: [],
-  WED: [],
-  THU: [],
-  FRI: [],
-  SAT: [],
-  SUN: [],
+  MON: emptyDay(),
+  TUE: emptyDay(),
+  WED: emptyDay(),
+  THU: emptyDay(),
+  FRI: emptyDay(),
+  SAT: emptyDay(),
+  SUN: emptyDay(),
 };
 
 export const useWeekPlannerStore = create<WeekPlannerState>((set) => ({
@@ -27,19 +39,25 @@ export const useWeekPlannerStore = create<WeekPlannerState>((set) => ({
 
   setMealPlan: (plan) => set({ mealPlan: plan }),
 
-  addMeal: (day, recipeId) =>
+  setMeal: (day, mealType, recipeId) =>
     set((state) => ({
       mealPlan: {
         ...state.mealPlan,
-        [day]: [...(state.mealPlan[day] || []), recipeId],
+        [day]: {
+          ...(state.mealPlan[day] ?? emptyDay()),
+          [mealType]: recipeId,
+        },
       },
     })),
 
-  removeMeal: (day, recipeId) =>
+  removeMeal: (day, mealType) =>
     set((state) => ({
       mealPlan: {
         ...state.mealPlan,
-        [day]: (state.mealPlan[day] || []).filter((id) => id !== recipeId),
+        [day]: {
+          ...(state.mealPlan[day] ?? emptyDay()),
+          [mealType]: null,
+        },
       },
     })),
 
@@ -47,7 +65,20 @@ export const useWeekPlannerStore = create<WeekPlannerState>((set) => ({
     set((state) => ({
       mealPlan: {
         ...state.mealPlan,
-        [day]: [],
+        [day]: emptyDay(),
       },
     })),
+
+  clearAll: () =>
+    set({
+      mealPlan: {
+        MON: emptyDay(),
+        TUE: emptyDay(),
+        WED: emptyDay(),
+        THU: emptyDay(),
+        FRI: emptyDay(),
+        SAT: emptyDay(),
+        SUN: emptyDay(),
+      },
+    }),
 }));

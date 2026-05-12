@@ -1,21 +1,36 @@
-import { View, Pressable, Text } from 'react-native';
+import { Alert, View, Pressable, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface Props {
+  totalCount: number;
   uncheckedCount: number;
   checkedCount: number;
   onSelectAllUnchecked: () => void;
   onClearChecked: () => void;
+  onClearAll: () => void;
   onShare: () => void;
 }
 
 export function BulkActionsBar({
+  totalCount,
   uncheckedCount,
   checkedCount,
   onSelectAllUnchecked,
   onClearChecked,
+  onClearAll,
   onShare,
 }: Props) {
+  const handleClearAll = () => {
+    Alert.alert(
+      'Lijst wissen?',
+      `Hiermee verwijder je alle ${totalCount} items.`,
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        { text: 'Wissen', style: 'destructive', onPress: onClearAll },
+      ],
+    );
+  };
+
   return (
     <View
       style={{
@@ -26,12 +41,13 @@ export function BulkActionsBar({
         gap: 8,
       }}
     >
-      <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'space-between' }}>
+      <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
         {uncheckedCount > 0 && (
           <Pressable
             onPress={onSelectAllUnchecked}
             style={({ pressed }) => ({
               flex: 1,
+              minWidth: 110,
               paddingVertical: 10,
               backgroundColor: pressed ? '#D49A3A' : '#C2492A',
               borderRadius: 8,
@@ -45,7 +61,7 @@ export function BulkActionsBar({
             <Text
               style={{ color: '#F6F1E7', fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold' }}
             >
-              Select ({uncheckedCount})
+              Selecteer ({uncheckedCount})
             </Text>
           </Pressable>
         )}
@@ -55,6 +71,7 @@ export function BulkActionsBar({
             onPress={onClearChecked}
             style={({ pressed }) => ({
               flex: 1,
+              minWidth: 110,
               paddingVertical: 10,
               backgroundColor: pressed ? '#5A7B3A' : '#5A6B3A',
               borderRadius: 8,
@@ -68,7 +85,7 @@ export function BulkActionsBar({
             <Text
               style={{ color: '#F6F1E7', fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold' }}
             >
-              Clear ({checkedCount})
+              Ruim op ({checkedCount})
             </Text>
           </Pressable>
         )}
@@ -89,9 +106,33 @@ export function BulkActionsBar({
           <Text
             style={{ color: '#F6F1E7', fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold' }}
           >
-            Share
+            Deel
           </Text>
         </Pressable>
+
+        {totalCount > 0 && (
+          <Pressable
+            onPress={handleClearAll}
+            style={({ pressed }) => ({
+              paddingVertical: 10,
+              paddingHorizontal: 12,
+              backgroundColor: pressed ? 'rgba(194, 73, 42, 0.18)' : 'transparent',
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: '#C2492A',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+            })}
+          >
+            <MaterialCommunityIcons name="delete-sweep-outline" size={16} color="#C2492A" />
+            <Text
+              style={{ color: '#C2492A', fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold' }}
+            >
+              Wis alles
+            </Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );

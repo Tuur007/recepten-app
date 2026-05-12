@@ -5,6 +5,7 @@ import { Ingredient } from '../../types/recipe';
 import { GroceryRepository } from './repository';
 import { useGroceryStore } from '../../store/groceryStore';
 import { mergeIngredientsIntoGrocery, removeSourceFromGrocery } from '../../utils/merge';
+import { haptics, toast } from '../../utils/feedback';
 
 export function useGrocery() {
   const db = useSQLiteContext();
@@ -38,22 +39,43 @@ export function useGrocery() {
 
   const addManual = useCallback(
     async (input: GroceryItemInput): Promise<GroceryItem> => {
-      const item = await GroceryRepository.create(db, input);
-      addItem(item);
-      return item;
+      try {
+        const item = await GroceryRepository.create(db, input);
+        addItem(item);
+        haptics.success();
+        toast.success('Toegevoegd', input.name);
+        return item;
+      } catch (err) {
+        console.error('[useGrocery.addManual] Failed:', err);
+        haptics.error();
+        toast.error('Niet opgeslagen', 'Kon item niet toevoegen.');
+        throw err;
+      }
     },
     [db, addItem],
   );
 
   const addFromRecipe = useCallback(
     async (ingredients: Ingredient[], recipeId: string, recipeName: string): Promise<void> => {
-      const merged = mergeIngredientsIntoGrocery(items, ingredients, recipeId, recipeName);
+      try {
+        const merged = mergeIngredientsIntoGrocery(items, ingredients, recipeId, recipeName);
 
-      await db.withTransactionAsync(async () => {
-        await GroceryRepository.upsertMany(db, merged);
-      });
+        await db.withTransactionAsync(async () => {
+          await GroceryRepository.upsertMany(db, merged);
+        });
 
-      setItems(merged);
+        setItems(merged);
+        haptics.success();
+        toast.success(
+          `${ingredients.length} ${ingredients.length === 1 ? 'ingrediënt' : 'ingrediënten'} toegevoegd`,
+          recipeName,
+        );
+      } catch (err) {
+        console.error('[useGrocery.addFromRecipe] Failed:', err);
+        haptics.error();
+        toast.error('Niet opgeslagen', 'Kon ingrediënten niet toevoegen.');
+        throw err;
+      }
     },
     [db, items, setItems],
   );
@@ -118,24 +140,73 @@ export function useGrocery() {
       const item = items.find((i) => i.id === id);
       if (!item) return;
       const checked = !item.checked;
-      await GroceryRepository.update(db, id, { checked });
+      // Optimistic: update UI immediately, fire haptic, then persist.
       updateItemInStore(id, { checked });
+      haptics.light();
+      try {
+        await GroceryRepository.update(db, id, { checked });
+      } catch (err) {
+        console.error('[useGrocery.toggleChecked] Failed:', err);
+        // Rollback
+        updateItemInStore(id, { checked: !checked });
+        toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.');
+        throw err;
+      }
     },
     [db, items, updateItemInStore],
   );
 
   const remove = useCallback(
     async (id: string): Promise<void> => {
-      await GroceryRepository.delete(db, id);
+      const item = items.find((i) => i.id === id);
+      // Optimistic
       removeItem(id);
+      try {
+        await GroceryRepository.delete(db, id);
+        haptics.medium();
+      } catch (err) {
+        console.error('[useGrocery.remove] Failed:', err);
+        if (item) addItem(item);
+        toast.error('Niet verwijderd', 'Probeer opnieuw.');
+        throw err;
+      }
     },
-    [db, removeItem],
+    [db, items, removeItem, addItem],
   );
 
   const clearChecked = useCallback(async (): Promise<void> => {
-    await GroceryRepository.clearChecked(db);
-    clearCheckedInStore();
-  }, [db, clearCheckedInStore]);
+    const count = items.filter((i) => i.checked).length;
+    try {
+      await GroceryRepository.clearChecked(db);
+      clearCheckedInStore();
+      haptics.success();
+      if (count > 0) {
+        toast.success(`${count} ${count === 1 ? 'item' : 'items'} opgeruimd`);
+      }
+    } catch (err) {
+      console.error('[useGrocery.clearChecked] Failed:', err);
+      toast.error('Niet opgeruimd', 'Probeer opnieuw.');
+      throw err;
+    }
+  }, [db, items, clearCheckedInStore]);
+
+  const clearAll = useCallback(async (): Promise<void> => {
+    if (items.length === 0) return;
+    try {
+      await db.withTransactionAsync(async () => {
+        for (const item of items) {
+          await GroceryRepository.delete(db, item.id);
+        }
+      });
+      setItems([]);
+      haptics.warning();
+      toast.success('Lijst geleegd');
+    } catch (err) {
+      console.error('[useGrocery.clearAll] Failed:', err);
+      toast.error('Niet geleegd', 'Probeer opnieuw.');
+      throw err;
+    }
+  }, [db, items, setItems]);
 
   return {
     items,
@@ -150,5 +221,6 @@ export function useGrocery() {
     toggleChecked,
     remove,
     clearChecked,
+    clearAll,
   };
 }

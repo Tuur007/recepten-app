@@ -16,13 +16,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRecipes } from '../../features/recipes/hooks';
-import { useWeekPlannerStore } from '../../store/weekPlannerStore';
+import { useWeekPlannerStore, type MealType } from '../../store/weekPlannerStore';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import type { Recipe } from '../../types/recipe';
+import { haptics, toast } from '../../utils/feedback';
 
 const DAY_KEYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
 const DAY_LABELS = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
+
+const MEAL_TYPES: MealType[] = ['lunch', 'dinner'];
+const MEAL_LABEL: Record<MealType, string> = {
+  lunch: 'lunch',
+  dinner: 'diner',
+};
+const MEAL_ICON: Record<MealType, keyof typeof Ionicons.glyphMap> = {
+  lunch: 'sunny-outline',
+  dinner: 'moon-outline',
+};
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -33,12 +44,17 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+interface PickerTarget {
+  day: string;
+  mealType: MealType;
+}
+
 export default function WeekPlannerScreen() {
   const router = useRouter();
   const { recipes, isLoading } = useRecipes();
-  const { mealPlan, addMeal, clearDay } = useWeekPlannerStore();
+  const { mealPlan, setMeal, removeMeal } = useWeekPlannerStore();
 
-  const [pickerDay, setPickerDay] = useState<string | null>(null);
+  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
   const [pickerQuery, setPickerQuery] = useState('');
   const [prefModalVisible, setPrefModalVisible] = useState(false);
   const [prefVeg, setPrefVeg] = useState(false);
@@ -67,12 +83,11 @@ export default function WeekPlannerScreen() {
   }, []);
 
   const getRecipe = useCallback(
-    (key: string) => {
-      const ids = mealPlan[key];
-      if (!ids?.length) return null;
-      return recipes.find((r) => r.id === ids[0]) ?? null;
+    (recipeId: string | null) => {
+      if (!recipeId) return null;
+      return recipes.find((r) => r.id === recipeId) ?? null;
     },
-    [mealPlan, recipes],
+    [recipes],
   );
 
   const filteredPickerRecipes = useMemo(() => {
@@ -81,14 +96,22 @@ export default function WeekPlannerScreen() {
     return recipes.filter((r) => r.title.toLowerCase().includes(q));
   }, [recipes, pickerQuery]);
 
-  const handleAdd = useCallback(
-    (dayKey: string, recipeId: string) => {
-      clearDay(dayKey);
-      addMeal(dayKey, recipeId);
-      setPickerDay(null);
+  const handlePick = useCallback(
+    (recipeId: string) => {
+      if (!pickerTarget) return;
+      setMeal(pickerTarget.day, pickerTarget.mealType, recipeId);
+      haptics.light();
+      const recipe = recipes.find((r) => r.id === recipeId);
+      if (recipe) {
+        toast.success(
+          `Ingepland · ${MEAL_LABEL[pickerTarget.mealType]}`,
+          recipe.title,
+        );
+      }
+      setPickerTarget(null);
       setPickerQuery('');
     },
-    [clearDay, addMeal],
+    [pickerTarget, setMeal, recipes],
   );
 
   const applyFillGaps = useCallback(
@@ -97,26 +120,43 @@ export default function WeekPlannerScreen() {
         Alert.alert('Geen recepten', 'Geen recepten gevonden met deze filters.');
         return;
       }
-      const emptyDays = weekDays.filter(({ key }) => !mealPlan[key]?.length);
-      if (!emptyDays.length) {
-        Alert.alert('Volledig', 'Alle dagen zijn al ingevuld.');
+
+      // Collect (day, mealType) slots that are still empty.
+      const emptySlots: PickerTarget[] = [];
+      weekDays.forEach(({ key }) => {
+        const day = mealPlan[key];
+        MEAL_TYPES.forEach((mealType) => {
+          if (!day || !day[mealType]) emptySlots.push({ day: key, mealType });
+        });
+      });
+
+      if (!emptySlots.length) {
+        Alert.alert('Volledig', 'Alle maaltijden zijn al ingevuld.');
         return;
       }
 
-      // Already-used IDs this week to maximise variety
-      const usedIds = new Set(
-        weekDays.flatMap(({ key }) => mealPlan[key] ?? []),
-      );
+      // Already-used IDs this week to maximise variety.
+      const usedIds = new Set<string>();
+      weekDays.forEach(({ key }) => {
+        const day = mealPlan[key];
+        if (day?.lunch) usedIds.add(day.lunch);
+        if (day?.dinner) usedIds.add(day.dinner);
+      });
+
       const preferred = shuffle(pool.filter((r) => !usedIds.has(r.id)));
       const fallback = shuffle(pool.filter((r) => usedIds.has(r.id)));
       const ordered = [...preferred, ...fallback];
 
-      emptyDays.forEach(({ key }, i) => {
+      emptySlots.forEach((slot, i) => {
         const recipe = ordered[i % ordered.length];
-        addMeal(key, recipe.id);
+        setMeal(slot.day, slot.mealType, recipe.id);
       });
+      haptics.success();
+      toast.success(
+        `${emptySlots.length} ${emptySlots.length === 1 ? 'maaltijd' : 'maaltijden'} ingepland`,
+      );
     },
-    [weekDays, mealPlan, addMeal],
+    [weekDays, mealPlan, setMeal],
   );
 
   const handleFillGaps = useCallback(() => {
@@ -134,7 +174,7 @@ export default function WeekPlannerScreen() {
     if (prefVeg) pool = pool.filter((r) => r.category === 'Vegetarisch');
     if (prefSnel) pool = pool.filter((r) => r.category === 'Snel' || (r.duration != null && r.duration <= 30));
     if (maxMin && maxMin > 0) pool = pool.filter((r) => !r.duration || r.duration <= maxMin);
-    if (!pool.length) pool = [...recipes]; // fallback to all
+    if (!pool.length) pool = [...recipes];
     applyFillGaps(pool);
   }, [recipes, prefVeg, prefSnel, prefMaxMin, applyFillGaps]);
 
@@ -158,39 +198,84 @@ export default function WeekPlannerScreen() {
         {/* Days */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
           {weekDays.map(({ key, label, date }) => {
-            const recipe = getRecipe(key);
+            const day = mealPlan[key];
             return (
-              <View key={key} style={styles.dayRow}>
-                <Text style={styles.dayName}>{label}</Text>
+              <View key={key} style={styles.dayCard}>
+                <View style={styles.dayCardHeader}>
+                  <Text style={styles.dayName}>{label}</Text>
+                  <Text style={styles.dateMono}>{date}</Text>
+                </View>
 
-                {recipe ? (
-                  <TouchableOpacity
-                    style={styles.recipeRow}
-                    onPress={() => router.push(`/recipes/${recipe.id}`)}
-                    activeOpacity={0.7}
-                  >
-                    {recipe.imageUri ? (
-                      <Image source={{ uri: recipe.imageUri }} style={styles.thumb} />
-                    ) : (
-                      <View style={[styles.thumb, styles.thumbPlaceholder]} />
-                    )}
-                    <Text style={styles.recipeTitle} numberOfLines={1}>{recipe.title}</Text>
-                    <TouchableOpacity onPress={() => clearDay(key)} hitSlop={12}>
-                      <Ionicons name="close-circle-outline" size={18} color={colors.textFaint} />
-                    </TouchableOpacity>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.emptyRow}
-                    onPress={() => setPickerDay(key)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="add" size={14} color={colors.primary} />
-                    <Text style={styles.emptyText}>kies een recept</Text>
-                  </TouchableOpacity>
-                )}
+                {MEAL_TYPES.map((mealType) => {
+                  const recipe = getRecipe(day?.[mealType] ?? null);
+                  return (
+                    <View key={mealType} style={styles.mealRow}>
+                      <View style={styles.mealLabelCol}>
+                        <Ionicons
+                          name={MEAL_ICON[mealType]}
+                          size={12}
+                          color={colors.textFaint}
+                        />
+                        <Text style={styles.mealLabel}>{MEAL_LABEL[mealType]}</Text>
+                      </View>
 
-                <Text style={styles.dateMono}>{date}</Text>
+                      {recipe ? (
+                        <TouchableOpacity
+                          style={styles.recipeRow}
+                          onPress={() => router.push(`/recipes/${recipe.id}`)}
+                          activeOpacity={0.7}
+                        >
+                          {recipe.imageUri ? (
+                            <Image source={{ uri: recipe.imageUri }} style={styles.thumb} />
+                          ) : (
+                            <View style={[styles.thumb, styles.thumbPlaceholder]} />
+                          )}
+                          <Text style={styles.recipeTitle} numberOfLines={1}>
+                            {recipe.title}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              setPickerTarget({ day: key, mealType });
+                            }}
+                            hitSlop={10}
+                            style={styles.mealActionBtn}
+                          >
+                            <Ionicons
+                              name="swap-horizontal"
+                              size={16}
+                              color={colors.textFaint}
+                            />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              haptics.light();
+                              removeMeal(key, mealType);
+                            }}
+                            hitSlop={10}
+                            style={styles.mealActionBtn}
+                          >
+                            <Ionicons
+                              name="close-circle-outline"
+                              size={18}
+                              color={colors.textFaint}
+                            />
+                          </TouchableOpacity>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.emptyRow}
+                          onPress={() => setPickerTarget({ day: key, mealType })}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="add" size={14} color={colors.primary} />
+                          <Text style={styles.emptyText}>kies een recept</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             );
           })}
@@ -205,15 +290,19 @@ export default function WeekPlannerScreen() {
 
       {/* ── Recipe picker modal ── */}
       <Modal
-        visible={!!pickerDay}
+        visible={!!pickerTarget}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => { setPickerDay(null); setPickerQuery(''); }}
+        onRequestClose={() => { setPickerTarget(null); setPickerQuery(''); }}
       >
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Kies een recept</Text>
-            <TouchableOpacity onPress={() => { setPickerDay(null); setPickerQuery(''); }} hitSlop={8}>
+            <Text style={styles.modalTitle}>
+              {pickerTarget
+                ? `Kies een recept · ${MEAL_LABEL[pickerTarget.mealType]}`
+                : 'Kies een recept'}
+            </Text>
+            <TouchableOpacity onPress={() => { setPickerTarget(null); setPickerQuery(''); }} hitSlop={8}>
               <Ionicons name="close" size={24} color={colors.textDark} />
             </TouchableOpacity>
           </View>
@@ -241,7 +330,7 @@ export default function WeekPlannerScreen() {
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.pickerRow}
-                onPress={() => handleAdd(pickerDay!, item.id)}
+                onPress={() => handlePick(item.id)}
                 activeOpacity={0.75}
               >
                 {item.imageUri ? (
@@ -286,7 +375,7 @@ export default function WeekPlannerScreen() {
 
           <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: 20 }}>
             <Text style={[typography.bodyItalic, { marginBottom: spacing.sm }]}>
-              Pas de filter aan om de lege dagen te vullen.
+              Pas de filter aan om alle lege maaltijden te vullen.
             </Text>
 
             <PrefToggle
@@ -297,7 +386,7 @@ export default function WeekPlannerScreen() {
             />
             <PrefToggle
               icon="flash-outline"
-              label="Alleen snel (&lt;30 min)"
+              label="Alleen snel (<30 min)"
               value={prefSnel}
               onToggle={() => setPrefSnel((v) => !v)}
             />
@@ -339,7 +428,7 @@ function PrefToggle({
 }: { icon: string; label: string; value: boolean; onToggle: () => void }) {
   return (
     <TouchableOpacity style={styles.prefToggleRow} onPress={onToggle} activeOpacity={0.7}>
-      <Ionicons name={icon as any} size={18} color={value ? colors.primary : colors.textLight} />
+      <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={18} color={value ? colors.primary : colors.textLight} />
       <Text style={[styles.prefToggleLabel, value && { color: colors.primary }]}>{label}</Text>
       <Ionicons
         name={value ? 'checkmark-circle' : 'ellipse-outline'}
@@ -359,30 +448,61 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   divider: { width: 32, height: 1, backgroundColor: colors.borderColor, marginTop: spacing.sm },
-  dayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
+
+  dayCard: {
+    paddingVertical: spacing.md,
     borderBottomWidth: 0.5,
     borderBottomColor: colors.borderSoft,
-    gap: 8,
+  },
+  dayCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
   dayName: {
-    width: 80,
     fontFamily: fonts.displayItalic,
     fontStyle: 'italic',
-    fontSize: 13,
+    fontSize: 15,
+    color: colors.textDark,
+  },
+  dateMono: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    color: colors.textFaint,
+  },
+
+  mealRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 8,
+  },
+  mealLabelCol: {
+    width: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  mealLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
     color: colors.textLight,
   },
+
   recipeRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  thumb: { width: 32, height: 32, borderRadius: 16 },
+  thumb: { width: 28, height: 28, borderRadius: 14 },
   thumbPlaceholder: { backgroundColor: colors.backgroundLight },
   recipeTitle: {
     flex: 1,
     fontFamily: fonts.display,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.textDark,
   },
+  mealActionBtn: { padding: 2 },
+
   emptyRow: {
     flex: 1,
     flexDirection: 'row',
@@ -396,13 +516,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textFaint,
   },
-  dateMono: {
-    fontFamily: fonts.mono,
-    fontSize: 9,
-    color: colors.textFaint,
-    width: 18,
-    textAlign: 'right',
-  },
+
   footerHint: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -417,6 +531,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
   },
+
   modal: { flex: 1, backgroundColor: colors.background },
   modalHeader: {
     flexDirection: 'row',
@@ -429,8 +544,10 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontFamily: fonts.display,
-    fontSize: 18,
+    fontSize: 17,
     color: colors.textDark,
+    flex: 1,
+    paddingRight: spacing.md,
   },
   searchRow: {
     flexDirection: 'row',
@@ -465,7 +582,7 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     marginBottom: 2,
   },
-  // Preferences
+
   prefToggleRow: {
     flexDirection: 'row',
     alignItems: 'center',

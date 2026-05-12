@@ -1,6 +1,6 @@
 import { generateId } from '../utils/id';
-import { fetchImageWithRetry } from './imageExtractor';
-import { saveImageLocally, validateImageUri } from '../utils/imageStorage';
+import { downloadImageToLocal } from './imageExtractor';
+import { validateImageUri } from '../utils/imageStorage';
 
 export interface ParsedIngredient {
   id: string;
@@ -21,19 +21,26 @@ export interface ParsedRecipe {
 
 // ─── Image fetch + persist ────────────────────────────────────────────────────
 
-export async function extractAndSaveImage(url: string): Promise<string | undefined> {
+/**
+ * Download a remote image URL and save it locally. `referer` should be the
+ * page URL the image was discovered on so hotlink-protected CDNs accept the
+ * request. Falls through the same hardened pipeline as the full HTML scraper.
+ */
+export async function extractAndSaveImage(
+  url: string,
+  referer: string,
+): Promise<string | undefined> {
   try {
-    console.log(`🔵 [extractAndSaveImage] Fetching image: ${url}`);
-    const blob = await fetchImageWithRetry(url);
-    if (!blob) {
-      console.warn('[extractAndSaveImage] Could not fetch image blob');
+    console.log(`🔵 [extractAndSaveImage] Downloading image: ${url}`);
+    const savedPath = await downloadImageToLocal(url, referer);
+    if (!savedPath) {
+      console.warn('[extractAndSaveImage] Download pipeline returned no path');
       return undefined;
     }
-    console.log(`🔵 [extractAndSaveImage] Saving image (${blob.size} bytes)…`);
-    const savedPath = await saveImageLocally(blob);
-    if (!savedPath) {
-      console.warn('[extractAndSaveImage] Could not save image locally');
-      return undefined;
+    // Data URIs are valid for rendering but won't exist on disk.
+    if (savedPath.startsWith('data:')) {
+      console.log('✅ [extractAndSaveImage] Image ready (data URI fallback)');
+      return savedPath;
     }
     const valid = await validateImageUri(savedPath);
     if (!valid) {

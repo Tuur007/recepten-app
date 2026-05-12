@@ -51,11 +51,15 @@ export function useRecipeForm(initial?: Partial<RecipeFormState>) {
       prev.includes(allergen) ? prev.filter((a) => a !== allergen) : [...prev, allergen],
     );
 
-  const reset = (values: RecipeFormState) => {
-    setTitle(values.title);
-    setCategory(values.category);
-    setIngredients(values.ingredients.length > 0 ? values.ingredients : [emptyIngredient()]);
-    setSteps(values.steps.length > 0 ? values.steps : ['']);
+  const reset = (values: Partial<RecipeFormState>) => {
+    setTitle(values.title ?? '');
+    setCategory(values.category ?? '');
+    setIngredients(
+      values.ingredients && values.ingredients.length > 0
+        ? values.ingredients
+        : [emptyIngredient()],
+    );
+    setSteps(values.steps && values.steps.length > 0 ? values.steps : ['']);
     setImageUri(values.imageUri);
     setDuration(values.duration);
     setAllergens(values.allergens ?? []);

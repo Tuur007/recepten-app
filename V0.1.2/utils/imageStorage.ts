@@ -1,10 +1,16 @@
 import { generateId } from './id';
 
-let FS: typeof import('expo-file-system') | null = null;
+// v19 moved documentDirectory / EncodingType / writeAsStringAsync etc.
+// under the legacy subpath; import that to keep types & runtime aligned.
+let FS: typeof import('expo-file-system/legacy') | null = null;
 try {
-  FS = require('expo-file-system');
+  FS = require('expo-file-system/legacy');
 } catch {
-  // expo-file-system unavailable (e.g. Expo Snack) — image features disabled
+  try {
+    FS = require('expo-file-system');
+  } catch {
+    // expo-file-system unavailable (e.g. Expo Snack) — image features disabled
+  }
 }
 
 const RECIPES_IMAGE_DIR: string = FS?.documentDirectory
@@ -55,45 +61,6 @@ export async function recipeImageExists(imageUri: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-// ─── Blob → local file ────────────────────────────────────────────────────────
-// Converts a Blob to base64 and writes it to documentDirectory/recipes_images/.
-// Returns the local file:// path, or null on failure.
-
-export async function saveImageLocally(blob: Blob): Promise<string | null> {
-  if (!FS || !RECIPES_IMAGE_DIR) return null;
-  try {
-    const filename = `recipe-${generateId()}.jpg`;
-    await initImageDirectory();
-    const base64 = await blobToBase64(blob);
-    const filePath = `${RECIPES_IMAGE_DIR}/${filename}`;
-    await FS.writeAsStringAsync(filePath, base64, { encoding: FS.EncodingType.Base64 });
-    const info = await FS.getInfoAsync(filePath);
-    const size = (info as { size?: number }).size ?? 0;
-    if (!info.exists || size === 0) {
-      console.warn('[saveImageLocally] file missing or empty after write');
-      return null;
-    }
-    console.log(`[saveImageLocally] ✅ Saved: ${filePath} (${size} bytes)`);
-    return filePath;
-  } catch (e) {
-    console.error('[saveImageLocally] ❌ Failed:', e instanceof Error ? e.message : e);
-    return null;
-  }
-}
-
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      const base64 = result.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
 }
 
 // Checks that a path points to an existing non-empty file.

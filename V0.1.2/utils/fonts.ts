@@ -1,7 +1,7 @@
 import {
   useFonts as useFraunces,
   Fraunces_400Regular,
-  Fraunces_400Italic,
+  Fraunces_400Regular_Italic,
   Fraunces_500Medium,
 } from '@expo-google-fonts/fraunces';
 import {
@@ -17,7 +17,10 @@ import {
 export function useEditorialFonts(): boolean {
   const [loaded, error] = useFraunces({
     Fraunces_400Regular,
-    Fraunces_400Italic,
+    // Register under the legacy alias used across the design system so existing
+    // `fontFamily: 'Fraunces_400Italic'` references keep working after v0.3.0
+    // renamed the export to Fraunces_400Regular_Italic.
+    Fraunces_400Italic: Fraunces_400Regular_Italic,
     Fraunces_500Medium,
     Inter_400Regular,
     Inter_500Medium,

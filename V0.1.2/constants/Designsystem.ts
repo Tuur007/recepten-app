@@ -48,6 +48,7 @@ export const colors = {
   border: 'rgba(25,22,19,0.15)',
   green: '#5A6B3A',
   danger: '#C2492A',
+  dangerLight: 'rgba(194, 73, 42, 0.12)',
 
   // Family member colors (zelfde als bestaand, lichtjes herschikt naar editorial)
   family: {

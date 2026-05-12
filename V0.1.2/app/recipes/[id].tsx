@@ -49,6 +49,8 @@ export default function RecipeDetailScreen() {
   const { recipes, isLoading, update, remove } = useRecipes();
   const { addFromRecipe } = useGrocery();
 
+  const recipe = recipes.find(r => r.id === id);
+
   const [cookStep, setCookStep] = useState<number | null>(null);
   const [servings, setServings] = useState<number | null>(null);
   const [groceryModalVisible, setGroceryModalVisible] = useState(false);
@@ -58,9 +60,7 @@ export default function RecipeDetailScreen() {
   const [newIngQty, setNewIngQty] = useState('');
   const [newIngUnit, setNewIngUnit] = useState('');
   const [notesEdit, setNotesEdit] = useState(false);
-  const [notesTxt, setNotesTxt] = useState(recipe?.notes ?? '');
-
-  const recipe = recipes.find(r => r.id === id);
+  const [notesTxt, setNotesTxt] = useState(() => recipe?.notes ?? '');
 
   // Use the recipe's own servings as the base; fall back to 4
   const baseServings = recipe?.servings ?? 4;
@@ -347,7 +347,13 @@ export default function RecipeDetailScreen() {
         <View style={styles.notesSection}>
           <View style={styles.notesSectionHeader}>
             <Text style={typography.folioBold}>notities</Text>
-            <TouchableOpacity onPress={() => setNotesEdit(!notesEdit)} hitSlop={8}>
+            <TouchableOpacity
+              onPress={() => {
+                if (!notesEdit) setNotesTxt(recipe.notes ?? '');
+                setNotesEdit(!notesEdit);
+              }}
+              hitSlop={8}
+            >
               <Ionicons name={notesEdit ? 'close' : 'pencil'} size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>

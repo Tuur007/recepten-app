@@ -73,7 +73,7 @@ export default function ImportRecipeScreen() {
       try {
         if (parsed.imageUrl) {
           console.log(`🔵 [import] Using og:image URL: ${parsed.imageUrl}`);
-          imageUri = await extractAndSaveImage(parsed.imageUrl);
+          imageUri = await extractAndSaveImage(parsed.imageUrl, trimmedUrl);
         }
         if (!imageUri) {
           console.log('🔵 [import] Falling back to extractImageFromUrl…');

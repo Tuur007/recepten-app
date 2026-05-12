@@ -10,7 +10,11 @@ export const RECIPE_CATEGORIES = [
   'Dranken',
 ] as const;
 
-export type RecipeCategory = (typeof RECIPE_CATEGORIES)[number] | '';
+// User-customisable: the categoriesStore lets users add/rename/remove
+// categories at runtime, so the persisted value is a free-form string.
+// RECIPE_CATEGORIES above is kept as a convenience constant for the
+// built-in starter set used by category-picker UI and detection helpers.
+export type RecipeCategory = string;
 
 export const ALLERGENS = [
   'Gluten',

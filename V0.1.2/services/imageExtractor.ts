@@ -27,7 +27,7 @@
 
 declare const __DEV__: boolean;
 
-interface ImageCandidate {
+export interface ImageCandidate {
   url: string;
   score: number;
   source: string;
@@ -53,6 +53,25 @@ function getImageDir(): string {
 }
 
 // ─── Public entry point ───────────────────────────────────────────────────────
+
+/**
+ * Download a remote image URL through the same hardened pipeline used by
+ * extractImageFromUrl: FS.downloadAsync with Referer/Origin headers, magic-byte
+ * validation, retry-with-backoff, and fall-back to fetch+ArrayBuffer when the
+ * native download path fails. Returns a local file path (or data URI on Snack)
+ * suitable for storing in the recipe row, or `undefined` on failure.
+ *
+ * `referer` should be the page URL the image was discovered on; many CDNs
+ * (Colruyt, AH, Jumbo) reject direct hotlinks without it.
+ */
+export async function downloadImageToLocal(
+  imageUrl: string,
+  referer: string,
+): Promise<string | undefined> {
+  if (!imageUrl) return undefined;
+  log('downloadImageToLocal', imageUrl.slice(0, 90), 'referer=', referer.slice(0, 60));
+  return downloadWithRetry(imageUrl, referer, 2);
+}
 
 export async function extractImageFromUrl(url: string): Promise<string | undefined> {
   log('━━━ extractImageFromUrl START', url);
@@ -317,7 +336,12 @@ async function downloadImage(
 
 // ─── HTML image extraction ────────────────────────────────────────────────────
 
-function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[] {
+/**
+ * Pure extraction: pull every image signal out of `html`, score it, return the
+ * candidates sorted highest score first. Exported so the integration test can
+ * exercise the same code path the app uses, with no FS dependency.
+ */
+export function extractImageCandidates(html: string, baseUrl: string): ImageCandidate[] {
   const candidates = new Map<string, ImageCandidate>();
 
   const add = (rawUrl: string, score: number, source: string) => {
@@ -546,10 +570,21 @@ function canonicalKey(url: string): string {
   try { const u = new URL(url); return u.origin + u.pathname; } catch { return url.split('?')[0]; }
 }
 
+// Path/filename patterns that almost always denote chrome (logos, share
+// widgets, ad slots, footer icons) rather than recipe content. Filtering
+// these at the gate keeps them out of the candidate list entirely instead of
+// relying on score-ranking to bury them.
+const NON_CONTENT_PATH_RE =
+  /(?:^|\/)(?:ads?|advert(?:isement)?s?|banners?|logos?|icons?|sprites?|widgets?|social|share|favicon|button|placeholder|loader|spinner|skeleton)[-_/]/i;
+
 function isValidImageUrl(url: string): boolean {
   if (!url || url.includes('javascript:') || url.startsWith('data:')) return false;
   try {
     const { pathname, hostname } = new URL(url);
+    // Reject obvious chrome regardless of host.
+    if (NON_CONTENT_PATH_RE.test(pathname)) return false;
+    // SVG is virtually never a recipe photo — it's icons/illustration.
+    if (/\.svg(\?|$)/i.test(pathname)) return false;
     // Known image extensions
     if (/\.(jpg|jpeg|png|webp|gif|avif|bmp)(\?|$)/i.test(pathname)) return true;
     // Known CDN / image-serving hosts
@@ -652,37 +687,3 @@ function log(...args: unknown[]): void {
 
 const UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
-
-// ─── Simple blob fetcher with retry ──────────────────────────────────────────
-// Fetches a direct image URL and returns a Blob. Used by saveImageLocally.
-
-export async function fetchImageWithRetry(url: string, maxRetries = 3): Promise<Blob | null> {
-  if (!url || typeof url !== 'string') return null;
-  try { new URL(url); } catch {
-    console.warn(`[IE] fetchImageWithRetry: invalid URL: ${url}`);
-    return null;
-  }
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const res = await fetch(url, {
-        method: 'GET',
-        headers: { 'User-Agent': UA, 'Accept': 'image/*,*/*;q=0.8' },
-      });
-      if (!res.ok) {
-        console.warn(`[IE] fetchImageWithRetry: HTTP ${res.status} on attempt ${i + 1}`);
-        continue;
-      }
-      const blob = await res.blob();
-      if (!blob || blob.size === 0) {
-        console.warn(`[IE] fetchImageWithRetry: empty blob on attempt ${i + 1}`);
-        continue;
-      }
-      console.log(`[IE] fetchImageWithRetry: ✅ fetched ${blob.size} bytes from ${url.slice(0, 80)}`);
-      return blob;
-    } catch (e) {
-      console.warn(`[IE] fetchImageWithRetry attempt ${i + 1}:`, e instanceof Error ? e.message : e);
-      if (i < maxRetries - 1) await new Promise((r) => setTimeout(r, 1000));
-    }
-  }
-  return null;
-}

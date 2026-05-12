@@ -64,11 +64,9 @@ export const useGroceryStore = create<GroceryState>((set, get) => ({
   getUncheckedCount: () => get().items.filter((i) => !i.checked).length,
 
   getTotal: () =>
-    get().items.reduce(
-      (sum, item) =>
-        item.price != null && item.totalQuantity > 0
-          ? sum + item.price * (item.totalQuantity / 100)
-          : sum,
-      0,
-    ),
+    get().items.reduce((sum, item) => {
+      if (item.price == null) return sum;
+      const multiplier = item.totalQuantity > 0 ? item.totalQuantity : 1;
+      return sum + item.price * multiplier;
+    }, 0),
 }));

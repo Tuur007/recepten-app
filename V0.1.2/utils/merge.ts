@@ -2,6 +2,7 @@ import { GroceryItem, SourceLineage, computeTotalQuantity } from '../types/groce
 import { Ingredient } from '../types/recipe';
 import { generateId } from './id';
 import { normalizeIngredientName, normalizeUnit, areUnitsCompatible } from './normalize';
+import { getAisleForItem } from '../constants/aisles';
 
 export function mergeIngredientsIntoGrocery(
   existing: GroceryItem[],
@@ -70,6 +71,7 @@ export function mergeIngredientsIntoGrocery(
         totalQuantity: computeTotalQuantity(sources),
         checked: false,
         createdAt: new Date().toISOString(),
+        aisle: getAisleForItem(ingredient.name),
       });
     }
   }

@@ -25,7 +25,7 @@ import { CategoryGroupHeader } from '../../features/grocery/components/CategoryG
 import { AddFromRecipeModal } from '../../features/grocery/components/AddFromRecipeModal';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { groupItems } from '../../utils/groceryGrouping';
-import { DEFAULT_AISLES } from '../../constants/aisles';
+import { DEFAULT_AISLES, getAisleForItem } from '../../constants/aisles';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import type { Recipe } from '../../types/recipe';
 
@@ -59,6 +59,19 @@ export default function GroceryScreen() {
   const [manualCategory, setManualCategory] = useState('');
   const [manualPrice, setManualPrice] = useState('');
   const [manualAisle, setManualAisle] = useState<string>(DEFAULT_AISLES[8]);
+  const [manualAisleTouched, setManualAisleTouched] = useState(false);
+
+  const handleManualNameChange = (text: string) => {
+    setManualName(text);
+    if (!manualAisleTouched && text.trim().length > 0) {
+      setManualAisle(getAisleForItem(text));
+    }
+  };
+
+  const handleManualAislePick = (a: string) => {
+    setManualAisle(a);
+    setManualAisleTouched(true);
+  };
 
   const listData = useMemo<ListRow[]>(() => {
     const grouped = groupItems(items);
@@ -79,6 +92,7 @@ export default function GroceryScreen() {
     setManualCategory('');
     setManualPrice('');
     setManualAisle(DEFAULT_AISLES[8]);
+    setManualAisleTouched(false);
   };
 
   const handleSaveManual = async () => {
@@ -221,7 +235,7 @@ export default function GroceryScreen() {
                 <TextInput
                   style={styles.fieldInput}
                   value={manualName}
-                  onChangeText={setManualName}
+                  onChangeText={handleManualNameChange}
                   placeholder="bv. melk"
                   placeholderTextColor={colors.textFaint}
                   autoFocus
@@ -309,7 +323,7 @@ export default function GroceryScreen() {
                     <TouchableOpacity
                       key={a}
                       style={[styles.catChip, manualAisle === a && styles.catChipActive]}
-                      onPress={() => setManualAisle(a)}
+                      onPress={() => handleManualAislePick(a)}
                     >
                       <Text style={[styles.catChipText, manualAisle === a && styles.catChipTextActive]}>
                         {a}

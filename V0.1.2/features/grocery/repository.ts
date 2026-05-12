@@ -1,5 +1,6 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
-import { GroceryItem, GroceryItemInput, GroceryItemUpdate, computeTotalQuantity } from '../../types/grocery';
+import { GroceryItem, GroceryItemInput, GroceryItemUpdate, SourceLineage, computeTotalQuantity } from '../../types/grocery';
+import type { SQLiteBindValue } from 'expo-sqlite';
 import { generateId } from '../../utils/id';
 
 interface GroceryRow {
@@ -16,9 +17,9 @@ interface GroceryRow {
 }
 
 function rowToItem(row: GroceryRow): GroceryItem {
-  let sources: unknown[];
+  let sources: SourceLineage[];
   try {
-    sources = JSON.parse(row.sources ?? '[]');
+    sources = JSON.parse(row.sources ?? '[]') as SourceLineage[];
   } catch {
     sources = [];
   }
@@ -39,7 +40,7 @@ function rowToItem(row: GroceryRow): GroceryItem {
 export const GroceryRepository = {
   async getAll(db: SQLiteDatabase): Promise<GroceryItem[]> {
     const rows = await db.getAllAsync<GroceryRow>(
-      'SELECT id, name, unit, category, sources, total_quantity, checked, created_at FROM grocery_items ORDER BY checked ASC, created_at DESC',
+      'SELECT id, name, unit, category, sources, total_quantity, checked, created_at, aisle, price FROM grocery_items ORDER BY checked ASC, created_at DESC',
     );
     return rows.map(rowToItem);
   },
@@ -91,7 +92,7 @@ export const GroceryRepository = {
 
   async update(db: SQLiteDatabase, id: string, changes: GroceryItemUpdate): Promise<void> {
     const fields: string[] = [];
-    const values: unknown[] = [];
+    const values: SQLiteBindValue[] = [];
 
     if (changes.name !== undefined) { fields.push('name = ?'); values.push(changes.name); }
     if (changes.unit !== undefined) { fields.push('unit = ?'); values.push(changes.unit); }
@@ -111,7 +112,7 @@ export const GroceryRepository = {
 
     await db.runAsync(
       `UPDATE grocery_items SET ${fields.join(', ')} WHERE id = ?`,
-      values as unknown[],
+      values,
     );
   },
 

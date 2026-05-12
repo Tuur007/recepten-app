@@ -32,13 +32,22 @@ function rowToRecipe(row: RecipeRow): Recipe {
   try { allergens = JSON.parse(row.allergens ?? '[]'); } catch { allergens = []; }
   let equipment: string[] | undefined;
   try { equipment = row.equipment ? JSON.parse(row.equipment) : undefined; } catch { equipment = undefined; }
+
+  // Derive duration from prep + cook when not set explicitly so the detail
+  // stat reflects total time even before migration v21 has touched the row.
+  const derivedDuration =
+    row.duration ??
+    (row.preparation_time != null || row.cooking_time != null
+      ? (row.preparation_time ?? 0) + (row.cooking_time ?? 0)
+      : undefined);
+
   return {
     id: row.id,
     title: row.title,
     ingredients: JSON.parse(row.ingredients),
     steps: JSON.parse(row.steps),
     sourceUrl: row.source_url ?? undefined,
-    duration: row.duration ?? undefined,
+    duration: derivedDuration,
     category: (row.category ?? '') as Recipe['category'],
     isFavorite: row.is_favorite === 1,
     imageUri: row.image_uri ?? undefined,

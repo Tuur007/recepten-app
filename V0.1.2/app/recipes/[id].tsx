@@ -55,7 +55,7 @@ export default function RecipeDetailScreen() {
   const recipe = recipes.find(r => r.id === id);
 
   const [cookStep, setCookStep] = useState<number | null>(null);
-  const [activeTimer, setActiveTimer] = useState<{ seconds: number; label: string; key: number } | null>(null);
+  const [activeTimers, setActiveTimers] = useState<{ id: string; seconds: number; label: string }[]>([]);
   const [servings, setServings] = useState<number | null>(null);
   const [groceryModalVisible, setGroceryModalVisible] = useState(false);
   const [selectedIngIds, setSelectedIngIds] = useState<Set<string>>(new Set());
@@ -419,17 +419,19 @@ export default function RecipeDetailScreen() {
           stepIndex={cookStep}
           totalSteps={steps.length}
           stepBody={stepText(steps[cookStep])}
-          activeTimer={activeTimer}
+          activeTimers={activeTimers}
           onClose={() => {
             setCookStep(null);
-            setActiveTimer(null);
+            setActiveTimers([]);
           }}
           onPrev={() => setCookStep((s) => (s != null && s > 0 ? s - 1 : s))}
           onNext={() => setCookStep((s) => (s != null && s < steps.length - 1 ? s + 1 : s))}
           onStartTimer={(seconds, label) =>
-            setActiveTimer({ seconds, label, key: Date.now() })
+            setActiveTimers((prev) => [...prev, { id: generateId(), seconds, label }])
           }
-          onDismissTimer={() => setActiveTimer(null)}
+          onDismissTimer={(id) =>
+            setActiveTimers((prev) => prev.filter((t) => t.id !== id))
+          }
         />
       )}
 
@@ -519,19 +521,19 @@ interface CookOverlayProps {
   stepIndex: number;
   totalSteps: number;
   stepBody: string;
-  activeTimer: { seconds: number; label: string; key: number } | null;
+  activeTimers: { id: string; seconds: number; label: string }[];
   onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
   onStartTimer: (seconds: number, label: string) => void;
-  onDismissTimer: () => void;
+  onDismissTimer: (id: string) => void;
 }
 
 function CookOverlay({
   stepIndex,
   totalSteps,
   stepBody,
-  activeTimer,
+  activeTimers,
   onClose,
   onPrev,
   onNext,
@@ -577,14 +579,16 @@ function CookOverlay({
             </View>
           )}
 
-          {activeTimer && (
-            <View style={styles.timerSlot}>
-              <CookTimer
-                key={activeTimer.key}
-                durationSeconds={activeTimer.seconds}
-                label={activeTimer.label}
-                onDismiss={onDismissTimer}
-              />
+          {activeTimers.length > 0 && (
+            <View style={styles.timerStack}>
+              {activeTimers.map((t) => (
+                <CookTimer
+                  key={t.id}
+                  durationSeconds={t.seconds}
+                  label={t.label}
+                  onDismiss={() => onDismissTimer(t.id)}
+                />
+              ))}
             </View>
           )}
         </ScrollView>
@@ -788,8 +792,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.monoMedium,
     color: colors.primary,
   },
-  timerSlot: {
+  timerStack: {
     marginTop: spacing.sm,
+    gap: spacing.md,
   },
   cookNav: {
     flexDirection: 'row',

@@ -57,19 +57,30 @@ export function RecipeCard({
         <Text style={styles.title} numberOfLines={1}>{recipe.title}</Text>
 
         <View style={styles.meta}>
-          {recipe.duration ? (
+          {recipe.preparationTime != null || recipe.cookingTime != null ? (
+            <View style={styles.metaItem}>
+              <Ionicons name="time-outline" size={12} color={colors.primary} />
+              <Text style={styles.metaText}>
+                {recipe.preparationTime != null ? `${recipe.preparationTime}p` : '—'}
+                {' · '}
+                {recipe.cookingTime != null ? `${recipe.cookingTime}k` : '—'}
+              </Text>
+            </View>
+          ) : recipe.duration ? (
             <View style={styles.metaItem}>
               <Ionicons name="time-outline" size={12} color={colors.primary} />
               <Text style={styles.metaText}>{recipe.duration} min</Text>
             </View>
           ) : null}
+          {recipe.servings ? (
+            <View style={styles.metaItem}>
+              <Ionicons name="people-outline" size={12} color={colors.primary} />
+              <Text style={styles.metaText}>{recipe.servings}</Text>
+            </View>
+          ) : null}
           <View style={styles.metaItem}>
             <Ionicons name="restaurant-outline" size={12} color={colors.primary} />
             <Text style={styles.metaText}>{recipe.ingredients.length}</Text>
-          </View>
-          <View style={styles.metaItem}>
-            <Ionicons name="list-outline" size={12} color={colors.primary} />
-            <Text style={styles.metaText}>{recipe.steps.length} stap{recipe.steps.length !== 1 ? 'pen' : ''}</Text>
           </View>
         </View>
 

@@ -20,6 +20,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useGrocery } from '../../features/grocery/hooks';
 import { LoadingScreen } from '../../components/LoadingScreen';
+import { haptics, toast } from '../../utils/feedback';
 import { DifficultyBadge } from '../../components/ui/DifficultyBadge';
 import { FavoriteButton } from '../../components/ui/FavoriteButton';
 import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
@@ -130,11 +131,11 @@ export default function RecipeDetailScreen() {
       return;
     }
     setGroceryModalVisible(false);
+    // addFromRecipe surfaces its own toast on success/failure.
     try {
       await addFromRecipe(selected, recipe.id, recipe.title);
-      Alert.alert('Toegevoegd', `Ingrediënten staan nu op je boodschappenlijst.`);
     } catch {
-      Alert.alert('Fout', 'Kon ingrediënten niet toevoegen. Probeer opnieuw.');
+      /* already toasted */
     }
   };
 
@@ -181,7 +182,10 @@ export default function RecipeDetailScreen() {
           </TouchableOpacity>
           <FavoriteButton
             isFavorite={recipe.isFavorite}
-            onPress={() => update(recipe.id, { isFavorite: !recipe.isFavorite })}
+            onPress={() => {
+              haptics.light();
+              update(recipe.id, { isFavorite: !recipe.isFavorite });
+            }}
             size={22}
           />
           <TouchableOpacity onPress={handleDeleteRecipe} hitSlop={8}>
@@ -326,11 +330,16 @@ export default function RecipeDetailScreen() {
         <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
           <TouchableOpacity
             onPress={async () => {
-              await update(recipe.id, {
-                timesCooked: (recipe.timesCooked ?? 0) + 1,
-                lastCooked: new Date().toISOString(),
-              });
-              Alert.alert('✅ Klaar!', 'Dit recept is gemarkeerd als gekookt');
+              try {
+                await update(recipe.id, {
+                  timesCooked: (recipe.timesCooked ?? 0) + 1,
+                  lastCooked: new Date().toISOString(),
+                });
+                haptics.success();
+                toast.success('Gemarkeerd als gekookt', recipe.title);
+              } catch {
+                /* update() already toasted on failure */
+              }
             }}
             style={styles.cookedBtn}
             activeOpacity={0.8}

@@ -18,6 +18,7 @@ import { RecipeImagePicker } from '../../features/recipes/components/RecipeImage
 import { IngredientInput } from '../../features/recipes/components/IngredientInput';
 import { StepInput } from '../../features/recipes/components/StepInput';
 import { CategoryPicker } from '../../features/recipes/components/CategoryPicker';
+import { RecipeMetaFields } from '../../features/recipes/components/RecipeMetaFields';
 import { AppTextInput } from '../../components/ui/AppTextInput';
 import { Button } from '../../components/ui/Button';
 import { colors, fonts } from '../../constants/Designsystem';
@@ -46,6 +47,11 @@ export default function NewRecipeScreen() {
         steps: form.validSteps,
         imageUri: form.imageUri,
         allergens: form.allergens,
+        duration: form.totalDuration,
+        preparationTime: form.preparationTime,
+        cookingTime: form.cookingTime,
+        servings: form.servings,
+        difficulty: form.difficulty,
       });
       router.back();
     } catch {
@@ -85,6 +91,20 @@ export default function NewRecipeScreen() {
           />
 
           <CategoryPicker value={form.category} onChange={form.setCategory} />
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Details</Text>
+            <RecipeMetaFields
+              preparationTime={form.preparationTime}
+              cookingTime={form.cookingTime}
+              servings={form.servings}
+              difficulty={form.difficulty}
+              onPrepChange={form.setPreparationTime}
+              onCookChange={form.setCookingTime}
+              onServingsChange={form.setServings}
+              onDifficultyChange={form.setDifficulty}
+            />
+          </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Ingrediënten</Text>

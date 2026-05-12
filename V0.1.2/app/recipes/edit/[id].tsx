@@ -19,6 +19,7 @@ import { RecipeImagePicker } from '../../../features/recipes/components/RecipeIm
 import { IngredientInput } from '../../../features/recipes/components/IngredientInput';
 import { StepInput } from '../../../features/recipes/components/StepInput';
 import { CategoryPicker } from '../../../features/recipes/components/CategoryPicker';
+import { RecipeMetaFields } from '../../../features/recipes/components/RecipeMetaFields';
 import { AppTextInput } from '../../../components/ui/AppTextInput';
 import { Button } from '../../../components/ui/Button';
 import { LoadingScreen } from '../../../components/LoadingScreen';
@@ -48,6 +49,10 @@ export default function EditRecipeScreen() {
         ),
         imageUri: recipe.imageUri,
         duration: recipe.duration,
+        preparationTime: recipe.preparationTime,
+        cookingTime: recipe.cookingTime,
+        servings: recipe.servings,
+        difficulty: recipe.difficulty,
         allergens: recipe.allergens ?? [],
       });
       setNotes(recipe.notes ?? '');
@@ -95,7 +100,11 @@ export default function EditRecipeScreen() {
         ingredients: form.validIngredients,
         steps: form.validSteps,
         imageUri: form.imageUri,
-        duration: form.duration,
+        duration: form.totalDuration,
+        preparationTime: form.preparationTime,
+        cookingTime: form.cookingTime,
+        servings: form.servings,
+        difficulty: form.difficulty,
         allergens: form.allergens,
         notes: notes.trim() || undefined,
       });
@@ -134,6 +143,20 @@ export default function EditRecipeScreen() {
           />
 
           <CategoryPicker value={form.category} onChange={form.setCategory} />
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Details</Text>
+            <RecipeMetaFields
+              preparationTime={form.preparationTime}
+              cookingTime={form.cookingTime}
+              servings={form.servings}
+              difficulty={form.difficulty}
+              onPrepChange={form.setPreparationTime}
+              onCookChange={form.setCookingTime}
+              onServingsChange={form.setServings}
+              onDifficultyChange={form.setDifficulty}
+            />
+          </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Ingrediënten</Text>

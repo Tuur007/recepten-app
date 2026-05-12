@@ -42,6 +42,7 @@ export default function GroceryScreen() {
     removeSingleSource,
     toggleChecked,
     remove,
+    clearAll,
   } = useGrocery();
   const { selectAll, clearChecked, share } = useBulkActions();
   const { recipes } = useRecipes();
@@ -196,10 +197,12 @@ export default function GroceryScreen() {
 
           {/* Bulk actions */}
           <BulkActionsBar
+            totalCount={items.length}
             uncheckedCount={uncheckedCount}
             checkedCount={checkedCount}
             onSelectAllUnchecked={selectAll}
             onClearChecked={clearChecked}
+            onClearAll={clearAll}
             onShare={share}
           />
         </View>

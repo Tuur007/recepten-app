@@ -3,6 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { Recipe, RecipeInput, RecipeUpdate } from '../../types/recipe';
 import { RecipeRepository } from './repository';
 import { useRecipeStore } from '../../store/recipeStore';
+import { haptics, toast } from '../../utils/feedback';
 
 export function useRecipes() {
   const db = useSQLiteContext();
@@ -28,6 +29,7 @@ export function useRecipes() {
       })
       .catch((err) => {
         console.error('[useRecipes] Load error:', err);
+        toast.error('Recepten niet geladen', 'Probeer de app opnieuw te openen.');
         setLoaded(true);
       })
       .finally(() => setLoading(false));
@@ -35,25 +37,48 @@ export function useRecipes() {
 
   const create = useCallback(
     async (input: RecipeInput): Promise<Recipe> => {
-      const recipe = await RecipeRepository.create(db, input);
-      addRecipe(recipe);
-      return recipe;
+      try {
+        const recipe = await RecipeRepository.create(db, input);
+        addRecipe(recipe);
+        haptics.success();
+        toast.success('Recept opgeslagen', input.title);
+        return recipe;
+      } catch (err) {
+        console.error('[useRecipes.create] Failed:', err);
+        haptics.error();
+        toast.error('Niet opgeslagen', 'Probeer opnieuw.');
+        throw err;
+      }
     },
     [db, addRecipe],
   );
 
   const update = useCallback(
     async (id: string, changes: RecipeUpdate): Promise<void> => {
-      await RecipeRepository.update(db, id, changes);
-      updateRecipeInStore(id, changes);
+      try {
+        await RecipeRepository.update(db, id, changes);
+        updateRecipeInStore(id, changes);
+      } catch (err) {
+        console.error('[useRecipes.update] Failed:', err);
+        toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.');
+        throw err;
+      }
     },
     [db, updateRecipeInStore],
   );
 
   const remove = useCallback(
     async (id: string): Promise<void> => {
-      await RecipeRepository.delete(db, id);
-      removeRecipe(id);
+      try {
+        await RecipeRepository.delete(db, id);
+        removeRecipe(id);
+        haptics.medium();
+        toast.success('Recept verwijderd');
+      } catch (err) {
+        console.error('[useRecipes.remove] Failed:', err);
+        toast.error('Niet verwijderd', 'Probeer opnieuw.');
+        throw err;
+      }
     },
     [db, removeRecipe],
   );

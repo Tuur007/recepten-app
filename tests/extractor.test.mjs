@@ -7,7 +7,15 @@
  *   2. A live recipe URL (skipped gracefully if the host returns 403, which
  *      happens for datacenter IPs but not for real phones)
  *
- * Run: npx tsx tests/extractor.test.mjs
+ * Run from the repo root: npx --prefix V0.1.2 tsx ../tests/extractor.test.mjs
+ * Or via the V0.1.2 npm script: cd V0.1.2 && npm test
+ *
+ * Lives outside V0.1.2/ on purpose — Snack scans the Expo project root for
+ * .png/.jpg/.svg paths in any source file and tries to upload each one as
+ * an asset. The hermetic HTML fixture contains *fake* image URLs (logos,
+ * ads, share-icons) to prove the filter rejects them, but Snack can't tell
+ * fake from real and fails with `$ Required`. Keeping the tests one level
+ * up keeps Snack happy.
  */
 
 import { strict as assert } from 'node:assert';
@@ -17,7 +25,7 @@ import { dirname, resolve } from 'node:path';
 
 // Public surface of the extractor — these are pure regex/scoring functions
 // that have no FS dependency.
-const { extractImageCandidates } = await import('../services/imageExtractor.ts');
+const { extractImageCandidates } = await import('../V0.1.2/services/imageExtractor.ts');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

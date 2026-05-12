@@ -1,27 +1,36 @@
-export const colors = {
-  // Brand
-  primary: '#C2492A',         // Terracotta (CTA, accent, italic emphasis)
-  primaryLight: '#E6A386',    // Soft terracotta (hover/pressed)
-  primaryDark: '#8A3119',     // Deep terracotta
+// Family member colors are scheme-independent.
+const FAMILY = {
+  tuur: '#C2492A',
+  louise: '#B56B3F',
+  basiel: '#5A6B3A',
+  jules: '#3A5A6B',
+};
 
-  // Secondary palette (sparingly)
-  secondary: '#5A6B3A',       // Olive (vegetarian / saved)
+// LIGHT — the existing warm cream "paper" palette.
+export const LIGHT_PALETTE = {
+  // Brand
+  primary: '#C2492A',
+  primaryLight: '#E6A386',
+  primaryDark: '#8A3119',
+
+  // Secondary
+  secondary: '#5A6B3A',
   secondaryLight: '#7A8B5A',
   secondaryLighter: '#A0B07F',
 
-  tertiary: '#D49A3A',        // Saffron (special / featured)
+  tertiary: '#D49A3A',
   tertiaryLight: '#E6B566',
 
-  // Backgrounds — warm cream "paper"
-  background: '#F6F1E7',      // Main paper
-  backgroundCard: '#FFFFFF',  // Card surfaces (rare)
-  backgroundLight: '#EDE4D0', // Toasted cream (warm panel)
+  // Surfaces
+  background: '#F6F1E7',
+  backgroundCard: '#FFFFFF',
+  backgroundLight: '#EDE4D0',
 
-  // Ink (text)
-  textDark: '#191613',        // Near-black, warm
-  textMedium: '#3A342E',      // Soft ink
-  textLight: 'rgba(25,22,19,0.55)', // Muted
-  textFaint: 'rgba(25,22,19,0.35)', // Hairline metadata
+  // Ink
+  textDark: '#191613',
+  textMedium: '#3A342E',
+  textLight: 'rgba(25,22,19,0.55)',
+  textFaint: 'rgba(25,22,19,0.35)',
 
   // Lines
   borderColor: 'rgba(25,22,19,0.15)',
@@ -34,7 +43,6 @@ export const colors = {
   warning: '#D49A3A',
   info: '#3A5A6B',
 
-  // White & shadows (we use them sparingly)
   white: '#FFFFFF',
   black: '#191613',
   shadow: 'rgba(25, 22, 19, 0.08)',
@@ -50,23 +58,80 @@ export const colors = {
   danger: '#C2492A',
   dangerLight: 'rgba(194, 73, 42, 0.12)',
 
-  // Family member colors (zelfde als bestaand, lichtjes herschikt naar editorial)
-  family: {
-    tuur: '#C2492A',
-    louise: '#B56B3F',
-    basiel: '#5A6B3A',
-    jules: '#3A5A6B',
-  },
+  family: FAMILY,
 
-  // Dark mode (later)
+  // Legacy: kept for older imports that still read colors.dark.*
   dark: {
-    background: '#1A1714',
+    background: '#1A1815',
     backgroundCard: '#2A2520',
     text: '#F6F1E7',
     textSecondary: 'rgba(246,241,231,0.55)',
     border: 'rgba(246,241,231,0.15)',
   },
 };
+
+// DARK — warm ink palette tuned to keep the terracotta + olive + saffron accents readable.
+export const DARK_PALETTE = {
+  primary: '#E6794D',          // Brighter terracotta on dark
+  primaryLight: '#F0A07A',
+  primaryDark: '#C2492A',
+
+  secondary: '#9DB077',         // Brighter olive
+  secondaryLight: '#B6C593',
+  secondaryLighter: '#C9D6AC',
+
+  tertiary: '#E6B566',          // Saffron stays warm
+  tertiaryLight: '#F0CB8C',
+
+  background: '#1A1815',
+  backgroundCard: '#26221E',
+  backgroundLight: '#2A2620',
+
+  textDark: '#F6F1E7',
+  textMedium: '#D9D2C3',
+  textLight: 'rgba(246,241,231,0.65)',
+  textFaint: 'rgba(246,241,231,0.40)',
+
+  borderColor: 'rgba(246,241,231,0.18)',
+  borderSoft: 'rgba(246,241,231,0.10)',
+  disabled: 'rgba(246,241,231,0.30)',
+
+  success: '#9DB077',
+  error: '#E6794D',
+  warning: '#E6B566',
+  info: '#7AA8C2',
+
+  white: '#FFFFFF',
+  black: '#0F0D0B',
+  shadow: 'rgba(0, 0, 0, 0.35)',
+  shadowDark: 'rgba(0, 0, 0, 0.55)',
+
+  text: '#F6F1E7',
+  textSecondary: 'rgba(246,241,231,0.65)',
+  surface: '#1A1815',
+  surfaceAlt: '#26221E',
+  border: 'rgba(246,241,231,0.18)',
+  green: '#9DB077',
+  danger: '#E6794D',
+  dangerLight: 'rgba(230, 121, 77, 0.16)',
+
+  family: FAMILY,
+
+  dark: {
+    background: '#1A1815',
+    backgroundCard: '#26221E',
+    text: '#F6F1E7',
+    textSecondary: 'rgba(246,241,231,0.65)',
+    border: 'rgba(246,241,231,0.18)',
+  },
+};
+
+export type Palette = typeof LIGHT_PALETTE;
+
+// Static default export — preserves existing `colors.X` imports across the
+// codebase. Components migrated to `useThemeColors()` follow the active mode;
+// everything else stays on the light palette until migrated.
+export const colors: Palette = LIGHT_PALETTE;
 
 export const spacing = {
   xs: 4,
@@ -409,11 +474,7 @@ export const responsive = {
   },
 };
 
-export const darkModeColors = {
-  ...colors.dark,
-  primary: colors.primary,
-  tertiary: colors.tertiary,
-};
+export const darkModeColors = DARK_PALETTE;
 
 export default {
   colors,

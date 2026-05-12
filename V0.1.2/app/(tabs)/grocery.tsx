@@ -27,6 +27,7 @@ import { LoadingScreen } from '../../components/LoadingScreen';
 import { groupItems } from '../../utils/groceryGrouping';
 import { DEFAULT_AISLES, getAisleForItem } from '../../constants/aisles';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
+import { useThemeColors } from '../../theme';
 import type { Recipe } from '../../types/recipe';
 
 type ListRow =
@@ -47,6 +48,7 @@ export default function GroceryScreen() {
   const { selectAll, clearChecked, share } = useBulkActions();
   const { recipes } = useRecipes();
   const { groceryCategories } = useCategories();
+  const themeColors = useThemeColors();
 
   const checkedCount = useGroceryStore((s) => s.getCheckedCount());
   const uncheckedCount = useGroceryStore((s) => s.getUncheckedCount());
@@ -136,7 +138,7 @@ export default function GroceryScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <View style={{ flex: 1 }}>
           {/* Folio */}

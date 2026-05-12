@@ -1,6 +1,8 @@
 import { View, Text, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Animated, { FadeInDown, FadeOutUp, LinearTransition } from 'react-native-reanimated';
 import { GroceryItem } from '../../../types/grocery';
+import { haptics } from '../../../utils/feedback';
 import { QuantityControls } from './QuantityControls';
 
 interface Props {
@@ -16,7 +18,10 @@ export function GroceryItemEnhanced({ item, onToggleCheck, onQuantityChange, onD
   const displayQty = item.totalQuantity;
 
   return (
-    <View
+    <Animated.View
+      entering={FadeInDown.duration(220)}
+      exiting={FadeOutUp.duration(180)}
+      layout={LinearTransition.duration(220)}
       style={{
         paddingVertical: 12,
         paddingHorizontal: 16,
@@ -76,12 +81,15 @@ export function GroceryItemEnhanced({ item, onToggleCheck, onQuantityChange, onD
         )}
 
         <Pressable
-          onPress={() => onDelete(item.id)}
+          onPress={() => {
+            haptics.heavy();
+            onDelete(item.id);
+          }}
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
           <MaterialCommunityIcons name="close-circle" size={20} color="#C2492A" />
         </Pressable>
       </View>
-    </View>
+    </Animated.View>
   );
 }

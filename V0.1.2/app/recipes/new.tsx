@@ -22,11 +22,13 @@ import { RecipeMetaFields } from '../../features/recipes/components/RecipeMetaFi
 import { AppTextInput } from '../../components/ui/AppTextInput';
 import { Button } from '../../components/ui/Button';
 import { colors, fonts } from '../../constants/Designsystem';
+import { useThemeColors } from '../../theme';
 import { ALLERGENS } from '../../types/recipe';
 
 export default function NewRecipeScreen() {
   const router = useRouter();
   const { create } = useRecipes();
+  const themeColors = useThemeColors();
   const [saving, setSaving] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -62,7 +64,7 @@ export default function NewRecipeScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
           <Ionicons name="close" size={24} color={colors.text} />

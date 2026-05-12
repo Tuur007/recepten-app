@@ -3,6 +3,7 @@ import {
   CREATE_GROCERY_ITEMS_TABLE,
   CREATE_RECIPES_TABLE,
   CREATE_CATEGORIES_TABLE,
+  CREATE_PREFS_TABLE,
   DEFAULT_RECIPE_CATEGORIES,
   DEFAULT_GROCERY_CATEGORIES,
   MIGRATIONS,
@@ -19,6 +20,7 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
     ${CREATE_RECIPES_TABLE}
     ${CREATE_GROCERY_ITEMS_TABLE}
     ${CREATE_CATEGORIES_TABLE}
+    ${CREATE_PREFS_TABLE}
   `);
 
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');

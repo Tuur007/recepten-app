@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useRecipes } from '../../features/recipes/hooks';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
+import { useThemeColors } from '../../theme';
 
 const { width } = Dimensions.get('window');
 const GRID_GAP = 18;
@@ -24,6 +25,7 @@ const GRID_W = (width - GRID_PAD * 2 - GRID_GAP) / 2;
 export default function RecipeSearchScreen() {
   const router = useRouter();
   const { recipes } = useRecipes();
+  const themeColors = useThemeColors();
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -37,7 +39,7 @@ export default function RecipeSearchScreen() {
   }, [query, recipes]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
           <Ionicons name="arrow-back" size={24} color={colors.textDark} />

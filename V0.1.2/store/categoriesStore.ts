@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Category, CategoryRepository } from '../features/categories/repository';
+import { toast } from '../utils/feedback';
 
 interface CategoriesState {
   recipeCategories: Category[];
@@ -79,32 +80,56 @@ export function useCategories() {
 
   const addRecipeCategory = useCallback(
     async (name: string) => {
-      const cat = await repo.create(name, 'recipe');
-      addCategory(cat);
+      try {
+        const cat = await repo.create(name, 'recipe');
+        addCategory(cat);
+      } catch (err) {
+        console.error('[useCategories.addRecipeCategory] Failed:', err);
+        toast.error('Niet opgeslagen', 'Categorie kon niet worden toegevoegd.');
+        throw err;
+      }
     },
     [repo, addCategory],
   );
 
   const addGroceryCategory = useCallback(
     async (name: string) => {
-      const cat = await repo.create(name, 'grocery');
-      addCategory(cat);
+      try {
+        const cat = await repo.create(name, 'grocery');
+        addCategory(cat);
+      } catch (err) {
+        console.error('[useCategories.addGroceryCategory] Failed:', err);
+        toast.error('Niet opgeslagen', 'Categorie kon niet worden toegevoegd.');
+        throw err;
+      }
     },
     [repo, addCategory],
   );
 
   const updateCategory = useCallback(
     async (id: string, name: string) => {
-      await repo.update(id, name);
-      updateCategoryInStore(id, name);
+      try {
+        await repo.update(id, name);
+        updateCategoryInStore(id, name);
+      } catch (err) {
+        console.error('[useCategories.updateCategory] Failed:', err);
+        toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.');
+        throw err;
+      }
     },
     [repo, updateCategoryInStore],
   );
 
   const removeCategory = useCallback(
     async (id: string) => {
-      await repo.delete(id);
-      removeCategoryFromStore(id);
+      try {
+        await repo.delete(id);
+        removeCategoryFromStore(id);
+      } catch (err) {
+        console.error('[useCategories.removeCategory] Failed:', err);
+        toast.error('Niet verwijderd', 'Probeer opnieuw.');
+        throw err;
+      }
     },
     [repo, removeCategoryFromStore],
   );

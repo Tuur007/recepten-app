@@ -22,6 +22,7 @@ import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { getTotalCookingTime } from '../../utils/filterRecipes';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
+import { useThemeColors } from '../../theme';
 
 const PAPER = colors.background;
 const { width } = Dimensions.get('window');
@@ -35,6 +36,7 @@ export default function RecipesScreen() {
   const { recipeCategories } = useCategories();
   const [activeCat, setActiveCat] = useState('Alles');
   const filters = useFiltersStore();
+  const themeColors = useThemeColors();
 
   const cats = useMemo(
     () => ['Alles', ...recipeCategories.map((c) => c.name)],
@@ -96,7 +98,7 @@ export default function RecipesScreen() {
   if (isLoading) return <LoadingScreen />;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Folio */}
         <View style={styles.folio}>

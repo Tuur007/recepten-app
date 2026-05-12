@@ -14,10 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCategories } from '../../store/categoriesStore';
 import { Category } from '../../features/categories/repository';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
+import { useThemeColors, useThemeMode, type ThemeMode } from '../../theme';
+import { haptics } from '../../utils/feedback';
 
 type SectionKey = 'recipe' | 'grocery' | null;
 
 export default function SettingsScreen() {
+  const themeColors = useThemeColors();
   const {
     recipeCategories,
     groceryCategories,
@@ -53,7 +56,14 @@ export default function SettingsScreen() {
       `"${cat.name}" verwijderen?`,
       [
         { text: 'Annuleren', style: 'cancel' },
-        { text: 'Verwijderen', style: 'destructive', onPress: () => removeCategory(cat.id) },
+        {
+          text: 'Verwijderen',
+          style: 'destructive',
+          onPress: () => {
+            // Hook already surfaces a toast on failure; swallow the rejection.
+            removeCategory(cat.id).catch(() => {});
+          },
+        },
       ],
     );
   };
@@ -78,7 +88,7 @@ export default function SettingsScreen() {
     setExpandedSection((prev) => (prev === key ? null : key));
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Folio */}
         <View style={styles.folio}>
@@ -157,6 +167,9 @@ export default function SettingsScreen() {
           )}
         </SectionCard>
 
+        {/* ── Verschijning ── */}
+        <ThemeSection />
+
         {/* ── Over de app ── */}
         <View style={[styles.sectionCard, { marginTop: spacing.md }]}>
           <View style={styles.cardHeaderStatic}>
@@ -178,6 +191,77 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// ── Theme section ──────────────────────────────────────────────────────────
+
+const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: 'system', label: 'Systeem', icon: 'phone-portrait-outline' },
+  { value: 'light',  label: 'Licht',   icon: 'sunny-outline' },
+  { value: 'dark',   label: 'Donker',  icon: 'moon-outline' },
+];
+
+function ThemeSection() {
+  const { mode, setMode } = useThemeMode();
+  const themeColors = useThemeColors();
+
+  return (
+    <View style={[styles.sectionCard, { marginTop: spacing.md }]}>
+      <View style={styles.cardHeaderStatic}>
+        <View style={styles.cardIconWrap}>
+          <Ionicons name="contrast-outline" size={18} color={colors.textLight} />
+        </View>
+        <Text style={styles.cardTitle}>Verschijning</Text>
+      </View>
+      <View style={[styles.cardBody, { padding: spacing.md, gap: 8 }]}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {THEME_OPTIONS.map((opt) => {
+            const active = mode === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => {
+                  haptics.selection();
+                  setMode(opt.value);
+                }}
+                activeOpacity={0.8}
+                style={{
+                  flex: 1,
+                  borderWidth: 1,
+                  borderColor: active ? themeColors.primary : colors.borderColor,
+                  backgroundColor: active ? themeColors.primary : 'transparent',
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <Ionicons
+                  name={opt.icon}
+                  size={18}
+                  color={active ? colors.background : colors.textMedium}
+                />
+                <Text
+                  style={{
+                    fontFamily: fonts.bodyMedium,
+                    fontSize: 12,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                    color: active ? colors.background : colors.textMedium,
+                  }}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text style={[typography.bodyItalic, { marginTop: 4 }]}>
+          Donkere modus loopt nog uit. Sommige schermen blijven licht totdat ze zijn aangepast.
+        </Text>
+      </View>
+    </View>
   );
 }
 

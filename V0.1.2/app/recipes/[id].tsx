@@ -15,6 +15,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useKeepAwake } from 'expo-keep-awake';
 
 import { useRecipes } from '../../features/recipes/hooks';
 import { useGrocery } from '../../features/grocery/hooks';
@@ -24,9 +25,11 @@ import { FavoriteButton } from '../../components/ui/FavoriteButton';
 import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
 import { ServingsSelector } from '../../components/ui/ServingsSelector';
 import { StarRating } from '../../components/ui/StarRating';
+import { CookTimer } from '../../components/ui/CookTimer';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { generateId } from '../../utils/id';
 import { scaleIngredients } from '../../utils/servingsScaler';
+import { findTimesInStep, formatDuration } from '../../utils/parseTimeFromStep';
 import { Ingredient } from '../../types/recipe';
 import { ALLERGENS } from '../../types/recipe';
 
@@ -52,6 +55,7 @@ export default function RecipeDetailScreen() {
   const recipe = recipes.find(r => r.id === id);
 
   const [cookStep, setCookStep] = useState<number | null>(null);
+  const [activeTimer, setActiveTimer] = useState<{ seconds: number; label: string; key: number } | null>(null);
   const [servings, setServings] = useState<number | null>(null);
   const [groceryModalVisible, setGroceryModalVisible] = useState(false);
   const [selectedIngIds, setSelectedIngIds] = useState<Set<string>>(new Set());
@@ -411,45 +415,22 @@ export default function RecipeDetailScreen() {
 
       {/* Cook mode overlay */}
       {cookStep !== null && steps.length > 0 && (
-        <View style={styles.cookOverlay}>
-          <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-            <TouchableOpacity style={styles.cookClose} onPress={() => setCookStep(null)}>
-              <Ionicons name="close" size={24} color={colors.textDark} />
-            </TouchableOpacity>
-            <View style={styles.cookContent}>
-              <Text style={typography.folio}>
-                stap {cookStep + 1} van {steps.length}
-              </Text>
-              <Text style={styles.cookStepText}>{stepText(steps[cookStep])}</Text>
-            </View>
-            <View style={styles.cookNav}>
-              <TouchableOpacity
-                style={[styles.cookNavBtn, cookStep === 0 && styles.cookNavDisabled]}
-                onPress={() => cookStep > 0 && setCookStep(cookStep - 1)}
-                disabled={cookStep === 0}
-              >
-                <Ionicons
-                  name="chevron-back"
-                  size={22}
-                  color={cookStep === 0 ? colors.textFaint : colors.textDark}
-                />
-                <Text style={[styles.cookNavLabel, cookStep === 0 && { color: colors.textFaint }]}>
-                  vorige
-                </Text>
-              </TouchableOpacity>
-              {cookStep < steps.length - 1 ? (
-                <TouchableOpacity style={styles.cookNavBtn} onPress={() => setCookStep(cookStep + 1)}>
-                  <Text style={styles.cookNavLabel}>volgende</Text>
-                  <Ionicons name="chevron-forward" size={22} color={colors.textDark} />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={styles.cookDoneBtn} onPress={() => setCookStep(null)}>
-                  <Text style={typography.buttonLabel}>klaar!</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </SafeAreaView>
-        </View>
+        <CookOverlay
+          stepIndex={cookStep}
+          totalSteps={steps.length}
+          stepBody={stepText(steps[cookStep])}
+          activeTimer={activeTimer}
+          onClose={() => {
+            setCookStep(null);
+            setActiveTimer(null);
+          }}
+          onPrev={() => setCookStep((s) => (s != null && s > 0 ? s - 1 : s))}
+          onNext={() => setCookStep((s) => (s != null && s < steps.length - 1 ? s + 1 : s))}
+          onStartTimer={(seconds, label) =>
+            setActiveTimer({ seconds, label, key: Date.now() })
+          }
+          onDismissTimer={() => setActiveTimer(null)}
+        />
       )}
 
       {/* Grocery ingredient select modal */}
@@ -530,6 +511,113 @@ function Section({ title, count, suffix }: { title: string; count: number; suffi
       <Text style={typography.folio}>
         {count} {suffix ?? ''}
       </Text>
+    </View>
+  );
+}
+
+interface CookOverlayProps {
+  stepIndex: number;
+  totalSteps: number;
+  stepBody: string;
+  activeTimer: { seconds: number; label: string; key: number } | null;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onStartTimer: (seconds: number, label: string) => void;
+  onDismissTimer: () => void;
+}
+
+function CookOverlay({
+  stepIndex,
+  totalSteps,
+  stepBody,
+  activeTimer,
+  onClose,
+  onPrev,
+  onNext,
+  onStartTimer,
+  onDismissTimer,
+}: CookOverlayProps) {
+  // Hands-on cooking: keep the screen awake while this overlay is mounted so
+  // the user doesn't have to wake the phone with greasy hands.
+  useKeepAwake('cook-mode');
+  const matches = useMemo(() => findTimesInStep(stepBody), [stepBody]);
+  const isLast = stepIndex >= totalSteps - 1;
+  return (
+    <View style={styles.cookOverlay}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <TouchableOpacity style={styles.cookClose} onPress={onClose}>
+          <Ionicons name="close" size={24} color={colors.textDark} />
+        </TouchableOpacity>
+
+        <ScrollView
+          contentContainerStyle={styles.cookScroll}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={typography.folio}>
+            stap {stepIndex + 1} van {totalSteps}
+          </Text>
+          <Text style={styles.cookStepText}>{stepBody}</Text>
+
+          {matches.length > 0 && (
+            <View style={styles.timerChipsRow}>
+              {matches.map((m) => (
+                <TouchableOpacity
+                  key={`${m.start}-${m.end}`}
+                  onPress={() => onStartTimer(m.seconds, `${m.text} timer`)}
+                  style={styles.timerChip}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="timer-outline" size={14} color={colors.primary} />
+                  <Text style={styles.timerChipText}>
+                    {m.text}{' · '}<Text style={styles.timerChipDuration}>{formatDuration(m.seconds)}</Text>
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {activeTimer && (
+            <View style={styles.timerSlot}>
+              <CookTimer
+                key={activeTimer.key}
+                durationSeconds={activeTimer.seconds}
+                label={activeTimer.label}
+                onDismiss={onDismissTimer}
+              />
+            </View>
+          )}
+        </ScrollView>
+
+        <View style={styles.cookNav}>
+          <TouchableOpacity
+            style={[styles.cookNavBtn, stepIndex === 0 && styles.cookNavDisabled]}
+            onPress={onPrev}
+            disabled={stepIndex === 0}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={22}
+              color={stepIndex === 0 ? colors.textFaint : colors.textDark}
+            />
+            <Text
+              style={[styles.cookNavLabel, stepIndex === 0 && { color: colors.textFaint }]}
+            >
+              vorige
+            </Text>
+          </TouchableOpacity>
+          {!isLast ? (
+            <TouchableOpacity style={styles.cookNavBtn} onPress={onNext}>
+              <Text style={styles.cookNavLabel}>volgende</Text>
+              <Ionicons name="chevron-forward" size={22} color={colors.textDark} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.cookDoneBtn} onPress={onClose}>
+              <Text style={typography.buttonLabel}>klaar!</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -663,10 +751,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     padding: spacing.lg,
   },
-  cookContent: {
-    flex: 1,
+  cookScroll: {
+    flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    justifyContent: 'center',
+    paddingBottom: spacing.lg,
     gap: spacing.lg,
   },
   cookStepText: {
@@ -674,6 +762,34 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: colors.textDark,
     lineHeight: 34,
+  },
+  timerChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  timerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  timerChipText: {
+    fontFamily: fonts.display,
+    fontSize: 13,
+    color: colors.textDark,
+  },
+  timerChipDuration: {
+    fontFamily: fonts.monoMedium,
+    color: colors.primary,
+  },
+  timerSlot: {
+    marginTop: spacing.sm,
   },
   cookNav: {
     flexDirection: 'row',

@@ -24,6 +24,7 @@ import { CategoryPicker } from '../../features/recipes/components/CategoryPicker
 import { AppTextInput } from '../../components/ui/AppTextInput';
 import { Button } from '../../components/ui/Button';
 import { colors, spacing, fonts } from '../../constants/Designsystem';
+import { useThemeColors } from '../../theme';
 import { generateId } from '../../utils/id';
 import { ALLERGENS } from '../../types/recipe';
 
@@ -31,6 +32,7 @@ export default function ImportRecipeScreen() {
   const router = useRouter();
   const { create } = useRecipes();
   const recipeExists = useRecipeStore((state) => state.recipeExists);
+  const themeColors = useThemeColors();
   const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState<'url' | 'edit'>('url');
@@ -148,7 +150,7 @@ export default function ImportRecipeScreen() {
 
   if (step === 'url') {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
             <Ionicons name="close" size={24} color={colors.text} />
@@ -204,7 +206,7 @@ export default function ImportRecipeScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setStep('url')} hitSlop={8}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />

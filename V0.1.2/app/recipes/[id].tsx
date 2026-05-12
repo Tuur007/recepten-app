@@ -28,6 +28,7 @@ import { ServingsSelector } from '../../components/ui/ServingsSelector';
 import { StarRating } from '../../components/ui/StarRating';
 import { CookTimer } from '../../components/ui/CookTimer';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
+import { useThemeColors } from '../../theme';
 import { generateId } from '../../utils/id';
 import { scaleIngredients } from '../../utils/servingsScaler';
 import { findTimesInStep, formatDuration } from '../../utils/parseTimeFromStep';
@@ -52,6 +53,7 @@ export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { recipes, isLoading, update, remove } = useRecipes();
   const { addFromRecipe } = useGrocery();
+  const themeColors = useThemeColors();
 
   const recipe = recipes.find(r => r.id === id);
 
@@ -79,7 +81,7 @@ export default function RecipeDetailScreen() {
   if (isLoading) return <LoadingScreen />;
   if (!recipe) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <Text style={[typography.bodyItalic, { textAlign: 'center', marginTop: 40 }]}>
           Recept niet gevonden.
         </Text>
@@ -169,7 +171,7 @@ export default function RecipeDetailScreen() {
   ] as const;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
@@ -182,10 +184,7 @@ export default function RecipeDetailScreen() {
           </TouchableOpacity>
           <FavoriteButton
             isFavorite={recipe.isFavorite}
-            onPress={() => {
-              haptics.light();
-              update(recipe.id, { isFavorite: !recipe.isFavorite });
-            }}
+            onPress={() => update(recipe.id, { isFavorite: !recipe.isFavorite })}
             size={22}
           />
           <TouchableOpacity onPress={handleDeleteRecipe} hitSlop={8}>

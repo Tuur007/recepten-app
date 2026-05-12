@@ -24,12 +24,14 @@ import { AppTextInput } from '../../../components/ui/AppTextInput';
 import { Button } from '../../../components/ui/Button';
 import { LoadingScreen } from '../../../components/LoadingScreen';
 import { colors, spacing, fonts } from '../../../constants/Designsystem';
+import { useThemeColors } from '../../../theme';
 import { ALLERGENS } from '../../../types/recipe';
 
 export default function EditRecipeScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { recipes, isLoading, update } = useRecipes();
+  const themeColors = useThemeColors();
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [notes, setNotes] = useState('');
@@ -79,7 +81,7 @@ export default function EditRecipeScreen() {
 
   if (!recipe) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <Text style={{ textAlign: 'center', marginTop: 40, color: colors.textLight }}>
           Recept niet gevonden.
         </Text>
@@ -117,7 +119,7 @@ export default function EditRecipeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
           <Ionicons name="close" size={24} color={colors.textDark} />

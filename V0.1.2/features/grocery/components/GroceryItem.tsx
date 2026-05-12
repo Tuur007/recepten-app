@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeInDown, FadeOutUp, LinearTransition } from 'react-native-reanimated';
 import { colors, spacing, typography } from '../../../constants/Designsystem';
+import { haptics } from '../../../utils/feedback';
 import { GroceryItem as GroceryItemType } from '../../../types/grocery';
 import { GrocerySourceTag } from './GrocerySourceTag';
 
@@ -16,9 +18,17 @@ export function GroceryItem({ item, onToggle, onDelete, onRemoveSource }: Grocer
   const [expanded, setExpanded] = useState(false);
 
   const handleDelete = () => {
+    haptics.warning();
     Alert.alert('Item verwijderen', `"${item.name}" verwijderen uit de lijst?`, [
       { text: 'Annuleer', style: 'cancel' },
-      { text: 'Verwijder', style: 'destructive', onPress: onDelete },
+      {
+        text: 'Verwijder',
+        style: 'destructive',
+        onPress: () => {
+          haptics.heavy();
+          onDelete();
+        },
+      },
     ]);
   };
 
@@ -28,7 +38,12 @@ export function GroceryItem({ item, onToggle, onDelete, onRemoveSource }: Grocer
   const hasMultipleSources = item.sources.length > 1;
 
   return (
-    <View style={[styles.row, item.checked && styles.checkedRow]}>
+    <Animated.View
+      entering={FadeInDown.duration(220)}
+      exiting={FadeOutUp.duration(180)}
+      layout={LinearTransition.duration(220)}
+      style={[styles.row, item.checked && styles.checkedRow]}
+    >
       <TouchableOpacity
         onPress={onToggle}
         activeOpacity={0.7}
@@ -77,7 +92,7 @@ export function GroceryItem({ item, onToggle, onDelete, onRemoveSource }: Grocer
       <TouchableOpacity onPress={handleDelete} hitSlop={12} style={styles.deleteBtn}>
         <Text style={styles.deleteIcon}>×</Text>
       </TouchableOpacity>
-    </View>
+    </Animated.View>
   );
 }
 

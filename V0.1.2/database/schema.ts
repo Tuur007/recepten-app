@@ -35,6 +35,13 @@ export const CREATE_CATEGORIES_TABLE = `
   );
 `;
 
+export const CREATE_PREFS_TABLE = `
+  CREATE TABLE IF NOT EXISTS app_prefs (
+    key   TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+  );
+`;
+
 export const DEFAULT_RECIPE_CATEGORIES = [
   'Pasta', 'Soep', 'Vis', 'Vlees', 'Snel',
   'Vegetarisch', 'Dessert', 'Ontbijt', 'Lunch',
@@ -91,4 +98,6 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE grocery_items ADD COLUMN price REAL`,
   // v21: backfill duration from prep + cooking times
   `UPDATE recipes SET duration=COALESCE(preparation_time,0)+COALESCE(cooking_time,0) WHERE preparation_time IS NOT NULL OR cooking_time IS NOT NULL`,
+  // v22: app preferences (theme mode, etc.)
+  `CREATE TABLE IF NOT EXISTS app_prefs (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)`,
 ];

@@ -17,6 +17,7 @@ import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
+import { useThemeColors } from '../../theme';
 
 const PAPER = colors.background;
 
@@ -26,6 +27,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { recipes, isLoading } = useRecipes();
   const { mealPlan } = useWeekPlannerStore();
+  const themeColors = useThemeColors();
 
   // Vandaag's dag-key (0=SUN, 1=MON, ...)
   const todayKey = DAY_KEYS[new Date().getDay()];
@@ -60,7 +62,7 @@ export default function HomeScreen() {
 
   return (
     <ErrorBoundary>
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}

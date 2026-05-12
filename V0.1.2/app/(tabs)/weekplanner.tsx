@@ -21,6 +21,7 @@ import { LoadingScreen } from '../../components/LoadingScreen';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import type { Recipe } from '../../types/recipe';
 import { haptics, toast } from '../../utils/feedback';
+import { useThemeColors } from '../../theme';
 
 const DAY_KEYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
 const DAY_LABELS = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
@@ -53,6 +54,7 @@ export default function WeekPlannerScreen() {
   const router = useRouter();
   const { recipes, isLoading } = useRecipes();
   const { mealPlan, setMeal, removeMeal } = useWeekPlannerStore();
+  const themeColors = useThemeColors();
 
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
   const [pickerQuery, setPickerQuery] = useState('');
@@ -181,7 +183,7 @@ export default function WeekPlannerScreen() {
   if (isLoading) return <LoadingScreen />;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         {/* Folio */}
         <View style={styles.folio}>

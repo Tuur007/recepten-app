@@ -14,3 +14,10 @@ web-build/
 ios/
 android/
 google-service-account.json
+
+# Lokale assets — niet tracken zodat Expo Snack niet probeert
+# binaire bestanden te uploaden. Voeg je eigen iconen toe vóór
+# een EAS-build (zie assets/ASSETS.md voor vereisten).
+assets/*.png
+assets/*.jpg
+assets/*.jpeg

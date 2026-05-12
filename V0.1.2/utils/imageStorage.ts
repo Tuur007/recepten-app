@@ -1,10 +1,16 @@
 import { generateId } from './id';
 
-let FS: typeof import('expo-file-system') | null = null;
+// v19 moved documentDirectory / EncodingType / writeAsStringAsync etc.
+// under the legacy subpath; import that to keep types & runtime aligned.
+let FS: typeof import('expo-file-system/legacy') | null = null;
 try {
-  FS = require('expo-file-system');
+  FS = require('expo-file-system/legacy');
 } catch {
-  // expo-file-system unavailable (e.g. Expo Snack) — image features disabled
+  try {
+    FS = require('expo-file-system');
+  } catch {
+    // expo-file-system unavailable (e.g. Expo Snack) — image features disabled
+  }
 }
 
 const RECIPES_IMAGE_DIR: string = FS?.documentDirectory

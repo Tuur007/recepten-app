@@ -34,12 +34,18 @@ interface ImageCandidate {
 }
 
 // expo-file-system is a native module — load dynamically so the module works
-// in environments where it is absent (web, tests).
-let FS: typeof import('expo-file-system') | null = null;
+// in environments where it is absent (web, tests). v19 moved the imperative
+// API (documentDirectory, downloadAsync, EncodingType, …) under the legacy
+// subpath; that's the one we need here.
+let FS: typeof import('expo-file-system/legacy') | null = null;
 try {
-  FS = require('expo-file-system');
+  FS = require('expo-file-system/legacy');
 } catch {
-  // Native module unavailable — download will fall back to fetch+ArrayBuffer.
+  try {
+    FS = require('expo-file-system');
+  } catch {
+    // Native module unavailable — download will fall back to fetch+ArrayBuffer.
+  }
 }
 
 function getImageDir(): string {

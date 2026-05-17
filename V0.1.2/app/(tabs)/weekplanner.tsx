@@ -1,3 +1,16 @@
+// app/(tabs)/weekplanner.tsx
+//
+// "De week" — editorial magazine-spread weekplanner.
+// Changes vs previous:
+//   • Folio links + rechts (week · maand   ·   ‹ vorige · volgende ›)
+//   • Drop-cap dagnummers (Fraunces 36px) ipv kleine date-mono
+//   • Per-dag rij met ontbijt / lunch / diner — gescheiden met hairlines
+//   • Familie-stippen per maaltijd (visuele "wie eet mee")
+//   • Italic "— nog niets gepland" met "+ kies" link voor lege slots
+//   • Vandaag krijgt zachte paperAlt-achtergrond en terracotta numeral
+//
+// Alle modal- en fill-gaps-logica blijft identiek aan de vorige versie.
+
 import React, { useMemo, useState, useCallback } from 'react';
 import {
   StyleSheet,
@@ -22,19 +35,20 @@ import { colors, spacing, typography, fonts } from '../../constants/Designsystem
 import type { Recipe } from '../../types/recipe';
 import { haptics, toast } from '../../utils/feedback';
 import { useThemeColors } from '../../theme';
+import {
+  FolioStrip,
+  EditorialTitle,
+  FamilyRow,
+  type FamilyKey,
+} from '../../components/ui/EditorialBits';
 
 const DAY_KEYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
-const DAY_LABELS = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
+const DAY_SHORT = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
 
 const MEAL_TYPES: MealType[] = ['lunch', 'dinner'];
-const MEAL_LABEL: Record<MealType, string> = {
-  lunch: 'lunch',
-  dinner: 'diner',
-};
-const MEAL_ICON: Record<MealType, keyof typeof Ionicons.glyphMap> = {
-  lunch: 'sunny-outline',
-  dinner: 'moon-outline',
-};
+const MEAL_LABEL: Record<MealType, string> = { lunch: 'lunch', dinner: 'diner' };
+
+interface PickerTarget { day: string; mealType: MealType; }
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -45,10 +59,15 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-interface PickerTarget {
-  day: string;
-  mealType: MealType;
+function splitTail(s: string) {
+  const w = s.trim().split(' ');
+  if (w.length < 2) return { lead: s, tail: '' };
+  return { lead: w.slice(0, -1).join(' '), tail: w[w.length - 1] };
 }
+
+// Demo: all 4 family members eat together by default.
+// Eventueel later vervangen door een per-maaltijd attendance-instelling.
+const DEFAULT_FAMILY: FamilyKey[] = ['tuur', 'louise', 'basiel', 'jules'];
 
 export default function WeekPlannerScreen() {
   const router = useRouter();
@@ -70,25 +89,21 @@ export default function WeekPlannerScreen() {
     return DAY_KEYS.map((key, i) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      return { key, label: DAY_LABELS[i], date: d.getDate() };
+      const isToday = d.toDateString() === today.toDateString();
+      return { key, short: DAY_SHORT[i], date: d.getDate(), isToday };
     });
   }, []);
 
   const weekLabel = useMemo(() => {
     const d = new Date();
     const onejan = new Date(d.getFullYear(), 0, 1);
-    const weekNum = Math.ceil(
-      ((d.getTime() - onejan.getTime()) / 86400000 + onejan.getDay() + 1) / 7,
-    );
+    const w = Math.ceil(((d.getTime() - onejan.getTime()) / 86400000 + onejan.getDay() + 1) / 7);
     const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
-    return `week ${weekNum} · ${months[d.getMonth()]}`;
+    return `week ${w} · ${months[d.getMonth()]}`;
   }, []);
 
   const getRecipe = useCallback(
-    (recipeId: string | null) => {
-      if (!recipeId) return null;
-      return recipes.find((r) => r.id === recipeId) ?? null;
-    },
+    (recipeId: string | null) => (recipeId ? recipes.find((r) => r.id === recipeId) ?? null : null),
     [recipes],
   );
 
@@ -98,68 +113,65 @@ export default function WeekPlannerScreen() {
     return recipes.filter((r) => r.title.toLowerCase().includes(q));
   }, [recipes, pickerQuery]);
 
-  const handlePick = useCallback(
-    (recipeId: string) => {
-      if (!pickerTarget) return;
-      setMeal(pickerTarget.day, pickerTarget.mealType, recipeId);
-      haptics.light();
-      const recipe = recipes.find((r) => r.id === recipeId);
-      if (recipe) {
-        toast.success(
-          `Ingepland · ${MEAL_LABEL[pickerTarget.mealType]}`,
-          recipe.title,
-        );
-      }
-      setPickerTarget(null);
-      setPickerQuery('');
-    },
-    [pickerTarget, setMeal, recipes],
-  );
+  // Stats
+  const planned = useMemo(() => {
+    let count = 0;
+    weekDays.forEach(({ key }) => {
+      const day = mealPlan[key];
+      if (day?.lunch) count++;
+      if (day?.dinner) count++;
+    });
+    return count;
+  }, [mealPlan, weekDays]);
+  const totalSlots = weekDays.length * MEAL_TYPES.length;
+  const gaps = totalSlots - planned;
 
-  const applyFillGaps = useCallback(
-    (pool: Recipe[]) => {
-      if (!pool.length) {
-        Alert.alert('Geen recepten', 'Geen recepten gevonden met deze filters.');
-        return;
-      }
+  const handlePick = useCallback((recipeId: string) => {
+    if (!pickerTarget) return;
+    setMeal(pickerTarget.day, pickerTarget.mealType, recipeId);
+    haptics.light();
+    const recipe = recipes.find((r) => r.id === recipeId);
+    if (recipe) {
+      toast.success(`Ingepland · ${MEAL_LABEL[pickerTarget.mealType]}`, recipe.title);
+    }
+    setPickerTarget(null);
+    setPickerQuery('');
+  }, [pickerTarget, setMeal, recipes]);
 
-      // Collect (day, mealType) slots that are still empty.
-      const emptySlots: PickerTarget[] = [];
-      weekDays.forEach(({ key }) => {
-        const day = mealPlan[key];
-        MEAL_TYPES.forEach((mealType) => {
-          if (!day || !day[mealType]) emptySlots.push({ day: key, mealType });
-        });
+  const applyFillGaps = useCallback((pool: Recipe[]) => {
+    if (!pool.length) {
+      Alert.alert('Geen recepten', 'Geen recepten gevonden met deze filters.');
+      return;
+    }
+    const emptySlots: PickerTarget[] = [];
+    weekDays.forEach(({ key }) => {
+      const day = mealPlan[key];
+      MEAL_TYPES.forEach((mealType) => {
+        if (!day || !day[mealType]) emptySlots.push({ day: key, mealType });
       });
-
-      if (!emptySlots.length) {
-        Alert.alert('Volledig', 'Alle maaltijden zijn al ingevuld.');
-        return;
-      }
-
-      // Already-used IDs this week to maximise variety.
-      const usedIds = new Set<string>();
-      weekDays.forEach(({ key }) => {
-        const day = mealPlan[key];
-        if (day?.lunch) usedIds.add(day.lunch);
-        if (day?.dinner) usedIds.add(day.dinner);
-      });
-
-      const preferred = shuffle(pool.filter((r) => !usedIds.has(r.id)));
-      const fallback = shuffle(pool.filter((r) => usedIds.has(r.id)));
-      const ordered = [...preferred, ...fallback];
-
-      emptySlots.forEach((slot, i) => {
-        const recipe = ordered[i % ordered.length];
-        setMeal(slot.day, slot.mealType, recipe.id);
-      });
-      haptics.success();
-      toast.success(
-        `${emptySlots.length} ${emptySlots.length === 1 ? 'maaltijd' : 'maaltijden'} ingepland`,
-      );
-    },
-    [weekDays, mealPlan, setMeal],
-  );
+    });
+    if (!emptySlots.length) {
+      Alert.alert('Volledig', 'Alle maaltijden zijn al ingevuld.');
+      return;
+    }
+    const usedIds = new Set<string>();
+    weekDays.forEach(({ key }) => {
+      const day = mealPlan[key];
+      if (day?.lunch) usedIds.add(day.lunch);
+      if (day?.dinner) usedIds.add(day.dinner);
+    });
+    const preferred = shuffle(pool.filter((r) => !usedIds.has(r.id)));
+    const fallback = shuffle(pool.filter((r) => usedIds.has(r.id)));
+    const ordered = [...preferred, ...fallback];
+    emptySlots.forEach((slot, i) => {
+      const recipe = ordered[i % ordered.length];
+      setMeal(slot.day, slot.mealType, recipe.id);
+    });
+    haptics.success();
+    toast.success(
+      `${emptySlots.length} ${emptySlots.length === 1 ? 'maaltijd' : 'maaltijden'} ingepland`,
+    );
+  }, [weekDays, mealPlan, setMeal]);
 
   const handleFillGaps = useCallback(() => {
     if (!recipes.length) {
@@ -183,111 +195,95 @@ export default function WeekPlannerScreen() {
   if (isLoading) return <LoadingScreen />;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: themeColors.background }]}
+      edges={['top']}
+    >
+      <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Folio */}
-        <View style={styles.folio}>
-          <Text style={typography.folio}>{weekLabel}</Text>
+        <FolioStrip left={weekLabel} right="‹  ·  ›" />
+
+        {/* Masthead */}
+        <View style={styles.masthead}>
+          <EditorialTitle lead="De" tail="week." size={42} />
+          <TouchableOpacity
+            style={styles.fillBtn}
+            onPress={handleFillGaps}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="sparkles-outline" size={11} color={colors.primary} />
+            <Text style={styles.fillBtnText}>vul de gaten</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Title */}
-        <View style={{ alignItems: 'center', marginTop: spacing.xl }}>
-          <Text style={[typography.hero32Bold, { fontSize: 38 }]}>Een week</Text>
-          <Text style={[typography.heroItalic, { fontSize: 22, marginTop: 4 }]}>op tafel.</Text>
-          <View style={styles.divider} />
-        </View>
+        {/* Subtitle */}
+        <Text style={styles.subtitle}>
+          {planned} ingepland · {gaps} {gaps === 1 ? 'gat' : 'gaten'} · {totalSlots} maaltijden.
+        </Text>
 
-        {/* Days */}
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
-          {weekDays.map(({ key, label, date }) => {
+        {/* Day spreads */}
+        <View style={{ marginTop: spacing.lg }}>
+          {weekDays.map(({ key, short, date, isToday }, idx) => {
             const day = mealPlan[key];
             return (
-              <View key={key} style={styles.dayCard}>
-                <View style={styles.dayCardHeader}>
-                  <Text style={styles.dayName}>{label}</Text>
-                  <Text style={styles.dateMono}>{date}</Text>
+              <View
+                key={key}
+                style={[
+                  styles.dayCard,
+                  isToday && { backgroundColor: colors.backgroundLight },
+                  idx === 0 && { borderTopWidth: 0.5, borderTopColor: colors.borderColor },
+                ]}
+              >
+                <View style={styles.dayInner}>
+                  {/* Drop-cap numeral */}
+                  <View style={styles.dayNumeralCol}>
+                    <Text
+                      style={[
+                        styles.dayNumeral,
+                        isToday && { color: colors.primary },
+                      ]}
+                    >
+                      {String(date).padStart(2, '0')}
+                    </Text>
+                    <Text
+                      style={[
+                        typography.folio,
+                        { marginTop: 4 },
+                        isToday && { color: colors.primary },
+                      ]}
+                    >
+                      {short}
+                    </Text>
+                    {isToday && (
+                      <Text style={[typography.folioBold, { color: colors.primary, marginTop: 2 }]}>
+                        vandaag
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Meals column */}
+                  <View style={{ flex: 1 }}>
+                    {MEAL_TYPES.map((mealType, i) => {
+                      const recipe = getRecipe(day?.[mealType] ?? null);
+                      return (
+                        <React.Fragment key={mealType}>
+                          {i > 0 && <View style={styles.mealRule} />}
+                          <MealRow
+                            recipe={recipe}
+                            mealType={mealType}
+                            onChange={() => setPickerTarget({ day: key, mealType })}
+                            onRemove={() => { haptics.light(); removeMeal(key, mealType); }}
+                            onOpen={(rid) => router.push(`/recipes/${rid}`)}
+                          />
+                        </React.Fragment>
+                      );
+                    })}
+                  </View>
                 </View>
-
-                {MEAL_TYPES.map((mealType) => {
-                  const recipe = getRecipe(day?.[mealType] ?? null);
-                  return (
-                    <View key={mealType} style={styles.mealRow}>
-                      <View style={styles.mealLabelCol}>
-                        <Ionicons
-                          name={MEAL_ICON[mealType]}
-                          size={12}
-                          color={colors.textFaint}
-                        />
-                        <Text style={styles.mealLabel}>{MEAL_LABEL[mealType]}</Text>
-                      </View>
-
-                      {recipe ? (
-                        <TouchableOpacity
-                          style={styles.recipeRow}
-                          onPress={() => router.push(`/recipes/${recipe.id}`)}
-                          activeOpacity={0.7}
-                        >
-                          {recipe.imageUri ? (
-                            <Image source={{ uri: recipe.imageUri }} style={styles.thumb} />
-                          ) : (
-                            <View style={[styles.thumb, styles.thumbPlaceholder]} />
-                          )}
-                          <Text style={styles.recipeTitle} numberOfLines={1}>
-                            {recipe.title}
-                          </Text>
-                          <TouchableOpacity
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              setPickerTarget({ day: key, mealType });
-                            }}
-                            hitSlop={10}
-                            style={styles.mealActionBtn}
-                          >
-                            <Ionicons
-                              name="swap-horizontal"
-                              size={16}
-                              color={colors.textFaint}
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              haptics.light();
-                              removeMeal(key, mealType);
-                            }}
-                            hitSlop={10}
-                            style={styles.mealActionBtn}
-                          >
-                            <Ionicons
-                              name="close-circle-outline"
-                              size={18}
-                              color={colors.textFaint}
-                            />
-                          </TouchableOpacity>
-                        </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity
-                          style={styles.emptyRow}
-                          onPress={() => setPickerTarget({ day: key, mealType })}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="add" size={14} color={colors.primary} />
-                          <Text style={styles.emptyText}>kies een recept</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  );
-                })}
               </View>
             );
           })}
         </View>
-
-        {/* Footer */}
-        <TouchableOpacity style={styles.footerHint} onPress={handleFillGaps} activeOpacity={0.7}>
-          <Ionicons name="sparkles-outline" size={12} color={colors.primary} />
-          <Text style={styles.footerHintText}>laat ons de gaten vullen</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* ── Recipe picker modal ── */}
@@ -338,7 +334,7 @@ export default function WeekPlannerScreen() {
                 {item.imageUri ? (
                   <Image source={{ uri: item.imageUri }} style={styles.pickerThumb} />
                 ) : (
-                  <View style={[styles.pickerThumb, styles.thumbPlaceholder]} />
+                  <View style={[styles.pickerThumb, { backgroundColor: colors.backgroundLight }]} />
                 )}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.pickerTitle}>{item.title}</Text>
@@ -425,12 +421,118 @@ export default function WeekPlannerScreen() {
   );
 }
 
+// ─── Helper: one meal row ────────────────────────────────────────────────────
+function MealRow({
+  recipe,
+  mealType,
+  onChange,
+  onRemove,
+  onOpen,
+}: {
+  recipe: Recipe | null;
+  mealType: MealType;
+  onChange: () => void;
+  onRemove: () => void;
+  onOpen: (id: string) => void;
+}) {
+  const empty = !recipe;
+  return (
+    <View style={mealStyles.row}>
+      <Text style={mealStyles.label}>{MEAL_LABEL[mealType]}</Text>
+
+      {empty ? (
+        <TouchableOpacity
+          style={mealStyles.emptyBody}
+          onPress={onChange}
+          activeOpacity={0.6}
+        >
+          <Text style={mealStyles.emptyText}>— nog niets gepland</Text>
+          <Text style={mealStyles.emptyAction}>+ kies</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={mealStyles.filledBody}
+          onPress={() => onOpen(recipe.id)}
+          activeOpacity={0.75}
+        >
+          {recipe.imageUri ? (
+            <Image source={{ uri: recipe.imageUri }} style={mealStyles.swatch} />
+          ) : (
+            <View style={[mealStyles.swatch, { backgroundColor: colors.backgroundLight }]} />
+          )}
+          <Text style={mealStyles.title} numberOfLines={1}>
+            {recipe.title}
+          </Text>
+          <FamilyRow who={DEFAULT_FAMILY} size={12} overlap={4} />
+          <TouchableOpacity
+            hitSlop={8}
+            onPress={onRemove}
+            style={{ paddingHorizontal: 4 }}
+          >
+            <Ionicons name="close" size={14} color={colors.textFaint} />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+const mealStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    gap: 10,
+  },
+  label: {
+    width: 52,
+    fontFamily: fonts.mono,
+    fontSize: 8.5,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    color: colors.textLight,
+  },
+  emptyBody: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  emptyText: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 14,
+    color: colors.textFaint,
+  },
+  emptyAction: {
+    marginLeft: 'auto',
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.primary,
+  },
+  filledBody: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  swatch: { width: 24, height: 24, borderRadius: 2 },
+  title: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.textDark,
+    lineHeight: 18,
+  },
+});
+
 function PrefToggle({
   icon, label, value, onToggle,
 }: { icon: string; label: string; value: boolean; onToggle: () => void }) {
   return (
     <TouchableOpacity style={styles.prefToggleRow} onPress={onToggle} activeOpacity={0.7}>
-      <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={18} color={value ? colors.primary : colors.textLight} />
+      <Ionicons
+        name={icon as keyof typeof Ionicons.glyphMap}
+        size={18}
+        color={value ? colors.primary : colors.textLight}
+      />
       <Text style={[styles.prefToggleLabel, value && { color: colors.primary }]}>{label}</Text>
       <Ionicons
         name={value ? 'checkmark-circle' : 'ellipse-outline'}
@@ -443,96 +545,57 @@ function PrefToggle({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  folio: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+
+  masthead: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  divider: { width: 32, height: 1, backgroundColor: colors.borderColor, marginTop: spacing.sm },
-
-  dayCard: {
-    paddingVertical: spacing.md,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.borderSoft,
-  },
-  dayCardHeader: {
+    marginTop: spacing.md,
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    marginBottom: 6,
   },
-  dayName: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: 'italic',
-    fontSize: 15,
-    color: colors.textDark,
-  },
-  dateMono: {
-    fontFamily: fonts.mono,
-    fontSize: 9,
-    color: colors.textFaint,
-  },
-
-  mealRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    gap: 8,
-  },
-  mealLabelCol: {
-    width: 60,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  mealLabel: {
-    fontFamily: fonts.mono,
-    fontSize: 9,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: colors.textLight,
-  },
-
-  recipeRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  thumb: { width: 28, height: 28, borderRadius: 14 },
-  thumbPlaceholder: { backgroundColor: colors.backgroundLight },
-  recipeTitle: {
-    flex: 1,
-    fontFamily: fonts.display,
-    fontSize: 14,
-    color: colors.textDark,
-  },
-  mealActionBtn: { padding: 2 },
-
-  emptyRow: {
-    flex: 1,
+  fillBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 4,
   },
-  emptyText: {
+  fillBtnText: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.textDark,
+  },
+  subtitle: {
+    paddingHorizontal: spacing.lg,
+    marginTop: 6,
     fontFamily: fonts.displayItalic,
     fontStyle: 'italic',
     fontSize: 13,
-    color: colors.textFaint,
+    color: colors.textLight,
   },
 
-  footerHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: spacing.lg,
-    paddingVertical: spacing.sm,
+  dayCard: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderSoft,
   },
-  footerHintText: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: 'italic',
-    fontSize: 12,
-    color: colors.primary,
+  dayInner: { flexDirection: 'row', gap: 14 },
+  dayNumeralCol: { width: 52 },
+  dayNumeral: {
+    fontFamily: fonts.display,
+    fontWeight: '300',
+    fontSize: 36,
+    lineHeight: 36,
+    letterSpacing: -1,
+    color: colors.textDark,
   },
+  mealRule: { height: 0.5, backgroundColor: colors.borderSoft, marginVertical: 4 },
 
   modal: { flex: 1, backgroundColor: colors.background },
   modalHeader: {

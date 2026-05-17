@@ -1,3 +1,16 @@
+// app/(tabs)/home.tsx
+//
+// "Vanavond" — editorial cookbook home.
+// Changes vs previous:
+//   • Folio met datum links + week / seizoen rechts
+//   • Hero in een papier-rand kader (witte mat met zachte schaduw)
+//   • Kicker "· het diner van vanavond ·" boven titel
+//   • Meta-strip: voorber. / koken / porties (3 kolommen, hairline boven & onder)
+//   • "aan tafel" rij met overlappende familie-stippen
+//   • "ook deze week" preview met drie volgende dagen
+//
+// Data-bronnen blijven dezelfde hooks als voorheen.
+
 import React, { useMemo } from 'react';
 import {
   StyleSheet,
@@ -15,13 +28,41 @@ import { useRecipes } from '../../features/recipes/hooks';
 import { useWeekPlannerStore } from '../../store/weekPlannerStore';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
+import {
+  FolioStrip,
+  EditorialTitle,
+  MetaStrip,
+  FamilyRow,
+  RuleWithLabel,
+} from '../../components/ui/EditorialBits';
 
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
 
-const PAPER = colors.background;
-
 const DAY_KEYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
+const DAY_SHORT = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'];
+const MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+const DAYS_FULL = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
+
+function seasonOf(d: Date) {
+  const m = d.getMonth();
+  if (m >= 2 && m <= 4) return 'lente';
+  if (m >= 5 && m <= 7) return 'zomer';
+  if (m >= 8 && m <= 10) return 'herfst';
+  return 'winter';
+}
+
+function weekNumOf(d: Date) {
+  const onejan = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil(((d.getTime() - onejan.getTime()) / 86400000 + onejan.getDay() + 1) / 7);
+}
+
+/** Splits a title into "lead" + "tail" (last word in italic). */
+function splitTitle(title: string) {
+  const words = title.trim().split(' ');
+  if (words.length === 1) return { lead: '', tail: title };
+  return { lead: words.slice(0, -1).join(' '), tail: words[words.length - 1] };
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -29,214 +70,255 @@ export default function HomeScreen() {
   const { mealPlan } = useWeekPlannerStore();
   const themeColors = useThemeColors();
 
-  // Vandaag's dag-key (0=SUN, 1=MON, ...)
-  const todayKey = DAY_KEYS[new Date().getDay()];
+  const todayIdx = new Date().getDay();
+  const todayKey = DAY_KEYS[todayIdx];
 
   const tonight = useMemo(() => {
-    const day = mealPlan[todayKey];
-    const dinnerId = day?.dinner;
-    if (dinnerId) {
-      const planned = recipes.find(r => r.id === dinnerId);
-      if (planned) return planned;
-    }
-    return null;
+    const dinnerId = mealPlan[todayKey]?.dinner;
+    return dinnerId ? recipes.find((r) => r.id === dinnerId) ?? null : null;
   }, [recipes, mealPlan, todayKey]);
 
-  const dateLabel = useMemo(() => {
-    const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
-    const months = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
-    const d = new Date();
-    return `${days[d.getDay()]} · ${d.getDate()} ${months[d.getMonth()]}`;
-  }, []);
+  // Next 3 days for "ook deze week"
+  const upcoming = useMemo(() => {
+    const out: { dayShort: string; recipe: ReturnType<typeof recipes.find> }[] = [];
+    for (let i = 1; i <= 3; i++) {
+      const idx = (todayIdx + i) % 7;
+      const key = DAY_KEYS[idx];
+      const dinnerId = mealPlan[key]?.dinner;
+      out.push({
+        dayShort: DAY_SHORT[idx],
+        recipe: dinnerId ? recipes.find((r) => r.id === dinnerId) : null,
+      });
+    }
+    return out;
+  }, [recipes, mealPlan, todayIdx]);
+
+  const d = new Date();
+  const dateLabel = `${DAYS_FULL[d.getDay()]} · ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  const weekLabel = `week ${weekNumOf(d)} · ${seasonOf(d)}`;
 
   if (isLoading) return <LoadingScreen />;
 
-  // Splits titel in 2 woorden: laatste = italic terracotta accent
-  const splitTitle = (title: string) => {
-    const words = title.trim().split(' ');
-    if (words.length === 1) return { lead: '', tail: title };
-    return { lead: words.slice(0, -1).join(' '), tail: words[words.length - 1] };
-  };
-
   const { lead, tail } = tonight ? splitTitle(tonight.title) : { lead: '', tail: '' };
+
+  // Format duration into voorber + koken if both fields exist; otherwise show total.
+  const prepNum = tonight?.preparationTime ?? null;
+  const cookNum = tonight?.cookingTime ?? null;
+  const portions = tonight?.servings ?? 4;
+
+  const metaItems = [
+    { num: prepNum ? String(prepNum).padStart(2, '0') : '–', unit: 'voorber.' },
+    { num: cookNum ? String(cookNum).padStart(2, '0') : '–', unit: 'koken' },
+    { num: String(portions).padStart(2, '0'), unit: 'porties' },
+  ];
 
   return (
     <ErrorBoundary>
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: themeColors.background }]}
+        edges={['top']}
+      >
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Folio header */}
-          <View style={styles.folio}>
-            <Text style={typography.folio}>{dateLabel}</Text>
-          </View>
+          {/* Folio */}
+          <FolioStrip left={dateLabel} right={weekLabel} />
 
-          {/* Spacer */}
-          <View style={{ flex: 1, minHeight: 40 }} />
+          {/* Nr. centered */}
+          <View style={styles.nrWrap}>
+            <Text style={[typography.folio, { letterSpacing: 3 }]}>
+              · nr. {String((tonight?.id ?? '047').toString().slice(-3))} ·
+            </Text>
+          </View>
 
           {tonight ? (
             <>
-              {/* Hero photo */}
+              {/* Hero photo, with paper-edge frame */}
               <View style={styles.heroWrap}>
-                {tonight.imageUri ? (
-                  <Image source={{ uri: tonight.imageUri }} style={styles.heroImage} />
-                ) : (
-                  <View style={[styles.heroImage, styles.heroPlaceholder]}>
-                    <Text style={[typography.label12, { color: colors.textLight }]}>vanavond</Text>
-                  </View>
-                )}
+                <View style={styles.heroMat}>
+                  {tonight.imageUri ? (
+                    <Image source={{ uri: tonight.imageUri }} style={styles.heroImage} />
+                  ) : (
+                    <View style={[styles.heroImage, styles.heroPlaceholder]}>
+                      <Text style={[typography.label12, { color: colors.textFaint }]}>
+                        {tonight.title}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
 
               {/* Kicker */}
-              <Text style={[typography.folio, styles.kicker]}>vanavond</Text>
+              <Text
+                style={[
+                  typography.folioBold,
+                  { color: colors.primary, textAlign: 'center', marginTop: spacing.lg },
+                ]}
+              >
+                · het diner van vanavond ·
+              </Text>
 
               {/* Title */}
               <View style={styles.titleBlock}>
-                {lead.length > 0 && (
-                  <Text style={[typography.hero32Bold, styles.titleLine]}>{lead}</Text>
-                )}
-                <Text style={[typography.heroItalic, styles.titleLine]}>{tail}</Text>
+                <EditorialTitle lead={lead} tail={tail + '.'} size={42} align="center" />
               </View>
 
-              {/* Meta row */}
-              {tonight.duration ? (
-                <View style={styles.metaRow}>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="time-outline" size={13} color={colors.textLight} />
-                    <Text style={styles.metaText}>{tonight.duration} min</Text>
-                  </View>
+              {/* Meta strip */}
+              <MetaStrip items={metaItems} style={{ marginTop: spacing.lg }} />
+
+              {/* Aan tafel */}
+              <View style={styles.tableRow}>
+                <Text style={typography.folio}>aan tafel · 4</Text>
+                <FamilyRow who={['tuur', 'louise', 'basiel', 'jules']} size={18} />
+              </View>
+
+              {/* CTA */}
+              <View style={styles.ctaStack}>
+                <TouchableOpacity
+                  style={styles.cta}
+                  onPress={() => router.push(`/recipes/${tonight.id}`)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={typography.buttonLabel}>begin met koken</Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={14}
+                    color={colors.background}
+                    style={{ marginLeft: 10 }}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.surpriseLink}
+                  onPress={() => router.push('/(tabs)/recipes')}
+                  activeOpacity={0.6}
+                >
+                  <Ionicons name="sparkles-outline" size={12} color={colors.primary} />
+                  <Text style={styles.surpriseText}>verras me met iets anders</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Ook deze week */}
+              <View style={styles.weekPeek}>
+                <RuleWithLabel label="ook deze week" />
+                <View style={styles.peekGrid}>
+                  {upcoming.map((u, i) => (
+                    <TouchableOpacity
+                      key={i}
+                      style={styles.peekCell}
+                      disabled={!u.recipe}
+                      onPress={() => u.recipe && router.push(`/recipes/${u.recipe.id}`)}
+                      activeOpacity={0.7}
+                    >
+                      {u.recipe?.imageUri ? (
+                        <Image source={{ uri: u.recipe.imageUri }} style={styles.peekImg} />
+                      ) : (
+                        <View style={[styles.peekImg, styles.heroPlaceholder]} />
+                      )}
+                      <Text style={[typography.folio, { color: colors.textFaint, marginTop: 6 }]}>
+                        {u.dayShort}
+                      </Text>
+                      <Text style={styles.peekTitle} numberOfLines={1}>
+                        {u.recipe ? u.recipe.title : '— nog leeg'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-              ) : null}
+              </View>
             </>
           ) : (
-            /* Lege staat: niets gepland */
+            /* Empty state */
             <View style={styles.emptyWrap}>
-              <View style={[styles.heroImage, styles.heroPlaceholder]}>
-                <Ionicons name="moon-outline" size={36} color={colors.textFaint} />
+              <View style={styles.heroMat}>
+                <View style={[styles.heroImage, styles.heroPlaceholder]}>
+                  <Ionicons name="moon-outline" size={36} color={colors.textFaint} />
+                </View>
               </View>
-              <Text style={[typography.folio, styles.kicker]}>vanavond</Text>
-              <View style={styles.titleBlock}>
-                <Text style={[typography.hero32Bold, { fontSize: 26, textAlign: 'center' }]}>
-                  Geen maaltijd gepland
-                </Text>
-                <Text style={[typography.heroItalic, { fontSize: 18, textAlign: 'center' }]}>
-                  voor vanavond.
-                </Text>
-              </View>
-              <Text style={[typography.bodyItalic, { textAlign: 'center', marginTop: spacing.sm }]}>
-                Voeg een recept toe aan je weekplanner!
+              <Text
+                style={[
+                  typography.folioBold,
+                  { color: colors.primary, textAlign: 'center', marginTop: spacing.lg },
+                ]}
+              >
+                · niets gepland ·
               </Text>
+              <View style={styles.titleBlock}>
+                <EditorialTitle lead="Vanavond" tail="vrij." size={42} align="center" />
+              </View>
+              <Text
+                style={[
+                  typography.bodyItalic,
+                  { textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.lg },
+                ]}
+              >
+                Een avond zonder plan, kies wat uit de week of laat je verrassen.
+              </Text>
+              <View style={styles.ctaStack}>
+                <TouchableOpacity
+                  style={styles.cta}
+                  onPress={() => router.push('/(tabs)/weekplanner')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={typography.buttonLabel}>plan iets in</Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={14}
+                    color={colors.background}
+                    style={{ marginLeft: 10 }}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           )}
-
-          {/* Spacer */}
-          <View style={{ flex: 1, minHeight: 40 }} />
-
-          {/* CTA stack */}
-          <View style={styles.ctaStack}>
-            {tonight ? (
-              <TouchableOpacity
-                style={styles.cta}
-                onPress={() => router.push(`/recipes/${tonight.id}`)}
-                activeOpacity={0.85}
-              >
-                <Text style={typography.buttonLabel}>begin met koken</Text>
-                <Ionicons name="arrow-forward" size={14} color={PAPER} style={{ marginLeft: 10 }} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.cta}
-                onPress={() => router.push('/(tabs)/weekplanner')}
-                activeOpacity={0.85}
-              >
-                <Text style={typography.buttonLabel}>plan iets in</Text>
-                <Ionicons name="arrow-forward" size={14} color={PAPER} style={{ marginLeft: 10 }} />
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.surpriseLink}
-              onPress={() => router.push('/(tabs)/recipes')}
-              activeOpacity={0.6}
-            >
-              <Ionicons name="sparkles-outline" size={12} color={colors.textLight} />
-              <Text style={styles.surpriseText}>
-                {tonight ? 'verras me met iets anders' : 'bekijk alle recepten'}
-              </Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
       </SafeAreaView>
     </ErrorBoundary>
   );
 }
 
-// ============================================================================
-// STYLES
-// ============================================================================
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: PAPER },
-
+  container: { flex: 1, backgroundColor: colors.background },
   scrollContent: {
     flexGrow: 1,
-    minHeight: '100%',
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xl,
   },
 
-  folio: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: spacing.sm,
+  nrWrap: { alignItems: 'center', paddingVertical: 6 },
+
+  heroWrap: { alignItems: 'center', marginTop: spacing.sm },
+  heroMat: {
+    padding: 6,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.10,
+    shadowOffset: { width: 0, height: 14 },
+    shadowRadius: 22,
+    elevation: 4,
   },
-
-  heroWrap: { alignItems: 'center', marginVertical: spacing.md },
-  emptyWrap: { alignItems: 'center', marginVertical: spacing.md },
-
   heroImage: {
-    width: 240,
-    height: 300,
-    borderRadius: 12,
+    width: 280,
+    height: 260,
     backgroundColor: colors.backgroundLight,
   },
+  heroPlaceholder: { alignItems: 'center', justifyContent: 'center' },
 
-  heroPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  titleBlock: { marginTop: spacing.sm, paddingHorizontal: spacing.sm },
 
-  kicker: { textAlign: 'center', marginTop: spacing.lg },
-
-  titleBlock: { alignItems: 'center', marginTop: spacing.sm },
-
-  titleLine: { textAlign: 'center', fontSize: 42, lineHeight: 44 },
-
-  metaRow: {
+  tableRow: {
+    marginTop: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-
-  metaText: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: 'italic',
-    fontSize: 13,
-    color: colors.textLight,
+    justifyContent: 'space-between',
   },
 
   ctaStack: {
     alignItems: 'center',
     gap: 14,
-    marginBottom: spacing.md,
+    marginTop: spacing.xl,
   },
-
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -245,18 +327,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 999,
   },
-
-  surpriseLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-  },
-
+  surpriseLink: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
   surpriseText: {
     fontFamily: fonts.displayItalic,
     fontStyle: 'italic',
     fontSize: 13,
-    color: colors.textLight,
+    color: colors.primary,
   },
+
+  weekPeek: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.md,
+    borderTopWidth: 0.5,
+    borderTopColor: colors.borderSoft,
+  },
+  peekGrid: { flexDirection: 'row', gap: 10, marginTop: spacing.md },
+  peekCell: { flex: 1 },
+  peekImg: {
+    width: '100%',
+    height: 70,
+    backgroundColor: colors.backgroundLight,
+  },
+  peekTitle: {
+    fontFamily: fonts.display,
+    fontSize: 13,
+    color: colors.textDark,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+
+  emptyWrap: { alignItems: 'center', marginTop: spacing.lg },
 });

@@ -1,3 +1,15 @@
+// app/(tabs)/recipes.tsx
+//
+// "Het archief" — editorial cookbook recipes index.
+// Changes vs previous:
+//   • Folio links + rechts (count + sort hint)
+//   • Masthead row: kleinere ghost-knoppen (zoeken / importeren) naast titel
+//   • "+ schrijf een nieuw recept" als editorial regel met hairline ipv ronde +
+//   • Categorieën in italic Fraunces, actieve onder terracotta-rule
+//   • Filter-chips in mono uppercase
+//   • Featured "uitgelicht · 01" met headnote-caption
+//   • Grid items met mono index (· 01) + italic accent op laatste woord
+
 import React, { useMemo, useState } from 'react';
 import {
   StyleSheet,
@@ -16,19 +28,28 @@ import { useRecipes } from '../../features/recipes/hooks';
 import { useCategories } from '../../store/categoriesStore';
 import { useFiltersStore } from '../../store/filtersStore';
 import { useFilteredRecipes } from '../../features/recipes/hooks/useFilteredRecipes';
-import { FilterBar } from '../../features/recipes/components/FilterBar';
 import { DifficultyBadge } from '../../components/ui/DifficultyBadge';
-import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { getTotalCookingTime } from '../../utils/filterRecipes';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
+import {
+  FolioStrip,
+  EditorialTitle,
+  RuleWithLabel,
+} from '../../components/ui/EditorialBits';
 
-const PAPER = colors.background;
 const { width } = Dimensions.get('window');
 const GRID_GAP = 18;
 const GRID_PAD = spacing.lg;
 const GRID_W = (width - GRID_PAD * 2 - GRID_GAP) / 2;
+
+/** "Spaghetti vongole" -> { lead: 'Spaghetti', tail: 'vongole' } */
+function splitTail(s: string) {
+  const w = s.trim().split(' ');
+  if (w.length < 2) return { lead: s, tail: '' };
+  return { lead: w.slice(0, -1).join(' '), tail: w[w.length - 1] };
+}
 
 export default function RecipesScreen() {
   const router = useRouter();
@@ -51,92 +72,64 @@ export default function RecipesScreen() {
   const { sorted, featured, grid } = useFilteredRecipes(catFiltered);
 
   const filterChips = [
-    {
-      id: 'favorites',
-      label: '❤️ Favorieten',
-      active: filters.favoritesOnly,
-      onPress: () => filters.setFavoritesOnly(!filters.favoritesOnly),
-    },
-    {
-      id: 'easy',
-      label: 'Makkelijk',
-      active: filters.selectedDifficulty === 'easy',
-      onPress: () => filters.setDifficulty(filters.selectedDifficulty === 'easy' ? null : 'easy'),
-    },
-    {
-      id: 'medium',
-      label: 'Gemiddeld',
-      active: filters.selectedDifficulty === 'medium',
-      onPress: () => filters.setDifficulty(filters.selectedDifficulty === 'medium' ? null : 'medium'),
-    },
-    {
-      id: 'hard',
-      label: 'Lastig',
-      active: filters.selectedDifficulty === 'hard',
-      onPress: () => filters.setDifficulty(filters.selectedDifficulty === 'hard' ? null : 'hard'),
-    },
-    {
-      id: 'under15',
-      label: 'Onder 15m',
-      active: filters.selectedTimeRange === 'under15',
-      onPress: () => filters.setTimeRange(filters.selectedTimeRange === 'under15' ? null : 'under15'),
-    },
-    {
-      id: '15to30',
-      label: '15–30m',
-      active: filters.selectedTimeRange === '15to30',
-      onPress: () => filters.setTimeRange(filters.selectedTimeRange === '15to30' ? null : '15to30'),
-    },
-    {
-      id: 'over30',
-      label: '30m+',
-      active: filters.selectedTimeRange === 'over30',
-      onPress: () => filters.setTimeRange(filters.selectedTimeRange === 'over30' ? null : 'over30'),
-    },
+    { id: 'favorites', label: 'favorieten', active: filters.favoritesOnly,
+      onPress: () => filters.setFavoritesOnly(!filters.favoritesOnly) },
+    { id: 'easy', label: 'eenvoudig', active: filters.selectedDifficulty === 'easy',
+      onPress: () => filters.setDifficulty(filters.selectedDifficulty === 'easy' ? null : 'easy') },
+    { id: 'medium', label: 'gemiddeld', active: filters.selectedDifficulty === 'medium',
+      onPress: () => filters.setDifficulty(filters.selectedDifficulty === 'medium' ? null : 'medium') },
+    { id: 'under15', label: '< 15 min', active: filters.selectedTimeRange === 'under15',
+      onPress: () => filters.setTimeRange(filters.selectedTimeRange === 'under15' ? null : 'under15') },
+    { id: '15to30', label: '15–30 min', active: filters.selectedTimeRange === '15to30',
+      onPress: () => filters.setTimeRange(filters.selectedTimeRange === '15to30' ? null : '15to30') },
   ];
 
   if (isLoading) return <LoadingScreen />;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: themeColors.background }]}
+      edges={['top']}
+    >
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Folio */}
-        <View style={styles.folio}>
-          <Text style={typography.folio}>recepten · {sorted.length}</Text>
-        </View>
+        <FolioStrip
+          left={`recepten · ${sorted.length}`}
+          right="sorteer · ↓ recent"
+        />
 
-        {/* Title + search + add + import */}
-        <View style={styles.titleRow}>
-          <View>
-            <Text style={[typography.hero32Bold, { fontSize: 38 }]}>Het</Text>
-            <Text style={[typography.heroItalic, { fontSize: 38 }]}>archief.</Text>
-          </View>
+        {/* Masthead */}
+        <View style={styles.masthead}>
+          <EditorialTitle lead="Onze" tail="recepten." size={40} />
           <View style={styles.actionBtns}>
             <TouchableOpacity
-              style={styles.searchBtn}
+              style={styles.ghostBtn}
               activeOpacity={0.7}
               onPress={() => router.push('/recipes/search')}
             >
-              <Ionicons name="search" size={18} color={colors.textDark} />
+              <Ionicons name="search" size={15} color={colors.textDark} />
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.addBtn}
-              activeOpacity={0.7}
-              onPress={() => router.push('/recipes/new')}
-            >
-              <Ionicons name="add" size={20} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.importBtn}
+              style={styles.ghostBtn}
               activeOpacity={0.7}
               onPress={() => router.push('/recipes/import')}
             >
-              <Ionicons name="link" size={18} color={colors.textDark} />
+              <Ionicons name="link-outline" size={15} color={colors.textDark} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Categories */}
+        {/* + Schrijf een nieuw recept (editorial line) */}
+        <TouchableOpacity
+          style={styles.newRecipeLine}
+          activeOpacity={0.6}
+          onPress={() => router.push('/recipes/new')}
+        >
+          <Text style={styles.newRecipeText}>+ schrijf een nieuw recept</Text>
+          <Text style={[typography.folio, { color: colors.primary }]}>nieuw</Text>
+        </TouchableOpacity>
+
+        {/* Categories — italic Fraunces */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -158,7 +151,7 @@ export default function RecipesScreen() {
                     color: active ? colors.textDark : colors.textLight,
                   }}
                 >
-                  {c}
+                  {c.toLowerCase()}
                 </Text>
                 {active && <View style={styles.catUnderline} />}
               </TouchableOpacity>
@@ -167,22 +160,20 @@ export default function RecipesScreen() {
         </ScrollView>
 
         {/* Filter chips */}
-        <FilterBar
-          filters={filterChips}
-          onClearFilters={() => filters.clearAllFilters()}
-        />
-
-        {/* Favorites section */}
-        {recipes.filter((r) => r.isFavorite).length > 0 && (
-          <View style={styles.favSection}>
-            <Text style={[typography.title18, { marginBottom: spacing.xs }]}>
-              ❤️ <Text style={{ fontStyle: 'italic' }}>Favorieten</Text>
-            </Text>
-            <Text style={[typography.body16, { color: colors.textLight }]}>
-              {recipes.filter((r) => r.isFavorite).length} recepten
-            </Text>
-          </View>
-        )}
+        <View style={styles.chipRow}>
+          {filterChips.map((c) => (
+            <TouchableOpacity
+              key={c.id}
+              style={[styles.chip, c.active && styles.chipActive]}
+              onPress={c.onPress}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.chipText, c.active && styles.chipTextActive]}>
+                {c.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* Featured */}
         {featured ? (
@@ -191,34 +182,42 @@ export default function RecipesScreen() {
             onPress={() => router.push(`/recipes/${featured.id}`)}
             activeOpacity={0.85}
           >
-            <Text style={[typography.folio, { marginBottom: 8 }]}>uitgelicht · 01</Text>
+            <View style={styles.featuredFolioRow}>
+              <Text style={typography.folioBold}>uitgelicht · 01</Text>
+              <Text style={[typography.folio, { color: colors.textFaint }]}>nieuw deze week</Text>
+            </View>
+
             {featured.imageUri ? (
               <Image source={{ uri: featured.imageUri }} style={styles.featuredImg} />
             ) : (
               <View style={[styles.featuredImg, styles.placeholder]} />
             )}
-            <View style={styles.featuredMeta}>
-              <Text style={[typography.title20, { fontSize: 22, flex: 1 }]} numberOfLines={2}>
-                {featured.title}
-              </Text>
-              {getTotalCookingTime(featured.preparationTime, featured.cookingTime) > 0 ? (
-                <Text style={typography.label12}>
-                  {getTotalCookingTime(featured.preparationTime, featured.cookingTime)} min
-                </Text>
-              ) : null}
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+
+            {(() => {
+              const { lead, tail } = splitTail(featured.title);
+              return (
+                <View style={styles.featuredTitleRow}>
+                  <View style={{ flex: 1 }}>
+                    <EditorialTitle lead={lead} tail={tail ? tail + '.' : ''} size={26} />
+                  </View>
+                  {getTotalCookingTime(featured.preparationTime, featured.cookingTime) > 0 ? (
+                    <Text style={typography.folio}>
+                      {getTotalCookingTime(featured.preparationTime, featured.cookingTime)} min
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })()}
+
+            <View style={styles.featuredMetaRow}>
+              {featured.difficulty && (
+                <DifficultyBadge difficulty={featured.difficulty} size="small" />
+              )}
               {featured.category ? (
-                <Text style={[typography.bodyItalic, { fontSize: 12 }]}>
-                  {featured.category}
+                <Text style={[typography.folio, { color: colors.textFaint }]}>
+                  {featured.category.toLowerCase()}
                 </Text>
               ) : null}
-              {featured.difficulty && <DifficultyBadge difficulty={featured.difficulty} size="small" />}
-              <CookingTimeDisplay
-                preparationTime={featured.preparationTime}
-                cookingTime={featured.cookingTime}
-                size="small"
-              />
             </View>
           </TouchableOpacity>
         ) : (
@@ -227,52 +226,66 @@ export default function RecipesScreen() {
               {filters.hasActiveFilters()
                 ? 'Geen recepten gevonden met deze filters.'
                 : activeCat === 'Alles'
-                ? 'Nog geen recepten. Voeg er een toe!'
+                ? 'Nog geen recepten. Schrijf je eerste!'
                 : `Geen recepten in "${activeCat}".`}
             </Text>
           </View>
         )}
 
-        {/* "De rest" header */}
+        {/* De rest */}
         {grid.length > 0 && (
           <View style={styles.restHeader}>
-            <Text style={typography.folioBold}>de rest</Text>
-            <View style={styles.rule} />
+            <RuleWithLabel label="de rest" bold />
           </View>
         )}
 
         {/* Grid */}
         <View style={styles.grid}>
-          {grid.map((r) => (
-            <TouchableOpacity
-              key={r.id}
-              style={{ width: GRID_W, marginBottom: 22 }}
-              onPress={() => router.push(`/recipes/${r.id}`)}
-              activeOpacity={0.85}
-            >
-              {r.imageUri ? (
-                <Image source={{ uri: r.imageUri }} style={styles.gridImg} />
-              ) : (
-                <View style={[styles.gridImg, styles.placeholder]} />
-              )}
-              <Text style={styles.gridTitle} numberOfLines={2}>
-                {r.title}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                {r.difficulty && <DifficultyBadge difficulty={r.difficulty} size="small" />}
-                <CookingTimeDisplay
-                  preparationTime={r.preparationTime}
-                  cookingTime={r.cookingTime}
-                  size="small"
-                />
-              </View>
-              {r.category ? (
-                <Text style={[typography.label12, { marginTop: 2, fontSize: 8, color: colors.textFaint }]}>
-                  {r.category}
+          {grid.map((r, i) => {
+            const { lead, tail } = splitTail(r.title);
+            const tm = getTotalCookingTime(r.preparationTime, r.cookingTime);
+            return (
+              <TouchableOpacity
+                key={r.id}
+                style={{ width: GRID_W, marginBottom: 22 }}
+                onPress={() => router.push(`/recipes/${r.id}`)}
+                activeOpacity={0.85}
+              >
+                {r.imageUri ? (
+                  <Image source={{ uri: r.imageUri }} style={styles.gridImg} />
+                ) : (
+                  <View style={[styles.gridImg, styles.placeholder]} />
+                )}
+                <View style={styles.gridFolio}>
+                  <Text style={[typography.folio, { color: colors.textFaint }]}>
+                    · {String(i + 1).padStart(2, '0')}
+                  </Text>
+                  {tm > 0 ? (
+                    <Text style={[typography.folio, { color: colors.textFaint }]}>{tm}m</Text>
+                  ) : null}
+                </View>
+                <Text style={styles.gridTitle} numberOfLines={2}>
+                  {lead}{lead && tail ? ' ' : ''}
+                  {tail ? (
+                    <Text
+                      style={{
+                        fontFamily: fonts.displayItalic,
+                        fontStyle: 'italic',
+                        color: colors.primary,
+                      }}
+                    >
+                      {tail}
+                    </Text>
+                  ) : null}
                 </Text>
-              ) : null}
-            </TouchableOpacity>
-          ))}
+                {r.difficulty && (
+                  <View style={{ marginTop: 4 }}>
+                    <DifficultyBadge difficulty={r.difficulty} size="small" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -280,115 +293,128 @@ export default function RecipesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: PAPER },
-  folio: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  container: { flex: 1, backgroundColor: colors.background },
+
+  masthead: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  titleRow: {
+    marginTop: spacing.md,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
   },
-  actionBtns: {
+  actionBtns: { flexDirection: 'row', gap: 6, paddingBottom: 4 },
+  ghostBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  newRecipeLine: {
     flexDirection: 'row',
-    gap: 8,
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 12,
+    marginTop: spacing.sm,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderColor,
   },
-  searchBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.borderColor,
-    alignItems: 'center',
-    justifyContent: 'center',
+  newRecipeText: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 15,
+    color: colors.primary,
   },
-  addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  importBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.borderColor,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
   catsRow: {
     paddingHorizontal: spacing.lg,
     gap: 18,
     marginTop: spacing.md,
     paddingBottom: 4,
   },
-  catItem: { paddingBottom: 4, marginRight: 18 },
-  catUnderline: {
-    height: 1.5,
-    backgroundColor: colors.primary,
-    marginTop: 2,
-  },
-  favSection: {
+  catItem: { paddingBottom: 4, marginRight: 18, alignItems: 'center' },
+  catUnderline: { height: 1.5, width: '100%', backgroundColor: colors.primary, marginTop: 4 },
+
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
+    flexWrap: 'wrap',
   },
-  featuredWrap: {
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.lg,
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
   },
-  featuredImg: {
-    width: '100%',
-    height: 180,
-    backgroundColor: colors.backgroundLight,
+  chipActive: { backgroundColor: colors.textDark, borderColor: colors.textDark },
+  chipText: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.textLight,
   },
-  placeholder: { backgroundColor: colors.backgroundLight },
-  featuredMeta: {
+  chipTextActive: { color: colors.background },
+
+  featuredWrap: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
+  featuredFolioRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    marginTop: 10,
-    gap: 8,
+    marginBottom: 8,
   },
+  featuredImg: { width: '100%', height: 180, backgroundColor: colors.backgroundLight },
+  placeholder: { backgroundColor: colors.backgroundLight },
+  featuredTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginTop: spacing.sm,
+  },
+  featuredMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: spacing.sm,
+  },
+
   emptyState: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.lg,
   },
+
   restHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xl,
     marginBottom: spacing.md,
   },
-  rule: { flex: 1, height: 1, backgroundColor: colors.borderColor },
+
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: spacing.lg,
     gap: GRID_GAP,
   },
-  gridImg: {
-    width: '100%',
-    aspectRatio: 4 / 5,
-    backgroundColor: colors.backgroundLight,
+  gridImg: { width: '100%', aspectRatio: 4 / 5, backgroundColor: colors.backgroundLight },
+  gridFolio: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
   },
   gridTitle: {
     fontFamily: fonts.display,
     fontSize: 14,
     color: colors.textDark,
-    marginTop: 6,
-    lineHeight: 19,
+    marginTop: 4,
+    lineHeight: 18,
   },
 });

@@ -606,6 +606,10 @@ function isValidImageUrl(url: string): boolean {
       'www.colruyt.be', 'colruyt.be',
       'api.ah.nl', 'jumbo.com', 'dagelijksekost.een.be',
       'img.kidskitchen.nl', 'images.nieuwsblad.be',
+      // Marley Spoon / HelloFresh image hosts
+      'img.hellofresh.com', 'images.marleyspoon.com',
+      'cdn.marleyspoon.com', 'marleyspoon.com',
+      'www.marleyspoon.com', 'www.marleyspoon.be', 'marleyspoon.be',
     ]);
     if (cdnHosts.has(hostname)) return true;
     // Generic CDN/image subdomain patterns

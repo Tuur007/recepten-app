@@ -146,6 +146,26 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
     }
   }
 
+  // Next.js __NEXT_DATA__ blob — used by Marley Spoon, HelloFresh and many
+  // others. Walks the nested JSON looking for a Recipe-shaped object.
+  const nextMatch = html.match(
+    /<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i,
+  );
+  if (nextMatch) {
+    try {
+      const data: unknown = JSON.parse(nextMatch[1]);
+      const recipes = findRecipeInBlob(data);
+      for (const node of recipes) {
+        const parsed = extractFromJsonLd(node, url);
+        if (parsed.title && (parsed.ingredients.length > 0 || parsed.steps.length > 0)) {
+          return { ...parsed, imageUrl };
+        }
+      }
+    } catch {
+      // fall through
+    }
+  }
+
   // Heuristic fallback
   const heuristic = tryParseHeuristic(html, url);
   if (heuristic) return { ...heuristic, imageUrl };
@@ -154,6 +174,59 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
 }
 
 // ─── JSON-LD helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Walk a deeply-nested JSON blob (e.g. __NEXT_DATA__) and return any objects
+ * that look like a recipe: have a name/title plus an ingredients or steps
+ * array. Depth-limited to keep the walk bounded.
+ */
+function findRecipeInBlob(data: unknown, depth = 0): Record<string, unknown>[] {
+  if (depth > 12 || !data || typeof data !== 'object') return [];
+  const results: Record<string, unknown>[] = [];
+
+  if (Array.isArray(data)) {
+    for (const item of data) results.push(...findRecipeInBlob(item, depth + 1));
+    return results;
+  }
+
+  const obj = data as Record<string, unknown>;
+  const hasName = typeof obj.name === 'string' || typeof obj.title === 'string';
+  const hasIngredients =
+    Array.isArray(obj.recipeIngredient) ||
+    Array.isArray(obj.ingredients) ||
+    Array.isArray((obj.recipe as Record<string, unknown>)?.ingredients);
+  const hasSteps =
+    Array.isArray(obj.recipeInstructions) ||
+    Array.isArray(obj.instructions) ||
+    Array.isArray(obj.steps);
+
+  if (hasName && (hasIngredients || hasSteps)) {
+    // Normalise to JSON-LD-ish shape so extractFromJsonLd can read it.
+    const normalized: Record<string, unknown> = { ...obj };
+    if (!normalized.recipeIngredient && Array.isArray(obj.ingredients)) {
+      normalized.recipeIngredient = (obj.ingredients as unknown[]).map((i) =>
+        typeof i === 'string'
+          ? i
+          : i && typeof i === 'object'
+          ? `${(i as Record<string, unknown>).amount ?? ''} ${(i as Record<string, unknown>).unit ?? ''} ${(i as Record<string, unknown>).name ?? ''}`.trim()
+          : '',
+      );
+    }
+    if (!normalized.recipeInstructions) {
+      normalized.recipeInstructions =
+        (obj.instructions as unknown) ?? (obj.steps as unknown) ?? [];
+    }
+    results.push(normalized);
+  }
+
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val && typeof val === 'object') {
+      results.push(...findRecipeInBlob(val, depth + 1));
+    }
+  }
+  return results;
+}
 
 function collectRecipeNodes(data: unknown): Record<string, unknown>[] {
   if (!data || typeof data !== 'object') return [];

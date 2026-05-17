@@ -1,3 +1,16 @@
+// app/(tabs)/grocery.tsx
+//
+// "De boodschappen" — marktbonnetje-feel grocery list.
+// Changes vs previous:
+//   • Folio links + rechts: aantal items   ·   totaal in olijfgroen
+//   • Masthead: ghost-knoppen voor "uit recept" + "+" toevoegen
+//   • Progress ribbon ("X van Y geplukt") met dunne voortgangsbalk in olijfgroen
+//   • Italic empty state met "+ haal uit een recept" link
+//
+// De feitelijke item-rijen (GroceryItemEnhanced) en categorie-headers
+// (CategoryGroupHeader) blijven ongewijzigd — die bevatten alle bulk-actions
+// en swipe-gestures. De editorial verfijning zit in de chrome rondom.
+
 import React, { useMemo, useState } from 'react';
 import {
   FlatList,
@@ -29,6 +42,7 @@ import { DEFAULT_AISLES, getAisleForItem } from '../../constants/aisles';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
 import type { Recipe } from '../../types/recipe';
+import { FolioStrip, EditorialTitle } from '../../components/ui/EditorialBits';
 
 type ListRow =
   | { type: 'header'; aisle: string; count: number }
@@ -40,7 +54,6 @@ export default function GroceryScreen() {
     isLoading,
     addManual,
     addFromRecipe,
-    removeSingleSource,
     toggleChecked,
     remove,
     clearAll,
@@ -70,11 +83,7 @@ export default function GroceryScreen() {
       setManualAisle(getAisleForItem(text));
     }
   };
-
-  const handleManualAislePick = (a: string) => {
-    setManualAisle(a);
-    setManualAisleTouched(true);
-  };
+  const handleManualAislePick = (a: string) => { setManualAisle(a); setManualAisleTouched(true); };
 
   const listData = useMemo<ListRow[]>(() => {
     const grouped = groupItems(items);
@@ -89,13 +98,9 @@ export default function GroceryScreen() {
   if (isLoading) return <LoadingScreen />;
 
   const resetManualForm = () => {
-    setManualName('');
-    setManualQty('');
-    setManualUnit('');
-    setManualCategory('');
-    setManualPrice('');
-    setManualAisle(DEFAULT_AISLES[8]);
-    setManualAisleTouched(false);
+    setManualName(''); setManualQty(''); setManualUnit('');
+    setManualCategory(''); setManualPrice('');
+    setManualAisle(DEFAULT_AISLES[8]); setManualAisleTouched(false);
   };
 
   const handleSaveManual = async () => {
@@ -122,7 +127,6 @@ export default function GroceryScreen() {
     setRecipeModalVisible(false);
   };
 
-
   const renderItem = ({ item }: { item: ListRow }) => {
     if (item.type === 'header') {
       return <CategoryGroupHeader aisle={item.aisle} count={item.count} />;
@@ -137,59 +141,77 @@ export default function GroceryScreen() {
     );
   };
 
+  const totalItems = items.length;
+  const pct = totalItems ? Math.round((checkedCount / totalItems) * 100) : 0;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: themeColors.background }]}
+      edges={['top']}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
         <View style={{ flex: 1 }}>
           {/* Folio */}
-          <View style={styles.folio}>
-            <Text style={typography.folio}>lijst · {items.length}</Text>
-          </View>
+          <FolioStrip
+            left={`lijst · ${totalItems} ${totalItems === 1 ? 'item' : 'items'}`}
+            right={total > 0 ? `totaal · €${total.toFixed(2)}` : undefined}
+          />
 
-          {/* Title + action buttons */}
-          <View style={styles.titleRow}>
-            <View>
-              <Text style={[typography.hero32Bold, { fontSize: 38 }]}>De</Text>
-              <Text style={[typography.heroItalic, { fontSize: 38 }]}>boodschappen.</Text>
-            </View>
+          {/* Masthead */}
+          <View style={styles.masthead}>
+            <EditorialTitle lead="De" tail="boodschappen." size={38} />
             <View style={styles.actionBtns}>
               <TouchableOpacity
-                style={styles.addBtn}
-                onPress={() => setManualModalVisible(true)}
-                activeOpacity={0.75}
-              >
-                <Ionicons name="add" size={20} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.recipeBtn}
+                style={styles.ghostBtn}
                 onPress={() => setRecipeModalVisible(true)}
                 activeOpacity={0.75}
               >
-                <Ionicons name="book-outline" size={18} color={colors.textDark} />
+                <Ionicons name="book-outline" size={15} color={colors.textDark} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.ghostBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                onPress={() => setManualModalVisible(true)}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="add" size={18} color="#fff" />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Total price */}
-          {total > 0 && (
-            <View style={styles.totalBar}>
-              <Text style={styles.totalText}>Totaal: €{total.toFixed(2)}</Text>
+          {/* Progress ribbon */}
+          {totalItems > 0 && (
+            <View style={styles.progressRow}>
+              <Text style={styles.progressLabel}>
+                {checkedCount} van {totalItems} geplukt
+              </Text>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${pct}%` }]} />
+              </View>
+              <Text style={[styles.progressLabel, { color: colors.secondary }]}>{pct}%</Text>
             </View>
           )}
 
           {/* Grouped list */}
-          {items.length === 0 ? (
+          {totalItems === 0 ? (
             <View style={styles.empty}>
               <Text style={[typography.bodyItalic, { textAlign: 'center' }]}>
-                Je lijst is leeg.{'\n'}Voeg iets toe of haal uit een recept.
+                Een lege lijst.{'\n'}Voeg iets toe of haal uit een recept.
               </Text>
+              <TouchableOpacity
+                style={styles.emptyAction}
+                onPress={() => setRecipeModalVisible(true)}
+                activeOpacity={0.6}
+              >
+                <Text style={styles.emptyActionText}>+ haal uit een recept</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <FlatList
               data={listData}
-              keyExtractor={(row, idx) =>
-                row.type === 'header' ? `header-${row.aisle}` : row.data.id
-              }
+              keyExtractor={(row) => (row.type === 'header' ? `h-${row.aisle}` : row.data.id)}
               renderItem={renderItem}
               contentContainerStyle={{ paddingBottom: spacing.md }}
               showsVerticalScrollIndicator={false}
@@ -199,7 +221,7 @@ export default function GroceryScreen() {
 
           {/* Bulk actions */}
           <BulkActionsBar
-            totalCount={items.length}
+            totalCount={totalItems}
             uncheckedCount={uncheckedCount}
             checkedCount={checkedCount}
             onSelectAllUnchecked={selectAll}
@@ -210,7 +232,7 @@ export default function GroceryScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Manual add modal */}
+      {/* Manual add modal — unchanged from previous version */}
       <Modal
         visible={manualModalVisible}
         animationType="slide"
@@ -223,7 +245,10 @@ export default function GroceryScreen() {
         >
           <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom']}>
             <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => { resetManualForm(); setManualModalVisible(false); }} hitSlop={8}>
+              <TouchableOpacity
+                onPress={() => { resetManualForm(); setManualModalVisible(false); }}
+                hitSlop={8}
+              >
                 <Ionicons name="close" size={22} color={colors.textLight} />
               </TouchableOpacity>
               <Text style={styles.modalTitle}>Item toevoegen</Text>
@@ -309,7 +334,9 @@ export default function GroceryScreen() {
                       style={[styles.catChip, manualCategory === cat.name && styles.catChipActive]}
                       onPress={() => setManualCategory(cat.name)}
                     >
-                      <Text style={[styles.catChipText, manualCategory === cat.name && styles.catChipTextActive]}>
+                      <Text
+                        style={[styles.catChipText, manualCategory === cat.name && styles.catChipTextActive]}
+                      >
                         {cat.name}
                       </Text>
                     </TouchableOpacity>
@@ -330,7 +357,9 @@ export default function GroceryScreen() {
                       style={[styles.catChip, manualAisle === a && styles.catChipActive]}
                       onPress={() => handleManualAislePick(a)}
                     >
-                      <Text style={[styles.catChipText, manualAisle === a && styles.catChipTextActive]}>
+                      <Text
+                        style={[styles.catChipText, manualAisle === a && styles.catChipTextActive]}
+                      >
                         {a}
                       </Text>
                     </TouchableOpacity>
@@ -354,55 +383,74 @@ export default function GroceryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  folio: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+
+  masthead: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
   actionBtns: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingBottom: 4 },
-  addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recipeBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
+  ghostBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    borderWidth: 0.5,
     borderColor: colors.borderColor,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  totalBar: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderColor,
+
+  progressRow: {
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: colors.backgroundLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  totalText: {
-    fontSize: 14,
-    color: colors.secondary,
-    fontFamily: 'Inter_600SemiBold',
+  progressLabel: {
+    fontFamily: fonts.monoMedium,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.textDark,
   },
+  progressTrack: {
+    flex: 1,
+    height: 2,
+    backgroundColor: colors.borderSoft,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.secondary,
+  },
+
   empty: {
     flex: 1,
     paddingTop: spacing.xxl,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
   },
+  emptyAction: {
+    marginTop: spacing.lg,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderTopWidth: 0.5,
+    borderBottomWidth: 0.5,
+    borderColor: colors.borderColor,
+  },
+  emptyActionText: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 14,
+    color: colors.primary,
+  },
+
   modalContainer: { flex: 1, backgroundColor: colors.background },
   modalHeader: {
     flexDirection: 'row',

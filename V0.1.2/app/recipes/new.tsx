@@ -39,6 +39,10 @@ export default function NewRecipeScreen() {
       Alert.alert('Titel ontbreekt', 'Voer een recepttitel in.');
       return;
     }
+    if (form.title.trim().length > 200) {
+      Alert.alert('Titel te lang', 'De recepttitel mag maximaal 200 tekens bevatten.');
+      return;
+    }
     setSaving(true);
     try {
       await create({

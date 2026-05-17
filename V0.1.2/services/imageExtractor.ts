@@ -69,6 +69,11 @@ export async function downloadImageToLocal(
   referer: string,
 ): Promise<string | undefined> {
   if (!imageUrl) return undefined;
+  // Reject dangerous URI schemes before any network call.
+  if (imageUrl.startsWith('javascript:') || imageUrl.startsWith('vbscript:')) {
+    log('downloadImageToLocal BLOCKED — dangerous scheme', imageUrl.slice(0, 40));
+    return undefined;
+  }
   log('downloadImageToLocal', imageUrl.slice(0, 90), 'referer=', referer.slice(0, 60));
   return downloadWithRetry(imageUrl, referer, 2);
 }
@@ -294,8 +299,10 @@ async function downloadImage(
       (magic[0] === 0x47 && magic[1] === 0x49) || // GIF
       (magic[0] === 0x00 && magic[2] === 0x00);   // AVIF (ftyp)
     log(`  [dl] magic bytes: [${[...magic].join(',')}] isImage=${isImage}`);
-    if (!isImage && ct && !ct.includes('image/') && !ct.includes('application/octet-stream')) {
-      log('  [dl] FAIL: magic bytes do not look like an image');
+    // Reject non-images: must pass magic bytes OR have a proper image content-type.
+    // application/octet-stream is no longer accepted as a bypass.
+    if (!isImage && !ct.includes('image/')) {
+      log('  [dl] FAIL: magic bytes do not look like an image and content-type is non-image');
       return undefined;
     }
 

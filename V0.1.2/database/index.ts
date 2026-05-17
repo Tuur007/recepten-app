@@ -29,9 +29,16 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
   for (let i = currentVersion; i < MIGRATIONS.length; i++) {
     try {
       await db.execAsync(MIGRATIONS[i]);
+      console.log(`[DB] Migration v${i + 1} applied`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (!msg.includes('duplicate column') && !msg.includes('already exists')) throw err;
+      // SQLite throws when a column/table already exists — safe to skip.
+      if (msg.includes('duplicate column') || msg.includes('already exists')) {
+        console.log(`[DB] Migration v${i + 1} already applied, skipping`);
+      } else {
+        console.error(`[DB] Migration v${i + 1} FAILED:`, msg);
+        throw err;
+      }
     }
   }
 

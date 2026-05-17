@@ -50,6 +50,10 @@ export default function ImportRecipeScreen() {
       setFetchError('Voer een URL in.');
       return;
     }
+    if (trimmedUrl.length > 2048) {
+      setFetchError('URL is te lang.');
+      return;
+    }
     if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
       setFetchError('URL moet beginnen met http:// of https://');
       return;
@@ -117,6 +121,10 @@ export default function ImportRecipeScreen() {
   const handleSave = async () => {
     if (!form.title.trim()) {
       Alert.alert('Titel ontbreekt', 'Voer een recepttitel in.');
+      return;
+    }
+    if (form.title.trim().length > 200) {
+      Alert.alert('Titel te lang', 'De recepttitel mag maximaal 200 tekens bevatten.');
       return;
     }
 

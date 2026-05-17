@@ -55,21 +55,64 @@ export async function extractAndSaveImage(
   }
 }
 
+// Matches private/loopback ranges that must never be fetched (SSRF guard).
+const PRIVATE_HOST_RE =
+  /^(localhost|127\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|\[::1\])/i;
+
+const MAX_HTML_BYTES = 10_000_000; // 10 MB — sane upper bound for a recipe page
+const FETCH_TIMEOUT_MS = 15_000;
+
+const RECIPE_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+
+function assertSafeUrl(rawUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error('Ongeldige URL.');
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error('Alleen http(s) URL\'s zijn toegestaan.');
+  }
+  if (PRIVATE_HOST_RE.test(parsed.hostname)) {
+    throw new Error('Interne netwerkadressen zijn niet toegestaan.');
+  }
+}
+
 export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent':
-        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'nl-NL,nl;q=0.9,en;q=0.8',
-    },
-  });
+  assertSafeUrl(url);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': RECIPE_UA,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'nl-NL,nl;q=0.9,en;q=0.8',
+      },
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     throw new Error(`Kan pagina niet ophalen (HTTP ${response.status})`);
   }
 
+  const contentLength = response.headers.get('content-length');
+  if (contentLength && parseInt(contentLength, 10) > MAX_HTML_BYTES) {
+    throw new Error('Pagina is te groot om te verwerken.');
+  }
+
   const html = await response.text();
+  if (html.length > MAX_HTML_BYTES) {
+    throw new Error('Pagina is te groot om te verwerken.');
+  }
 
   // Extract og:image URL from the already-fetched HTML (used later to download image)
   const imageUrl = extractOgImageUrl(html) ?? undefined;
@@ -394,7 +437,9 @@ function parseIngredientString(raw: string): ParsedIngredient {
   if (qtyMatch) {
     const main = parseFloat(qtyMatch[1]);
     const frac = qtyMatch[2] ? parseFloat(qtyMatch[2]) : 0;
-    quantity = main + frac;
+    const safeMain = isNaN(main) || main < 0 || main > 9999 ? 1 : main;
+    const safeFrac = isNaN(frac) || frac < 0 || frac >= 1 ? 0 : frac;
+    quantity = safeMain + safeFrac;
     rest = s.slice(qtyMatch[0].length).trim();
   } else {
     // no leading number

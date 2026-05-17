@@ -16,6 +16,10 @@
     "react-native/no-single-element-style-arrays": "warn",
     "react-native/no-inline-styles": "off",
     "react-native/no-color-literals": "off",
-    "react-native/sort-styles": "off"
+    "react-native/sort-styles": "off",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-script-url": "error"
   }
 }

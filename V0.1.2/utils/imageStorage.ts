@@ -67,9 +67,7 @@ export async function recipeImageExists(imageUri: string): Promise<boolean> {
 export async function validateImageUri(path: string): Promise<boolean> {
   if (!path || !FS) return false;
   try {
-    // Strip file:// prefix for getInfoAsync if needed on some platforms
-    const cleanPath = path.startsWith('file://') ? path : path;
-    const info = await FS.getInfoAsync(cleanPath);
+    const info = await FS.getInfoAsync(path);
     return info.exists && ((info as { size?: number }).size ?? 0) > 0;
   } catch {
     return false;

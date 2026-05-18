@@ -1,11 +1,12 @@
 /**
- * marleyspoon.test.mjs — unit tests for the Marley Spoon recipe extractor.
+ * marleyspoon.test.mjs — unit tests for the Marley Spoon GraphQL converter.
  *
- * Marley Spoon recipe pages (marleyspoon.nl/menu/<id>-<slug>) embed the full
- * recipe object as JSON in an inline <script>. The keys are unique to their
- * API (`name_with_subtitle`, `name_with_quantity`, `assumed_ingredients`,
- * `steps[].title/description`), so we fingerprint them in the HTML and walk
- * back to the enclosing JSON object.
+ * Marley Spoon's /menu/<id>-<slug> pages are an empty SPA shell. The real
+ * recipe data only arrives via a POST to https://api.marleyspoon.com/graphql
+ * using the JWT in `window.gon.api_token`. The HTTP plumbing lives in
+ * `fetchMarleySpoonRecipe` (tested by manual app import); this file pins the
+ * pure JSON-to-ParsedRecipe conversion against a fixture captured from a real
+ * production response.
  *
  * Run via the V0.1.2 npm script: cd V0.1.2 && npm test
  */
@@ -15,7 +16,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
-const { parseRecipeFromHtml } = await import('../V0.1.2/services/recipeParser.ts');
+const { parseMarleySpoonRecipeJson } = await import(
+  '../V0.1.2/services/recipeParser.ts'
+);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -38,111 +41,96 @@ function test(name, fn) {
 }
 
 console.log('\n══════════════════════════════════════════════');
-console.log(' marleyspoon — embedded JSON blob');
+console.log(' marleyspoon — GraphQL response → ParsedRecipe');
 console.log('══════════════════════════════════════════════\n');
 
-const html = readFileSync(
-  resolve(__dirname, 'fixtures/marleyspoon-page.html'),
-  'utf-8',
+const recipeJson = JSON.parse(
+  readFileSync(resolve(__dirname, 'fixtures/marleyspoon-graphql.json'), 'utf-8'),
 );
-const URL = 'https://marleyspoon.nl/menu/449816-venkelrisotto-met-gebakken-feta-met-rucola-en-courgette';
-const parsed = parseRecipeFromHtml(html, URL);
+const URL =
+  'https://marleyspoon.be/menu/618930-pittige-noedelsoep-met-kokosmelk-met-paprika-en-gebakken-champignons';
 
-test('finds title from name_with_subtitle', () => {
+const parsed = parseMarleySpoonRecipeJson(recipeJson, URL);
+
+test('combines title + subtitle', () => {
   assert.equal(
     parsed.title,
-    'Venkelrisotto met gebakken feta met rucola en courgette',
+    'Pittige noedelsoep met kokosmelk met paprika en gebakken champignons',
   );
 });
 
-test('extracts main ingredients with quantity', () => {
+test('extracts shippedIngredients via nameWithQuantity', () => {
   const names = parsed.ingredients.map((i) => i.name);
-  // Names without leading quantity/unit
-  assert.ok(names.includes('venkel'), `missing 'venkel' in ${JSON.stringify(names)}`);
-  assert.ok(names.includes('risottorijst'), `missing 'risottorijst'`);
-  assert.ok(names.includes('feta'), `missing 'feta'`);
-  assert.ok(names.includes('rucola'), `missing 'rucola'`);
-  assert.ok(names.includes('groentebouillon'), `missing 'groentebouillon'`);
+  assert.ok(names.includes('glasnoedels'), `missing 'glasnoedels' in ${JSON.stringify(names)}`);
+  assert.ok(names.includes('kokosmelk'), `missing 'kokosmelk'`);
+  assert.ok(names.includes('champignons'), `missing 'champignons'`);
 });
 
-test('parses quantity + unit from name_with_quantity', () => {
-  const rijst = parsed.ingredients.find((i) => i.name === 'risottorijst');
-  assert.ok(rijst, 'risottorijst not found');
-  assert.equal(rijst.quantity, 150);
-  assert.equal(rijst.unit.toLowerCase(), 'g');
+test('parses quantity + unit from nameWithQuantity', () => {
+  const noedels = parsed.ingredients.find((i) => i.name === 'glasnoedels');
+  assert.ok(noedels, 'glasnoedels not found');
+  assert.equal(noedels.quantity, 100);
+  assert.equal(noedels.unit.toLowerCase(), 'g');
 
-  const bouillon = parsed.ingredients.find((i) => i.name === 'groentebouillon');
-  assert.ok(bouillon);
-  assert.equal(bouillon.quantity, 500);
-  assert.equal(bouillon.unit.toLowerCase(), 'ml');
+  const kokos = parsed.ingredients.find((i) => i.name === 'kokosmelk');
+  assert.ok(kokos);
+  assert.equal(kokos.quantity, 200);
+  assert.equal(kokos.unit.toLowerCase(), 'ml');
 });
 
-test('appends assumed_ingredients (pantry items)', () => {
+test('appends assumedIngredients (pantry items)', () => {
   const names = parsed.ingredients.map((i) => i.name);
-  assert.ok(
-    names.includes('olijfolie'),
-    `'olijfolie' from assumed_ingredients missing; got ${JSON.stringify(names)}`,
-  );
-  assert.ok(names.includes('peper en zout'));
+  assert.ok(names.includes('zout'), `'zout' missing; got ${JSON.stringify(names)}`);
+  assert.ok(names.includes('suiker'));
+  assert.ok(names.includes('plantaardige olie'));
 });
 
-test('extracts all 4 steps in order', () => {
-  assert.equal(parsed.steps.length, 4, `expected 4 steps, got ${parsed.steps.length}`);
-  assert.ok(
-    parsed.steps[0].toLowerCase().includes('venkel'),
-    `step 1 should mention venkel, got: ${parsed.steps[0]}`,
-  );
-  assert.ok(
-    parsed.steps[1].toLowerCase().includes('risotto'),
-    `step 2 should mention risotto, got: ${parsed.steps[1]}`,
-  );
-  assert.ok(
-    parsed.steps[3].toLowerCase().includes('serveren') ||
-      parsed.steps[3].toLowerCase().includes('borden'),
-    `step 4 should describe serving, got: ${parsed.steps[3]}`,
-  );
+test('extracts all 6 steps in order', () => {
+  assert.equal(parsed.steps.length, 6, `expected 6 steps, got ${parsed.steps.length}`);
+  assert.ok(parsed.steps[0].toLowerCase().includes('noedels'));
+  assert.ok(parsed.steps[3].toLowerCase().includes('kokosmelk'));
+  assert.ok(parsed.steps[5].toLowerCase().includes('garneer'));
 });
 
-test('extracts cooking_time as duration', () => {
-  assert.equal(parsed.duration, 35);
+test('strips Markdown-style __bold__ markers from step text', () => {
+  for (const s of parsed.steps) {
+    assert.ok(
+      !s.includes('__'),
+      `step still contains __ markers: ${s.slice(0, 60)}…`,
+    );
+  }
+  // ...but the words inside the markers are preserved
+  assert.ok(parsed.steps[0].toLowerCase().includes('noedels'));
+  assert.ok(parsed.steps[1].toLowerCase().includes('paprika'));
 });
 
-test('extracts image.large as imageUrl', () => {
+test('prefers duration.to as the cooking time', () => {
+  assert.equal(parsed.duration, 40);
+});
+
+test('extracts image.url', () => {
   assert.equal(
     parsed.imageUrl,
-    'https://img.marleyspoon.com/recipes/449816/large.jpg',
+    'https://marleyspoon.com/media/recipes/618930/main_photos/large/scharfe-dcc4889299b136192037fade30ff38fc.jpeg',
   );
 });
 
-test('sourceUrl matches the input URL', () => {
+test('sourceUrl is the original menu URL', () => {
   assert.equal(parsed.sourceUrl, URL);
 });
 
-test('does not falsely claim Marley Spoon data on unrelated pages', () => {
-  // The page has no `name_with_subtitle` signature; the Marley Spoon path
-  // must return null so the heuristic fallback takes over (or we throw).
-  const noMS =
-    '<html><body><h1>Cookies</h1><ul><li>flour</li><li>sugar</li></ul></body></html>';
-  const out = (() => {
-    try {
-      return parseRecipeFromHtml(noMS, URL);
-    } catch {
-      return null;
-    }
-  })();
-  // Either no recipe found, or a heuristic result that didn't pick up Marley
-  // Spoon-shaped data (no cooking_time-derived duration, no .marleyspoon image).
-  if (out) {
-    assert.equal(out.duration, undefined, 'should not have a duration from this fixture');
-  }
-});
-
-test('falls back gracefully when name_with_subtitle is present but blob is invalid', () => {
-  // Signature appears inside a comment / non-JSON context — extractor should
-  // not crash; the heuristic fallback throws since there's no recipe.
-  const noisy =
-    '<html><body><!-- "name_with_subtitle": fragment, not JSON --></body></html>';
-  assert.throws(() => parseRecipeFromHtml(noisy, URL));
+test('handles missing optional fields gracefully', () => {
+  const minimal = {
+    title: 'Test recept',
+    shippedIngredients: [{ name: 'water', nameWithQuantity: '1 l water' }],
+    steps: [{ title: 'Stap 1', description: 'Kook water.' }],
+  };
+  const out = parseMarleySpoonRecipeJson(minimal, URL);
+  assert.equal(out.title, 'Test recept');
+  assert.equal(out.duration, undefined);
+  assert.equal(out.imageUrl, undefined);
+  assert.equal(out.ingredients.length, 1);
+  assert.equal(out.steps.length, 1);
 });
 
 console.log('\n══════════════════════════════════════════════');

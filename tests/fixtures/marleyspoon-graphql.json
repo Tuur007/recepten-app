@@ -1,0 +1,55 @@
+{
+  "id": 618930,
+  "title": "Pittige noedelsoep met kokosmelk",
+  "subtitle": "met paprika en gebakken champignons",
+  "recipeType": "STANDARD",
+  "image": {
+    "url": "https://marleyspoon.com/media/recipes/618930/main_photos/large/scharfe-dcc4889299b136192037fade30ff38fc.jpeg"
+  },
+  "recipeServingTime": "30-40 minuten",
+  "duration": { "from": 30, "to": 40, "unit": "minuten" },
+  "shippedIngredients": [
+    { "name": "100g glasnoedels", "nameWithQuantity": "100g glasnoedels" },
+    { "name": "1 bosui", "nameWithQuantity": "1 bosui" },
+    { "name": "1 paprika", "nameWithQuantity": "1 paprika" },
+    { "name": "1 teen knoflook", "nameWithQuantity": "1 teen knoflook" },
+    { "name": "1 stukje verse gember", "nameWithQuantity": "1 stukje verse gember" },
+    { "name": "1 pakje gele currypasta", "nameWithQuantity": "1 pakje gele currypasta" },
+    { "name": "1 blik gehakte tomaten", "nameWithQuantity": "1 blik gehakte tomaten" },
+    { "name": "200ml kokosmelk", "nameWithQuantity": "200ml kokosmelk" },
+    { "name": "1 zakje groentebouillonpoeder", "nameWithQuantity": "1 zakje groentebouillonpoeder" },
+    { "name": "250g champignons", "nameWithQuantity": "250g champignons" },
+    { "name": "25ml tamari-sojasaus", "nameWithQuantity": "25ml tamari-sojasaus" }
+  ],
+  "assumedIngredients": [
+    { "name": "zout" },
+    { "name": "suiker" },
+    { "name": "plantaardige olie" }
+  ],
+  "steps": [
+    {
+      "title": "Noedels garen",
+      "description": "Kook voldoende water voor de __noedels__ in een waterkoker. Doe de __droge noedels__ in een pan of kom, giet heet water erbij tot ze bedekt zijn en laat 3-5min garen. Spoel de __noedels__ dan met koud water af in een zeef en laat uitlekken."
+    },
+    {
+      "title": "Ingrediënten voorbereiden",
+      "description": "Snijd het __witte deel__ en het __groene deel__ van de __bosui__ los van elkaar in dunne ringen. Verwijder de zaadlijsten uit de __paprika__ en snijd het __vruchtvlees__ in dunne reepjes. Pel de __knoflook__ en snijd fijn."
+    },
+    {
+      "title": "Soep starten",
+      "description": "Verhit de gebruikte kookpan op middelhoog vuur met 1el plantaardige olie. Voeg de __paprika__ en de __witte bosuiringen__ toe met een flinke snuf zout en bak 5-6min."
+    },
+    {
+      "title": "Soep koken",
+      "description": "Voeg 1tl plantaardige olie en de __helft van de currypasta__ toe aan de pan en bak 1-2min mee. Doe nu de __tomatenblokjes__, __kokosmelk__, 500ml water en de __helft van het bouillonpoeder__ in de pan en breng aan de kook."
+    },
+    {
+      "title": "Champignons bakken",
+      "description": "Borstel evt. de __champignons__ en snijd ze in dunne plakjes. Los 1tl suiker op in de __sojasaus__. Verhit een middelgrote koekenpan op medium tot hoog vuur met 1el plantaardige olie en bak de __champignons__ 4-5min."
+    },
+    {
+      "title": "Soep afmaken",
+      "description": "Roer de __noedels__ door de soep en verwarm 1-2min op. Verdeel de __soep__ over diepe borden en garneer met de __champignons__ en de __groene bosuiringen__."
+    }
+  ]
+}

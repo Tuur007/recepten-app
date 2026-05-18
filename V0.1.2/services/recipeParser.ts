@@ -317,7 +317,7 @@ function extractDagelijksekost(o: Record<string, unknown>, url: string): ParsedR
 
 const MARLEY_SPOON_HOST_RE = /^(?:www\.)?marleyspoon\.(?:com|nl|be|de|at|se|dk)$/i;
 
-const MARLEY_SPOON_QUERY = `query GetRecipe($id: ID!) {
+const MARLEY_SPOON_QUERY = `query GetRecipe($id: String!) {
   recipe(id: $id) {
     id
     title

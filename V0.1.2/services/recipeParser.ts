@@ -322,7 +322,7 @@ const MARLEY_SPOON_QUERY = `query GetRecipe($id: String!) {
     id
     title
     subtitle
-    image { url }
+    image(size: LARGE) { url }
     duration { from to unit }
     shippedIngredients { name nameWithQuantity }
     assumedIngredients { name }

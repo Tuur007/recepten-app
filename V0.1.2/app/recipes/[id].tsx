@@ -27,6 +27,7 @@ import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
 import { ServingsSelector } from '../../components/ui/ServingsSelector';
 import { StarRating } from '../../components/ui/StarRating';
 import { CookTimer } from '../../components/ui/CookTimer';
+import { MetaStrip } from '../../components/ui/EditorialBits';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
 import { generateId } from '../../utils/id';
@@ -165,10 +166,16 @@ export default function RecipeDetailScreen() {
   };
   const { lead, tail } = splitTitle(recipe.title);
 
-  const stats = [
-    { icon: 'time-outline', v: recipe.duration != null ? String(recipe.duration) : '—', u: 'min' },
-    { icon: 'restaurant-outline', v: String(recipe.ingredients?.length ?? 0), u: 'ing.' },
-  ] as const;
+  // 4-column meta strip — mockup spread layout: voorber. / koken / porties / ing.
+  // Pads single-digit numbers to two-digit ("04") for the mono-numeral rhythm.
+  const pad = (n: number | undefined) =>
+    n != null ? String(n).padStart(2, '0') : '–';
+  const metaItems = [
+    { num: pad(recipe.preparationTime), unit: 'voorber.' },
+    { num: pad(recipe.cookingTime ?? recipe.duration), unit: 'koken' },
+    { num: pad(recipe.servings ?? 4), unit: 'porties' },
+    { num: pad(recipe.ingredients?.length), unit: 'ing.' },
+  ];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -219,16 +226,8 @@ export default function RecipeDetailScreen() {
           )}
         </View>
 
-        {/* Stats */}
-        <View style={styles.stats}>
-          {stats.map((s, i) => (
-            <View key={i} style={styles.statCol}>
-              <Ionicons name={s.icon as any} size={16} color={colors.textLight} />
-              <Text style={styles.statValue}>{s.v}</Text>
-              <Text style={typography.label12}>{s.u}</Text>
-            </View>
-          ))}
-        </View>
+        {/* Meta strip — 4-col spread: voorber. / koken / porties / ing. */}
+        <MetaStrip items={metaItems} style={styles.metaStrip} />
 
         {/* Servings selector */}
         <ServingsSelector
@@ -239,12 +238,24 @@ export default function RecipeDetailScreen() {
 
         {/* Ingrediënten */}
         <Section title="i. ingrediënten" count={recipe.ingredients?.length ?? 0} />
-        <View style={{ paddingHorizontal: spacing.lg, gap: 10 }}>
-          {scaledIngredients.map((ing) => (
-            <View key={ing.id} style={styles.ingRow}>
-              <Text style={styles.ingNum}>{ing.displayQty}</Text>
+        <View style={{ paddingHorizontal: spacing.lg }}>
+          {scaledIngredients.map((ing, idx) => (
+            <View
+              key={ing.id}
+              style={[
+                styles.ingRow,
+                idx < scaledIngredients.length - 1 && styles.ingRowDivider,
+              ]}
+            >
+              <Text style={styles.ingNum}>{ing.displayQty || '—'}</Text>
               <Text style={styles.ingUnit}>{ing.unit || ''}</Text>
               <Text style={styles.ingName}>{ing.name}</Text>
+              <Ionicons
+                name="bag-outline"
+                size={13}
+                color={colors.textFaint}
+                style={styles.ingCart}
+              />
             </View>
           ))}
 
@@ -293,10 +304,16 @@ export default function RecipeDetailScreen() {
 
         {/* Werkwijze */}
         <Section title="ii. werkwijze" count={steps.length} suffix="stappen" />
-        <View style={{ paddingHorizontal: spacing.lg, gap: 16 }}>
+        <View style={{ paddingHorizontal: spacing.lg }}>
           {steps.map((step, i) => (
-            <View key={i} style={styles.stepRow}>
-              <Text style={styles.stepNum}>{i + 1}</Text>
+            <View
+              key={i}
+              style={[
+                styles.stepRow,
+                i < steps.length - 1 && styles.stepRowDivider,
+              ]}
+            >
+              <Text style={styles.stepNum}>{String(i + 1).padStart(2, '0')}</Text>
               <Text style={styles.stepText}>{stepText(step)}</Text>
             </View>
           ))}
@@ -645,19 +662,9 @@ const styles = StyleSheet.create({
   },
   headerActions: { flexDirection: 'row', gap: 16, alignItems: 'center' },
   hero: { width: '100%', height: 240 },
-  stats: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    justifyContent: 'space-between',
-  },
-  statCol: { alignItems: 'center', flex: 1 },
-  statValue: {
-    fontFamily: fonts.display,
-    fontSize: 22,
-    color: colors.textDark,
-    marginTop: 6,
-    marginBottom: 4,
+  metaStrip: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -668,23 +675,40 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   rule: { flex: 1, height: 1, backgroundColor: colors.borderColor },
-  ingRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  ingRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    paddingVertical: 7,
+  },
+  ingRowDivider: {
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderColor,
+    // Dotted reads well on iOS; Android falls back to solid hairline which is fine.
+    borderStyle: 'dotted',
+  },
   ingNum: {
-    fontFamily: fonts.monoMedium,
-    fontSize: 11,
-    color: colors.primary,
-    width: 38,
+    fontFamily: fonts.mono,
+    fontSize: 13,
+    color: colors.textDark,
+    width: 40,
     textAlign: 'right',
+    paddingRight: 6,
   },
   ingUnit: {
     fontFamily: fonts.mono,
-    fontSize: 9,
-    letterSpacing: 1,
+    fontSize: 10,
+    letterSpacing: 0.5,
     color: colors.textLight,
-    textTransform: 'uppercase',
-    width: 56,
+    width: 36,
   },
-  ingName: { flex: 1, fontFamily: fonts.display, fontSize: 15 },
+  ingName: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 14,
+    color: colors.textMedium,
+    lineHeight: 18,
+  },
+  ingCart: { width: 16, marginLeft: 4 },
   addIngBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -714,15 +738,30 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 2,
   },
-  stepRow: { flexDirection: 'row', gap: 10 },
-  stepNum: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: 'italic',
-    fontSize: 22,
-    color: colors.primary,
-    width: 28,
+  stepRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 10,
   },
-  stepText: { flex: 1, fontFamily: fonts.display, fontSize: 15, lineHeight: 22 },
+  stepRowDivider: {
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderSoft,
+  },
+  stepNum: {
+    fontFamily: fonts.monoMedium,
+    fontSize: 11,
+    letterSpacing: 1.4,
+    color: colors.primary,
+    width: 36,
+    paddingTop: 4,
+  },
+  stepText: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 14,
+    color: colors.textMedium,
+    lineHeight: 22,
+  },
   ctaBar: {
     position: 'absolute',
     bottom: 0,

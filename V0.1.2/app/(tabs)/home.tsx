@@ -128,7 +128,7 @@ export default function HomeScreen() {
 
           {/* Nr. centered */}
           <View style={styles.nrWrap}>
-            <Text style={[typography.folio, { letterSpacing: 3 }]}>
+            <Text style={[typography.folio, { letterSpacing: 3, color: colors.textFaint }]}>
               · nr. {String((tonight?.id ?? '047').toString().slice(-3))} ·
             </Text>
           </View>

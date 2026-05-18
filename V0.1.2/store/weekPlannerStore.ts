@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 
-export type MealType = 'lunch' | 'dinner';
+export type MealType = 'breakfast' | 'lunch' | 'dinner';
 
 export interface DayPlan {
+  breakfast: string | null;
   lunch: string | null;
   dinner: string | null;
 }
@@ -21,7 +22,7 @@ interface WeekPlannerState {
 }
 
 function emptyDay(): DayPlan {
-  return { lunch: null, dinner: null };
+  return { breakfast: null, lunch: null, dinner: null };
 }
 
 const initialMealPlan: MealPlan = {

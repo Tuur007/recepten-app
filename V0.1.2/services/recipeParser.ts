@@ -128,19 +128,13 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
   // Site-specific: Marley Spoon's recipe pages are an empty SPA shell — the
   // actual data is loaded by JS via a GraphQL call to api.marleyspoon.com.
   // We replicate that request using the JWT embedded in the page bootstrap.
+  // Don't silently fall back to the HTML parser on failure: the HTML genuinely
+  // has no recipe content, so a fallback would surface a misleading stub
+  // recipe (title + image, no ingredients/steps) instead of the real error.
   if (isMarleySpoonUrl(url)) {
-    try {
-      const ms = await fetchMarleySpoonRecipe(url, html);
-      if (ms && (ms.ingredients.length > 0 || ms.steps.length > 0)) {
-        const imageUrl = extractOgImageUrl(html) ?? undefined;
-        return { ...ms, imageUrl: ms.imageUrl ?? imageUrl };
-      }
-    } catch (e) {
-      console.warn(
-        '[marleyspoon] fetch error, falling back to HTML parser:',
-        e instanceof Error ? e.message : e,
-      );
-    }
+    const ms = await fetchMarleySpoonRecipe(url, html);
+    const imageUrl = extractOgImageUrl(html) ?? undefined;
+    return { ...ms, imageUrl: ms.imageUrl ?? imageUrl };
   }
 
   return parseRecipeFromHtml(html, url);
@@ -370,22 +364,30 @@ function extractGonBootstrap(html: string): GonBootstrap | null {
 
 /**
  * Fetch a Marley Spoon recipe via the public GraphQL API.
- * Returns null when this isn't a Marley Spoon URL, the bootstrap can't be
- * extracted, or the API returns nothing usable — callers fall through to the
- * generic HTML parser in that case.
+ * Throws an Error with a descriptive message if anything goes wrong — Marley
+ * Spoon's `/menu/<id>-<slug>` pages have no recipe content in the HTML, so
+ * silently falling back to the heuristic parser only produces a stub with a
+ * title and a hero image and would mislead the user into thinking the import
+ * worked. Surface the real failure instead.
  */
 async function fetchMarleySpoonRecipe(
   url: string,
   html: string,
-): Promise<ParsedRecipe | null> {
+): Promise<ParsedRecipe> {
   const recipeId = extractMarleySpoonRecipeId(url);
-  if (!recipeId) return null;
+  if (!recipeId) {
+    throw new Error('Geen recept-ID gevonden in deze Marley Spoon URL.');
+  }
 
   const gon = extractGonBootstrap(html);
   if (!gon) {
     console.warn('[marleyspoon] no gon.api_token in HTML');
-    return null;
+    throw new Error('Kon de toegangstoken niet uit de pagina lezen.');
   }
+
+  console.log(
+    `🔵 [marleyspoon] POST ${gon.apiHost}/graphql for recipe ${recipeId}`,
+  );
 
   const origin = (() => {
     try {
@@ -395,6 +397,11 @@ async function fetchMarleySpoonRecipe(
       return '';
     }
   })();
+
+  const body = JSON.stringify({
+    query: MARLEY_SPOON_QUERY,
+    variables: { id: recipeId },
+  });
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -406,25 +413,24 @@ async function fetchMarleySpoonRecipe(
       signal: controller.signal,
       headers: {
         Accept: '*/*',
+        'Accept-Language': 'nl-NL,nl;q=0.9,en;q=0.8',
         'Content-Type': 'application/json',
         Authorization: `Bearer ${gon.apiToken}`,
+        'User-Agent': RECIPE_UA,
         ...(origin ? { Origin: origin, Referer: `${origin}/` } : {}),
       },
-      body: JSON.stringify({
-        query: MARLEY_SPOON_QUERY,
-        variables: { id: recipeId },
-      }),
+      body,
     });
   } catch (e) {
     console.warn('[marleyspoon] GraphQL fetch failed:', e instanceof Error ? e.message : e);
-    return null;
+    throw new Error('Marley Spoon API onbereikbaar. Probeer opnieuw.');
   } finally {
     clearTimeout(timeout);
   }
 
   if (!response.ok) {
     console.warn('[marleyspoon] GraphQL HTTP', response.status);
-    return null;
+    throw new Error(`Marley Spoon API gaf fout (HTTP ${response.status}).`);
   }
 
   let payload: unknown;
@@ -432,14 +438,15 @@ async function fetchMarleySpoonRecipe(
     payload = await response.json();
   } catch {
     console.warn('[marleyspoon] GraphQL response was not JSON');
-    return null;
+    throw new Error('Marley Spoon API gaf geen geldig JSON-antwoord.');
   }
 
   const obj = payload as Record<string, unknown> | null;
   const errors = obj && Array.isArray(obj.errors) ? obj.errors : null;
   if (errors && errors.length > 0) {
-    console.warn('[marleyspoon] GraphQL errors:', JSON.stringify(errors).slice(0, 200));
-    return null;
+    const summary = JSON.stringify(errors).slice(0, 200);
+    console.warn('[marleyspoon] GraphQL errors:', summary);
+    throw new Error(`Marley Spoon API meldt: ${summary}`);
   }
 
   const data = obj?.data;
@@ -449,10 +456,14 @@ async function fetchMarleySpoonRecipe(
       : null;
   if (!recipe || typeof recipe !== 'object') {
     console.warn('[marleyspoon] empty data.recipe in response');
-    return null;
+    throw new Error('Marley Spoon API gaf een leeg recept terug.');
   }
 
-  return convertMarleySpoonRecipe(recipe as Record<string, unknown>, url);
+  const converted = convertMarleySpoonRecipe(recipe as Record<string, unknown>, url);
+  console.log(
+    `✅ [marleyspoon] recipe parsed: ${converted.ingredients.length} ingredients, ${converted.steps.length} steps`,
+  );
+  return converted;
 }
 
 /**

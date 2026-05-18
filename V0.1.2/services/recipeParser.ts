@@ -125,13 +125,34 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
     throw new Error('Pagina is te groot om te verwerken.');
   }
 
+  // Site-specific: Marley Spoon's recipe pages are an empty SPA shell — the
+  // actual data is loaded by JS via a GraphQL call to api.marleyspoon.com.
+  // We replicate that request using the JWT embedded in the page bootstrap.
+  if (isMarleySpoonUrl(url)) {
+    try {
+      const ms = await fetchMarleySpoonRecipe(url, html);
+      if (ms && (ms.ingredients.length > 0 || ms.steps.length > 0)) {
+        const imageUrl = extractOgImageUrl(html) ?? undefined;
+        return { ...ms, imageUrl: ms.imageUrl ?? imageUrl };
+      }
+    } catch (e) {
+      console.warn(
+        '[marleyspoon] fetch error, falling back to HTML parser:',
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
+
   return parseRecipeFromHtml(html, url);
 }
 
 /**
  * Exported so tests can drive the parser without making a network call.
- * Order of attempts: JSON-LD → Marley Spoon embedded blob → Dagelijksekost →
- * heuristic. og:image is always pulled from the page meta tags.
+ * Order of attempts: JSON-LD → Dagelijksekost → heuristic. og:image is always
+ * pulled from the page meta tags.
+ *
+ * Marley Spoon needs a second async fetch (GraphQL API) and is handled in
+ * `parseRecipeFromUrl` instead — see `fetchMarleySpoonRecipe`.
  */
 export function parseRecipeFromHtml(html: string, url: string): ParsedRecipe {
   // Extract og:image URL from the already-fetched HTML (used later to download image)
@@ -154,11 +175,6 @@ export function parseRecipeFromHtml(html: string, url: string): ParsedRecipe {
       // malformed JSON-LD — skip
     }
   }
-
-  // Site-specific: Marley Spoon embeds a recipe JSON blob with `name_with_subtitle`
-  // and `name_with_quantity` keys (Rails app, see marleyspoon.nl/menu/<id>-<slug>).
-  const ms = extractMarleySpoon(html, url);
-  if (ms) return { ...ms, imageUrl: ms.imageUrl ?? imageUrl };
 
   // Site-specific: Dagelijksekost (uses window.__INITIAL_STATE__ or similar JSON blobs)
   const dagMatch = html.match(/window\.__RECIPE__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
@@ -288,39 +304,182 @@ function extractDagelijksekost(o: Record<string, unknown>, url: string): ParsedR
 
 // ─── Marley Spoon ────────────────────────────────────────────────────────────
 //
-// Marley Spoon (marleyspoon.nl / .com / .de / .be / .at / .se) is a Rails app
-// that SSRs each recipe page and embeds the full recipe object inside an
-// inline <script> tag. The object uses snake_case keys unique to their API:
-//   - name_with_subtitle           → recipe title
-//   - ingredients[].name_with_quantity  → quantified ingredient line
-//   - assumed_ingredients[].name   → pantry items ("olijfolie, peper, zout")
-//   - steps[].title / description  → numbered step text
-//   - image.large                  → hero image URL
-//   - cooking_time                 → minutes (number)
-// Because these keys are very specific, we can fingerprint them anywhere in
-// the page without depending on the URL.
+// Marley Spoon (marleyspoon.nl / .com / .be / .de / .at / .se / .dk) ships an
+// empty SPA shell for /menu/<id>-<slug> pages — ingredients & steps are not in
+// the HTML at all. The page bootstraps with a short-lived JWT in
+// `window.gon.api_token` and then POSTs a GraphQL query to
+// `https://api.marleyspoon.com/graphql` (host comes from `gon.api_host`).
+//
+// We replicate that flow:
+//   1. Pull `gon.api_token` + `gon.api_host` out of the inline <script>.
+//   2. Extract the numeric recipe ID from the URL path.
+//   3. Send our own GraphQL query asking for exactly the fields we need.
+//   4. Convert the response to our ParsedRecipe shape.
+//
+// The query mirrors the field names observed in the real production response
+// (camelCase, GraphQL convention): title/subtitle, shippedIngredients{ name,
+// nameWithQuantity }, assumedIngredients{ name }, steps{ title, description },
+// image{ url }, duration{ from, to, unit }.
 
-function extractMarleySpoon(html: string, url: string): ParsedRecipe | null {
-  const blob = findMarleySpoonBlob(html);
-  if (!blob) return null;
+const MARLEY_SPOON_HOST_RE = /^(?:www\.)?marleyspoon\.(?:com|nl|be|de|at|se|dk)$/i;
 
-  const title =
-    str(blob.name_with_subtitle) ||
-    str(blob.name) ||
-    str(blob.title) ||
-    '';
+const MARLEY_SPOON_QUERY = `query GetRecipe($id: ID!) {
+  recipe(id: $id) {
+    id
+    title
+    subtitle
+    image { url }
+    duration { from to unit }
+    shippedIngredients { name nameWithQuantity }
+    assumedIngredients { name }
+    steps { title description }
+  }
+}`;
+
+function isMarleySpoonUrl(url: string): boolean {
+  try {
+    return MARLEY_SPOON_HOST_RE.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+function extractMarleySpoonRecipeId(url: string): string | null {
+  try {
+    const m = new URL(url).pathname.match(/\/menu\/(\d+)(?:[-/]|$)/);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+interface GonBootstrap {
+  apiToken: string;
+  apiHost: string;
+}
+
+function extractGonBootstrap(html: string): GonBootstrap | null {
+  const tokenMatch = html.match(/gon\.api_token\s*=\s*"([^"]+)"/);
+  const hostMatch = html.match(/gon\.api_host\s*=\s*"([^"]+)"/);
+  if (!tokenMatch || !hostMatch) return null;
+  // gon.api_host is JSON-escaped (e.g. "https:\/\/api.marleyspoon.com").
+  const apiHost = hostMatch[1].replace(/\\\//g, '/');
+  if (!/^https?:\/\//i.test(apiHost)) return null;
+  return { apiToken: tokenMatch[1], apiHost };
+}
+
+/**
+ * Fetch a Marley Spoon recipe via the public GraphQL API.
+ * Returns null when this isn't a Marley Spoon URL, the bootstrap can't be
+ * extracted, or the API returns nothing usable — callers fall through to the
+ * generic HTML parser in that case.
+ */
+async function fetchMarleySpoonRecipe(
+  url: string,
+  html: string,
+): Promise<ParsedRecipe | null> {
+  const recipeId = extractMarleySpoonRecipeId(url);
+  if (!recipeId) return null;
+
+  const gon = extractGonBootstrap(html);
+  if (!gon) {
+    console.warn('[marleyspoon] no gon.api_token in HTML');
+    return null;
+  }
+
+  const origin = (() => {
+    try {
+      const u = new URL(url);
+      return `${u.protocol}//${u.host}`;
+    } catch {
+      return '';
+    }
+  })();
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${gon.apiHost}/graphql`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Accept: '*/*',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${gon.apiToken}`,
+        ...(origin ? { Origin: origin, Referer: `${origin}/` } : {}),
+      },
+      body: JSON.stringify({
+        query: MARLEY_SPOON_QUERY,
+        variables: { id: recipeId },
+      }),
+    });
+  } catch (e) {
+    console.warn('[marleyspoon] GraphQL fetch failed:', e instanceof Error ? e.message : e);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!response.ok) {
+    console.warn('[marleyspoon] GraphQL HTTP', response.status);
+    return null;
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    console.warn('[marleyspoon] GraphQL response was not JSON');
+    return null;
+  }
+
+  const obj = payload as Record<string, unknown> | null;
+  const errors = obj && Array.isArray(obj.errors) ? obj.errors : null;
+  if (errors && errors.length > 0) {
+    console.warn('[marleyspoon] GraphQL errors:', JSON.stringify(errors).slice(0, 200));
+    return null;
+  }
+
+  const data = obj?.data;
+  const recipe =
+    data && typeof data === 'object'
+      ? (data as Record<string, unknown>).recipe
+      : null;
+  if (!recipe || typeof recipe !== 'object') {
+    console.warn('[marleyspoon] empty data.recipe in response');
+    return null;
+  }
+
+  return convertMarleySpoonRecipe(recipe as Record<string, unknown>, url);
+}
+
+/**
+ * Map a Marley Spoon GraphQL `recipe` object to our ParsedRecipe shape.
+ * Exported (via parseMarleySpoonRecipeJson below) so the conversion is
+ * unit-testable without making a real GraphQL call.
+ */
+function convertMarleySpoonRecipe(
+  r: Record<string, unknown>,
+  url: string,
+): ParsedRecipe {
+  const titleMain = str(r.title);
+  const subtitle = str(r.subtitle);
+  const title = subtitle ? `${titleMain} ${subtitle}`.trim() : titleMain || 'Recept';
 
   const ingredients: ParsedIngredient[] = [];
-  if (Array.isArray(blob.ingredients)) {
-    for (const raw of blob.ingredients) {
+
+  if (Array.isArray(r.shippedIngredients)) {
+    for (const raw of r.shippedIngredients) {
       if (!raw || typeof raw !== 'object') continue;
       const o = raw as Record<string, unknown>;
-      const text = str(o.name_with_quantity) || str(o.name);
-      if (text) ingredients.push(parseIngredientString(text));
+      const text = str(o.nameWithQuantity) || str(o.name);
+      if (text) ingredients.push(parseIngredientString(normaliseMarleySpoonQuantity(text)));
     }
   }
-  if (Array.isArray(blob.assumed_ingredients)) {
-    for (const raw of blob.assumed_ingredients) {
+  if (Array.isArray(r.assumedIngredients)) {
+    for (const raw of r.assumedIngredients) {
       if (!raw || typeof raw !== 'object') continue;
       const o = raw as Record<string, unknown>;
       const text = str(o.name);
@@ -329,121 +488,65 @@ function extractMarleySpoon(html: string, url: string): ParsedRecipe | null {
   }
 
   const steps: string[] = [];
-  if (Array.isArray(blob.steps)) {
-    for (const raw of blob.steps) {
+  if (Array.isArray(r.steps)) {
+    for (const raw of r.steps) {
       if (!raw || typeof raw !== 'object') continue;
       const o = raw as Record<string, unknown>;
-      const description = str(o.description) || str(o.text);
+      // Step descriptions use Markdown-ish underscore bolding (e.g. `__noedels__`).
+      // Strip the markers so they don't leak into the saved recipe text.
+      const description = str(o.description).replace(/__([^_]+)__/g, '$1');
       const stepTitle = str(o.title);
-      // Prefer the longer body text; keep the title as a prefix when both exist.
-      const combined =
-        description && stepTitle && !description.toLowerCase().startsWith(stepTitle.toLowerCase())
+      const body =
+        description && stepTitle &&
+        !description.toLowerCase().startsWith(stepTitle.toLowerCase())
           ? `${stepTitle}. ${description}`
           : description || stepTitle;
-      const cleaned = combined.replace(/\s+/g, ' ').trim();
+      const cleaned = body.replace(/\s+/g, ' ').trim();
       if (cleaned) steps.push(cleaned);
     }
   }
 
-  if (!title || (ingredients.length === 0 && steps.length === 0)) return null;
-
-  let imageUrl: string | undefined;
-  const img = blob.image;
-  if (img && typeof img === 'object') {
-    const i = img as Record<string, unknown>;
-    imageUrl =
-      str(i.large) || str(i.original) || str(i.medium) || str(i.small) || undefined;
-  } else if (typeof img === 'string') {
-    imageUrl = img;
+  if (!title || (ingredients.length === 0 && steps.length === 0)) {
+    // GraphQL responded, but with nothing usable — surface as null so the
+    // caller's heuristic fallback runs.
+    return { title, ingredients, steps, sourceUrl: url };
   }
 
-  const rawCookTime = Number(blob.cooking_time);
-  const duration =
-    Number.isFinite(rawCookTime) && rawCookTime > 0 && rawCookTime < 1440
-      ? rawCookTime
-      : undefined;
+  let duration: number | undefined;
+  const d = r.duration;
+  if (d && typeof d === 'object') {
+    const dd = d as Record<string, unknown>;
+    const to = Number(dd.to);
+    const from = Number(dd.from);
+    if (Number.isFinite(to) && to > 0 && to < 1440) duration = to;
+    else if (Number.isFinite(from) && from > 0 && from < 1440) duration = from;
+  }
+
+  let imageUrl: string | undefined;
+  const img = r.image;
+  if (img && typeof img === 'object') {
+    const u = str((img as Record<string, unknown>).url);
+    if (u) imageUrl = u;
+  }
 
   return { title, ingredients, steps, sourceUrl: url, duration, imageUrl };
 }
 
-function findMarleySpoonBlob(html: string): Record<string, unknown> | null {
-  // Marley Spoon's signature is unique enough that we can scan the raw HTML
-  // for `"name_with_subtitle"` and walk back to the enclosing JSON object.
-  const SIG = '"name_with_subtitle"';
-  const sigIdx = html.indexOf(SIG);
-  if (sigIdx < 0) return null;
-
-  // Walk back, trying each '{' as a potential JSON start. The first one that
-  // parses into an object containing the signature wins. Cap attempts so a
-  // pathological page can't pin the CPU.
-  const MAX_ATTEMPTS = 200;
-  let attempts = 0;
-  for (let i = sigIdx; i >= 0 && attempts < MAX_ATTEMPTS; i--) {
-    if (html[i] !== '{') continue;
-    attempts++;
-    const parsed = tryParseJsonObjectAt(html, i);
-    if (!parsed || typeof parsed !== 'object') continue;
-    const target = findObjectWithKey(parsed, 'name_with_subtitle');
-    if (target) return target;
-  }
-
-  return null;
+/**
+ * Marley Spoon writes quantities glued to the unit ("100g glasnoedels",
+ * "200ml kokosmelk", "1el olie"). Insert a space so the generic ingredient
+ * parser, which expects "100 g …", picks them up correctly.
+ */
+function normaliseMarleySpoonQuantity(s: string): string {
+  return s.replace(/^(\d+(?:[.,]\d+)?)([a-zA-Zà-ÿ])/u, '$1 $2');
 }
 
-/** Parse a JSON object starting at `s[start]`, balancing braces with full string-state tracking. Returns null if invalid. */
-function tryParseJsonObjectAt(s: string, start: number): unknown | null {
-  if (s[start] !== '{') return null;
-  let depth = 0;
-  let inStr = false;
-  let escape = false;
-  for (let i = start; i < s.length; i++) {
-    const c = s[i];
-    if (inStr) {
-      if (escape) {
-        escape = false;
-      } else if (c === '\\') {
-        escape = true;
-      } else if (c === '"') {
-        inStr = false;
-      }
-      continue;
-    }
-    if (c === '"') {
-      inStr = true;
-    } else if (c === '{') {
-      depth++;
-    } else if (c === '}') {
-      depth--;
-      if (depth === 0) {
-        try {
-          return JSON.parse(s.slice(start, i + 1));
-        } catch {
-          return null;
-        }
-      }
-    }
-  }
-  return null;
-}
-
-function findObjectWithKey(node: unknown, key: string): Record<string, unknown> | null {
-  if (!node || typeof node !== 'object') return null;
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      const found = findObjectWithKey(item, key);
-      if (found) return found;
-    }
-    return null;
-  }
-  const obj = node as Record<string, unknown>;
-  if (key in obj) return obj;
-  for (const v of Object.values(obj)) {
-    if (v && typeof v === 'object') {
-      const found = findObjectWithKey(v, key);
-      if (found) return found;
-    }
-  }
-  return null;
+/** Test hook: convert a previously-captured GraphQL `data.recipe` payload. */
+export function parseMarleySpoonRecipeJson(
+  recipe: Record<string, unknown>,
+  url: string,
+): ParsedRecipe {
+  return convertMarleySpoonRecipe(recipe, url);
 }
 
 function tryParseHeuristic(html: string, url: string): ParsedRecipe | null {

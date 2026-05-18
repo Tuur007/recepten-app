@@ -86,6 +86,16 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
+  // Send a Referer pointing at the site's root — some Cloudflare-protected
+  // hosts (Marley Spoon among them) 403 fetches that arrive without one.
+  let referer = '';
+  try {
+    const u = new URL(url);
+    referer = `${u.protocol}//${u.host}/`;
+  } catch {
+    /* unreachable: assertSafeUrl already validated */
+  }
+
   let response: Response;
   try {
     response = await fetch(url, {
@@ -94,6 +104,7 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
         'User-Agent': RECIPE_UA,
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'nl-NL,nl;q=0.9,en;q=0.8',
+        ...(referer ? { Referer: referer } : {}),
       },
     });
   } finally {
@@ -114,6 +125,15 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
     throw new Error('Pagina is te groot om te verwerken.');
   }
 
+  return parseRecipeFromHtml(html, url);
+}
+
+/**
+ * Exported so tests can drive the parser without making a network call.
+ * Order of attempts: JSON-LD → Marley Spoon embedded blob → Dagelijksekost →
+ * heuristic. og:image is always pulled from the page meta tags.
+ */
+export function parseRecipeFromHtml(html: string, url: string): ParsedRecipe {
   // Extract og:image URL from the already-fetched HTML (used later to download image)
   const imageUrl = extractOgImageUrl(html) ?? undefined;
 
@@ -127,13 +147,18 @@ export async function parseRecipeFromUrl(url: string): Promise<ParsedRecipe> {
       for (const node of recipes) {
         const parsed = extractFromJsonLd(node, url);
         if (parsed.title && (parsed.ingredients.length > 0 || parsed.steps.length > 0)) {
-          return { ...parsed, imageUrl };
+          return { ...parsed, imageUrl: parsed.imageUrl ?? imageUrl };
         }
       }
     } catch {
       // malformed JSON-LD — skip
     }
   }
+
+  // Site-specific: Marley Spoon embeds a recipe JSON blob with `name_with_subtitle`
+  // and `name_with_quantity` keys (Rails app, see marleyspoon.nl/menu/<id>-<slug>).
+  const ms = extractMarleySpoon(html, url);
+  if (ms) return { ...ms, imageUrl: ms.imageUrl ?? imageUrl };
 
   // Site-specific: Dagelijksekost (uses window.__INITIAL_STATE__ or similar JSON blobs)
   const dagMatch = html.match(/window\.__RECIPE__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
@@ -165,8 +190,13 @@ function collectRecipeNodes(data: unknown): Record<string, unknown>[] {
   const obj = data as Record<string, unknown>;
   const results: Record<string, unknown>[] = [];
 
-  const type = str(obj['@type']);
-  if (type === 'Recipe' || type.toLowerCase().includes('recipe')) {
+  // `@type` may be a string OR an array of strings (e.g. ["Recipe","NewsArticle"]).
+  // Treat any value that includes "Recipe" as a match.
+  const rawType = obj['@type'];
+  const types = Array.isArray(rawType)
+    ? rawType.map(str)
+    : [str(rawType)];
+  if (types.some((t) => t === 'Recipe' || t.toLowerCase().includes('recipe'))) {
     results.push(obj);
   }
 
@@ -254,6 +284,166 @@ function extractDagelijksekost(o: Record<string, unknown>, url: string): ParsedR
       : cookMins ?? prepMins;
 
   return { title, ingredients, steps, sourceUrl: url, duration };
+}
+
+// ─── Marley Spoon ────────────────────────────────────────────────────────────
+//
+// Marley Spoon (marleyspoon.nl / .com / .de / .be / .at / .se) is a Rails app
+// that SSRs each recipe page and embeds the full recipe object inside an
+// inline <script> tag. The object uses snake_case keys unique to their API:
+//   - name_with_subtitle           → recipe title
+//   - ingredients[].name_with_quantity  → quantified ingredient line
+//   - assumed_ingredients[].name   → pantry items ("olijfolie, peper, zout")
+//   - steps[].title / description  → numbered step text
+//   - image.large                  → hero image URL
+//   - cooking_time                 → minutes (number)
+// Because these keys are very specific, we can fingerprint them anywhere in
+// the page without depending on the URL.
+
+function extractMarleySpoon(html: string, url: string): ParsedRecipe | null {
+  const blob = findMarleySpoonBlob(html);
+  if (!blob) return null;
+
+  const title =
+    str(blob.name_with_subtitle) ||
+    str(blob.name) ||
+    str(blob.title) ||
+    '';
+
+  const ingredients: ParsedIngredient[] = [];
+  if (Array.isArray(blob.ingredients)) {
+    for (const raw of blob.ingredients) {
+      if (!raw || typeof raw !== 'object') continue;
+      const o = raw as Record<string, unknown>;
+      const text = str(o.name_with_quantity) || str(o.name);
+      if (text) ingredients.push(parseIngredientString(text));
+    }
+  }
+  if (Array.isArray(blob.assumed_ingredients)) {
+    for (const raw of blob.assumed_ingredients) {
+      if (!raw || typeof raw !== 'object') continue;
+      const o = raw as Record<string, unknown>;
+      const text = str(o.name);
+      if (text) ingredients.push(parseIngredientString(text));
+    }
+  }
+
+  const steps: string[] = [];
+  if (Array.isArray(blob.steps)) {
+    for (const raw of blob.steps) {
+      if (!raw || typeof raw !== 'object') continue;
+      const o = raw as Record<string, unknown>;
+      const description = str(o.description) || str(o.text);
+      const stepTitle = str(o.title);
+      // Prefer the longer body text; keep the title as a prefix when both exist.
+      const combined =
+        description && stepTitle && !description.toLowerCase().startsWith(stepTitle.toLowerCase())
+          ? `${stepTitle}. ${description}`
+          : description || stepTitle;
+      const cleaned = combined.replace(/\s+/g, ' ').trim();
+      if (cleaned) steps.push(cleaned);
+    }
+  }
+
+  if (!title || (ingredients.length === 0 && steps.length === 0)) return null;
+
+  let imageUrl: string | undefined;
+  const img = blob.image;
+  if (img && typeof img === 'object') {
+    const i = img as Record<string, unknown>;
+    imageUrl =
+      str(i.large) || str(i.original) || str(i.medium) || str(i.small) || undefined;
+  } else if (typeof img === 'string') {
+    imageUrl = img;
+  }
+
+  const rawCookTime = Number(blob.cooking_time);
+  const duration =
+    Number.isFinite(rawCookTime) && rawCookTime > 0 && rawCookTime < 1440
+      ? rawCookTime
+      : undefined;
+
+  return { title, ingredients, steps, sourceUrl: url, duration, imageUrl };
+}
+
+function findMarleySpoonBlob(html: string): Record<string, unknown> | null {
+  // Marley Spoon's signature is unique enough that we can scan the raw HTML
+  // for `"name_with_subtitle"` and walk back to the enclosing JSON object.
+  const SIG = '"name_with_subtitle"';
+  const sigIdx = html.indexOf(SIG);
+  if (sigIdx < 0) return null;
+
+  // Walk back, trying each '{' as a potential JSON start. The first one that
+  // parses into an object containing the signature wins. Cap attempts so a
+  // pathological page can't pin the CPU.
+  const MAX_ATTEMPTS = 200;
+  let attempts = 0;
+  for (let i = sigIdx; i >= 0 && attempts < MAX_ATTEMPTS; i--) {
+    if (html[i] !== '{') continue;
+    attempts++;
+    const parsed = tryParseJsonObjectAt(html, i);
+    if (!parsed || typeof parsed !== 'object') continue;
+    const target = findObjectWithKey(parsed, 'name_with_subtitle');
+    if (target) return target;
+  }
+
+  return null;
+}
+
+/** Parse a JSON object starting at `s[start]`, balancing braces with full string-state tracking. Returns null if invalid. */
+function tryParseJsonObjectAt(s: string, start: number): unknown | null {
+  if (s[start] !== '{') return null;
+  let depth = 0;
+  let inStr = false;
+  let escape = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (escape) {
+        escape = false;
+      } else if (c === '\\') {
+        escape = true;
+      } else if (c === '"') {
+        inStr = false;
+      }
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+    } else if (c === '{') {
+      depth++;
+    } else if (c === '}') {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(s.slice(start, i + 1));
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function findObjectWithKey(node: unknown, key: string): Record<string, unknown> | null {
+  if (!node || typeof node !== 'object') return null;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findObjectWithKey(item, key);
+      if (found) return found;
+    }
+    return null;
+  }
+  const obj = node as Record<string, unknown>;
+  if (key in obj) return obj;
+  for (const v of Object.values(obj)) {
+    if (v && typeof v === 'object') {
+      const found = findObjectWithKey(v, key);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 function tryParseHeuristic(html: string, url: string): ParsedRecipe | null {

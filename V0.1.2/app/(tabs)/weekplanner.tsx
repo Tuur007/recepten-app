@@ -45,8 +45,12 @@ import {
 const DAY_KEYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
 const DAY_SHORT = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
 
-const MEAL_TYPES: MealType[] = ['lunch', 'dinner'];
-const MEAL_LABEL: Record<MealType, string> = { lunch: 'lunch', dinner: 'diner' };
+const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner'];
+const MEAL_LABEL: Record<MealType, string> = {
+  breakfast: 'ontbijt',
+  lunch: 'lunch',
+  dinner: 'diner',
+};
 
 interface PickerTarget { day: string; mealType: MealType; }
 
@@ -118,8 +122,10 @@ export default function WeekPlannerScreen() {
     let count = 0;
     weekDays.forEach(({ key }) => {
       const day = mealPlan[key];
-      if (day?.lunch) count++;
-      if (day?.dinner) count++;
+      if (!day) return;
+      MEAL_TYPES.forEach((m) => {
+        if (day[m]) count++;
+      });
     });
     return count;
   }, [mealPlan, weekDays]);
@@ -157,8 +163,11 @@ export default function WeekPlannerScreen() {
     const usedIds = new Set<string>();
     weekDays.forEach(({ key }) => {
       const day = mealPlan[key];
-      if (day?.lunch) usedIds.add(day.lunch);
-      if (day?.dinner) usedIds.add(day.dinner);
+      if (!day) return;
+      MEAL_TYPES.forEach((m) => {
+        const id = day[m];
+        if (id) usedIds.add(id);
+      });
     });
     const preferred = shuffle(pool.filter((r) => !usedIds.has(r.id)));
     const fallback = shuffle(pool.filter((r) => usedIds.has(r.id)));

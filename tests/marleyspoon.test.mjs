@@ -133,6 +133,156 @@ test('handles missing optional fields gracefully', () => {
   assert.equal(out.steps.length, 1);
 });
 
+// ─── Edge cases — different recipe shapes ────────────────────────────────────
+
+test('recipe without subtitle: title stands alone', () => {
+  const r = {
+    title: 'Bolognese',
+    shippedIngredients: [{ nameWithQuantity: '500 g gehakt' }],
+    steps: [{ title: 'Bakken', description: 'Bak het gehakt.' }],
+  };
+  const out = parseMarleySpoonRecipeJson(r, URL);
+  assert.equal(out.title, 'Bolognese');
+});
+
+test('recipe with only duration.from (no .to) falls back to .from', () => {
+  const r = {
+    title: 'Quickie',
+    duration: { from: 15, to: null, unit: 'minuten' },
+    shippedIngredients: [{ nameWithQuantity: '1 ei' }],
+    steps: [{ title: 'Doen', description: 'Doe iets.' }],
+  };
+  const out = parseMarleySpoonRecipeJson(r, URL);
+  assert.equal(out.duration, 15);
+});
+
+test('recipe with null duration object has no duration', () => {
+  const r = {
+    title: 'Geen tijd',
+    duration: null,
+    shippedIngredients: [{ nameWithQuantity: '1 ei' }],
+    steps: [{ title: 'X', description: 'Y.' }],
+  };
+  const out = parseMarleySpoonRecipeJson(r, URL);
+  assert.equal(out.duration, undefined);
+});
+
+test('recipe with null image has no imageUrl', () => {
+  const r = {
+    title: 'Geen foto',
+    image: null,
+    shippedIngredients: [{ nameWithQuantity: '1 ei' }],
+    steps: [{ title: 'X', description: 'Y.' }],
+  };
+  const out = parseMarleySpoonRecipeJson(r, URL);
+  assert.equal(out.imageUrl, undefined);
+});
+
+test('recipe with empty shippedIngredients: only assumed are kept', () => {
+  const r = {
+    title: 'Boterham',
+    shippedIngredients: [],
+    assumedIngredients: [{ name: 'boter' }, { name: 'brood' }],
+    steps: [{ title: 'X', description: 'Y.' }],
+  };
+  const out = parseMarleySpoonRecipeJson(r, URL);
+  assert.equal(out.ingredients.length, 2);
+  assert.ok(out.ingredients.some((i) => i.name === 'boter'));
+  assert.ok(out.ingredients.some((i) => i.name === 'brood'));
+});
+
+test('non-standard ingredient formats round-trip without losing words', () => {
+  const r = {
+    title: 'Test',
+    shippedIngredients: [
+      { nameWithQuantity: '1 teen knoflook' },
+      { nameWithQuantity: '1 stukje verse gember' },
+      { nameWithQuantity: '1 pakje gele currypasta' },
+      { nameWithQuantity: '1 zakje groentebouillonpoeder' },
+      { nameWithQuantity: '1 bosui' },
+    ],
+    steps: [{ title: 'X', description: 'Y.' }],
+  };
+  const out = parseMarleySpoonRecipeJson(r, URL);
+  // Each input must round-trip to *some* ingredient row that contains all the
+  // meaningful words, even if quantity/unit detection differs.
+  const flat = out.ingredients.map((i) => `${i.quantity} ${i.unit} ${i.name}`).join(' | ');
+  for (const word of ['knoflook', 'gember', 'currypasta', 'bouillonpoeder', 'bosui']) {
+    assert.ok(flat.includes(word), `'${word}' missing in: ${flat}`);
+  }
+});
+
+test('step description starting with the title is not double-prefixed', () => {
+  const r = {
+    title: 'Test',
+    shippedIngredients: [{ nameWithQuantity: '1 ei' }],
+    steps: [
+      {
+        title: 'Voorbereiden',
+        description: 'Voorbereiden: snijd de ui in stukjes.',
+      },
+    ],
+  };
+  const out = parseMarleySpoonRecipeJson(r, URL);
+  // Should NOT start with "Voorbereiden. Voorbereiden:"
+  assert.ok(!out.steps[0].toLowerCase().startsWith('voorbereiden. voorbereiden'));
+  assert.ok(out.steps[0].toLowerCase().includes('snijd de ui'));
+});
+
+test('step with only title (no description) is kept', () => {
+  const r = {
+    title: 'Test',
+    shippedIngredients: [{ nameWithQuantity: '1 ei' }],
+    steps: [
+      { title: 'Serveren', description: '' },
+      { title: '', description: 'Alleen body.' },
+    ],
+  };
+  const out = parseMarleySpoonRecipeJson(r, URL);
+  assert.equal(out.steps.length, 2);
+  assert.ok(out.steps[0].toLowerCase().includes('serveren'));
+  assert.ok(out.steps[1].toLowerCase().includes('alleen body'));
+});
+
+test('multiple __bold__ markers in one description are all stripped', () => {
+  const r = {
+    title: 'Test',
+    shippedIngredients: [{ nameWithQuantity: '1 ei' }],
+    steps: [
+      {
+        title: 'X',
+        description: 'Snijd de __ui__, __knoflook__ en __gember__ klein.',
+      },
+    ],
+  };
+  const out = parseMarleySpoonRecipeJson(r, URL);
+  assert.ok(!out.steps[0].includes('__'));
+  assert.ok(out.steps[0].includes('ui'));
+  assert.ok(out.steps[0].includes('knoflook'));
+  assert.ok(out.steps[0].includes('gember'));
+});
+
+test('null entries in arrays are skipped without crashing', () => {
+  const r = {
+    title: 'Defensief',
+    shippedIngredients: [null, { nameWithQuantity: '1 ei' }, undefined],
+    assumedIngredients: [null, { name: 'zout' }],
+    steps: [null, { title: 'Doen', description: 'Iets.' }],
+  };
+  const out = parseMarleySpoonRecipeJson(r, URL);
+  assert.equal(out.ingredients.length, 2);
+  assert.equal(out.steps.length, 1);
+});
+
+test('recipe object with no title still produces a fallback title', () => {
+  const r = {
+    shippedIngredients: [{ nameWithQuantity: '1 ei' }],
+    steps: [{ title: 'X', description: 'Y.' }],
+  };
+  const out = parseMarleySpoonRecipeJson(r, URL);
+  assert.equal(out.title, 'Recept');
+});
+
 console.log('\n══════════════════════════════════════════════');
 console.log(` Result: ${passed} passed, ${failed} failed`);
 console.log('══════════════════════════════════════════════\n');

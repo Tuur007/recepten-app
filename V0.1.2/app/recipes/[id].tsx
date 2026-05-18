@@ -444,6 +444,7 @@ export default function RecipeDetailScreen() {
           stepIndex={cookStep}
           totalSteps={steps.length}
           stepBody={stepText(steps[cookStep])}
+          recipeTitle={recipe.title}
           activeTimers={activeTimers}
           onClose={() => {
             setCookStep(null);
@@ -546,6 +547,7 @@ interface CookOverlayProps {
   stepIndex: number;
   totalSteps: number;
   stepBody: string;
+  recipeTitle: string;
   activeTimers: { id: string; seconds: number; label: string }[];
   onClose: () => void;
   onPrev: () => void;
@@ -558,6 +560,7 @@ function CookOverlay({
   stepIndex,
   totalSteps,
   stepBody,
+  recipeTitle,
   activeTimers,
   onClose,
   onPrev,
@@ -570,20 +573,54 @@ function CookOverlay({
   useKeepAwake('cook-mode');
   const matches = useMemo(() => findTimesInStep(stepBody), [stepBody]);
   const isLast = stepIndex >= totalSteps - 1;
+  const stepNumStr = String(stepIndex + 1).padStart(2, '0');
+  const totalNumStr = String(totalSteps).padStart(2, '0');
   return (
     <View style={styles.cookOverlay}>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <TouchableOpacity style={styles.cookClose} onPress={onClose}>
-          <Ionicons name="close" size={24} color={colors.textDark} />
-        </TouchableOpacity>
+        {/* Top bar: scherm-wakker indicator · recipe title · close */}
+        <View style={styles.cookTopBar}>
+          <View style={styles.cookAwakeDot}>
+            <View style={styles.cookAwakeBullet} />
+            <Text style={[typography.folio, { color: colors.green }]}>scherm wakker</Text>
+          </View>
+          <Text
+            style={[typography.folio, { color: colors.textFaint }]}
+            numberOfLines={1}
+          >
+            {recipeTitle.toLowerCase()}
+          </Text>
+          <TouchableOpacity onPress={onClose} hitSlop={10}>
+            <Ionicons name="close" size={22} color={colors.textDark} />
+          </TouchableOpacity>
+        </View>
 
         <ScrollView
           contentContainerStyle={styles.cookScroll}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={typography.folio}>
-            stap {stepIndex + 1} van {totalSteps}
-          </Text>
+          {/* Step indicator + progress bars */}
+          <View style={styles.cookStepRow}>
+            <Text style={styles.cookStepLabel}>
+              · stap {stepNumStr} van {totalNumStr} ·
+            </Text>
+            <View style={styles.cookProgress}>
+              {Array.from({ length: totalSteps }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.cookProgressPill,
+                    i <= stepIndex && styles.cookProgressPillOn,
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
+
+          {/* Drop-cap step number */}
+          <Text style={styles.cookDropCap}>{stepNumStr}</Text>
+
+          {/* Step body */}
           <Text style={styles.cookStepText}>{stepBody}</Text>
 
           {matches.length > 0 && (
@@ -595,9 +632,9 @@ function CookOverlay({
                   style={styles.timerChip}
                   activeOpacity={0.75}
                 >
-                  <Ionicons name="timer-outline" size={14} color={colors.primary} />
+                  <Ionicons name="timer-outline" size={12} color={colors.primary} />
                   <Text style={styles.timerChipText}>
-                    {m.text}{' · '}<Text style={styles.timerChipDuration}>{formatDuration(m.seconds)}</Text>
+                    {m.text}{' · '}<Text style={styles.timerChipDuration}>start</Text>
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -618,33 +655,32 @@ function CookOverlay({
           )}
         </ScrollView>
 
-        <View style={styles.cookNav}>
+        {/* Page-turn footer: ‹ stap 02 · 03 / 05 · stap 04 › */}
+        <View style={styles.cookFooter}>
           <TouchableOpacity
-            style={[styles.cookNavBtn, stepIndex === 0 && styles.cookNavDisabled]}
             onPress={onPrev}
             disabled={stepIndex === 0}
+            hitSlop={10}
           >
-            <Ionicons
-              name="chevron-back"
-              size={22}
-              color={stepIndex === 0 ? colors.textFaint : colors.textDark}
-            />
             <Text
-              style={[styles.cookNavLabel, stepIndex === 0 && { color: colors.textFaint }]}
+              style={[
+                styles.cookFooterLabel,
+                stepIndex === 0 && { color: colors.borderColor },
+              ]}
             >
-              vorige
+              ‹  stap {String(stepIndex).padStart(2, '0')}
             </Text>
           </TouchableOpacity>
-          {!isLast ? (
-            <TouchableOpacity style={styles.cookNavBtn} onPress={onNext}>
-              <Text style={styles.cookNavLabel}>volgende</Text>
-              <Ionicons name="chevron-forward" size={22} color={colors.textDark} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.cookDoneBtn} onPress={onClose}>
-              <Text style={typography.buttonLabel}>klaar!</Text>
-            </TouchableOpacity>
-          )}
+          <Text style={[typography.folio, { color: colors.textFaint }]}>
+            · {stepNumStr} / {totalNumStr} ·
+          </Text>
+          <TouchableOpacity onPress={isLast ? onClose : onNext} hitSlop={10}>
+            <Text style={[styles.cookFooterLabel, { color: colors.primary }]}>
+              {isLast
+                ? 'klaar!  ›'
+                : `stap ${String(stepIndex + 2).padStart(2, '0')}  ›`}
+            </Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     </View>
@@ -798,78 +834,118 @@ const styles = StyleSheet.create({
     backgroundColor: PAPER,
     zIndex: 100,
   },
-  cookClose: {
-    alignSelf: 'flex-end',
-    padding: spacing.lg,
+  cookTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    gap: 12,
+  },
+  cookAwakeDot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cookAwakeBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.green,
   },
   cookScroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
     paddingBottom: spacing.lg,
-    gap: spacing.lg,
+  },
+  cookStepRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cookStepLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: colors.primary,
+  },
+  cookProgress: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  cookProgressPill: {
+    width: 18,
+    height: 2,
+    backgroundColor: colors.borderColor,
+  },
+  cookProgressPillOn: {
+    backgroundColor: colors.primary,
+  },
+  cookDropCap: {
+    fontFamily: fonts.display,
+    fontWeight: '300',
+    fontSize: 92,
+    lineHeight: 92,
+    letterSpacing: -3,
+    color: colors.textDark,
+    marginTop: spacing.lg,
   },
   cookStepText: {
     fontFamily: fonts.display,
-    fontSize: 24,
-    color: colors.textDark,
-    lineHeight: 34,
+    fontSize: 22,
+    lineHeight: 30,
+    color: colors.textMedium,
+    marginTop: spacing.lg,
   },
   timerChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: 8,
+    marginTop: spacing.lg,
   },
   timerChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: colors.primary,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(194,73,42,0.06)',
   },
   timerChipText: {
-    fontFamily: fonts.display,
-    fontSize: 13,
-    color: colors.textDark,
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.primary,
   },
   timerChipDuration: {
     fontFamily: fonts.monoMedium,
     color: colors.primary,
   },
   timerStack: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     gap: spacing.md,
   },
-  cookNav: {
+  cookFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  cookNavBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderTopWidth: 0.5,
+    borderTopColor: colors.borderColor,
   },
-  cookNavDisabled: { opacity: 0.3 },
-  cookNavLabel: {
+  cookFooterLabel: {
     fontFamily: fonts.mono,
     fontSize: 10,
-    letterSpacing: 1.5,
+    letterSpacing: 1.6,
     textTransform: 'uppercase',
     color: colors.textDark,
-  },
-  cookDoneBtn: {
-    backgroundColor: colors.textDark,
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   allergenRow: {
     flexDirection: 'row',

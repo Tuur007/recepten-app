@@ -16,6 +16,7 @@ import { Category } from '../../features/categories/repository';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors, useThemeMode, type ThemeMode } from '../../theme';
 import { haptics } from '../../utils/feedback';
+import { FolioStrip, EditorialTitle, RuleWithLabel } from '../../components/ui/EditorialBits';
 
 type SectionKey = 'recipe' | 'grocery' | null;
 
@@ -90,16 +91,18 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
-        {/* Folio */}
-        <View style={styles.folio}>
-          <Text style={typography.folio}>instellingen</Text>
+        {/* Folio — mockup MoreScreen: version + sync */}
+        <FolioStrip left="versie 1.1.0" right="instellingen" />
+
+        {/* Editorial title */}
+        <View style={styles.titleBlock}>
+          <EditorialTitle lead="En" tail="meer." size={42} />
         </View>
 
-        {/* Title */}
-        <View style={styles.titleBlock}>
-          <Text style={[typography.hero32Bold, { fontSize: 36 }]}>Meer</Text>
-          <Text style={[typography.heroItalic, { fontSize: 36 }]}>opties.</Text>
-        </View>
+        {/* Italic intro */}
+        <Text style={styles.intro}>
+          Een paar knoppen voor wie graag dingen op orde houdt.
+        </Text>
 
         {/* ── Receptcategorieën ── */}
         <SectionCard
@@ -170,27 +173,30 @@ export default function SettingsScreen() {
         {/* ── Verschijning ── */}
         <ThemeSection />
 
-        {/* ── Over de app ── */}
-        <View style={[styles.sectionCard, { marginTop: spacing.md }]}>
-          <View style={styles.cardHeaderStatic}>
-            <View style={styles.cardIconWrap}>
-              <Ionicons name="information-circle-outline" size={18} color={colors.textLight} />
-            </View>
-            <Text style={styles.cardTitle}>Over de app</Text>
-          </View>
-          <View style={styles.cardBody}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Versie</Text>
-              <Text style={styles.infoValue}>v1.1.0</Text>
-            </View>
-            <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.infoLabel}>Gebouwd met</Text>
-              <Text style={styles.infoValue}>Expo + SQLite</Text>
-            </View>
+        {/* ── Over de app — mockup-style flat info rows ── */}
+        <View style={styles.aboutSection}>
+          <RuleWithLabel label="over de app" bold />
+          <View style={styles.aboutBody}>
+            <FlatRow label="Versie" value="v1.1.0" />
+            <FlatRow label="Gebouwd met" value="Expo + SQLite" last />
           </View>
         </View>
+
+        {/* Editorial credit — mockup footer */}
+        <Text style={styles.credit}>
+          Gemaakt op de keukentafel,{'\n'}met liefde voor goed eten en mooie pagina's.
+        </Text>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function FlatRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  return (
+    <View style={[styles.flatRow, !last && styles.flatRowDivider]}>
+      <Text style={styles.flatRowLabel}>{label}</Text>
+      <Text style={styles.flatRowValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -387,7 +393,54 @@ const styles = StyleSheet.create({
   titleBlock: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: 4,
+  },
+  intro: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.textLight,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    lineHeight: 18,
+  },
+  aboutSection: {
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+  },
+  aboutBody: { marginTop: 6 },
+  flatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  flatRowDivider: {
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderSoft,
+  },
+  flatRowLabel: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.textMedium,
+  },
+  flatRowValue: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.textLight,
+  },
+  credit: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.textLight,
+    textAlign: 'center',
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    lineHeight: 20,
   },
 
   sectionCard: {

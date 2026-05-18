@@ -1,3 +1,21 @@
+// app/(tabs)/settings.tsx
+//
+// "En meer." — MoreScreen volgens de editorial mockup.
+//
+// Structuur (mockup → code mapping):
+//   • Folio    : versie + laatst geupdate
+//   • Title    : EditorialTitle "En meer."
+//   • Intro    : italic introductie-paragraaf
+//   • Family   : "het gezin" — 4 FamilyDots met namen (statisch — geen familie-data
+//                model in de app; mockup gebruikt ook hardcoded namen)
+//   • Sections : RuleWithLabel header + clickable rijen (label | mono value | →).
+//                Tappen op een rij klapt de bijbehorende sub-inhoud uit
+//                (categorie-lijst voor het beheer, theme-keuze voor verschijning).
+//   • Credit   : italic footer
+//
+// Bestaande functionaliteit (categorie CRUD, theme-mode) blijft behouden — alleen
+// de presentatie is aangepast naar de mockup-stijl.
+
 import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
@@ -13,12 +31,37 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useCategories } from '../../store/categoriesStore';
 import { Category } from '../../features/categories/repository';
-import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
+import { colors, spacing, fonts } from '../../constants/Designsystem';
 import { useThemeColors, useThemeMode, type ThemeMode } from '../../theme';
 import { haptics } from '../../utils/feedback';
-import { FolioStrip, EditorialTitle, RuleWithLabel } from '../../components/ui/EditorialBits';
+import {
+  FolioStrip,
+  EditorialTitle,
+  RuleWithLabel,
+  FamilyDot,
+  type FamilyKey,
+} from '../../components/ui/EditorialBits';
 
-type SectionKey = 'recipe' | 'grocery' | null;
+type ExpandKey = 'recipe' | 'grocery' | 'theme' | null;
+
+const FAMILY: { key: FamilyKey; label: string }[] = [
+  { key: 'tuur', label: 'Tuur' },
+  { key: 'louise', label: 'Louise' },
+  { key: 'basiel', label: 'Basiel' },
+  { key: 'jules', label: 'Jules' },
+];
+
+const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: 'system', label: 'Systeem' },
+  { value: 'light', label: 'Licht' },
+  { value: 'dark', label: 'Donker' },
+];
+
+const THEME_LABEL: Record<ThemeMode, string> = {
+  system: 'systeem',
+  light: 'licht',
+  dark: 'donker',
+};
 
 export default function SettingsScreen() {
   const themeColors = useThemeColors();
@@ -30,13 +73,17 @@ export default function SettingsScreen() {
     updateCategory,
     removeCategory,
   } = useCategories();
+  const { mode, setMode } = useThemeMode();
 
+  const [expanded, setExpanded] = useState<ExpandKey>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
-  const [addingType, setAddingType] = useState<SectionKey>(null);
+  const [addingType, setAddingType] = useState<'recipe' | 'grocery' | null>(null);
   const [newName, setNewName] = useState('');
-  const [expandedSection, setExpandedSection] = useState<SectionKey>(null);
   const newInputRef = useRef<TextInput>(null);
+
+  const toggle = (key: Exclude<ExpandKey, null>) =>
+    setExpanded((prev) => (prev === key ? null : key));
 
   const startEdit = (cat: Category) => {
     setEditingId(cat.id);
@@ -45,54 +92,61 @@ export default function SettingsScreen() {
   };
 
   const saveEdit = async () => {
-    if (!editingId || !editingName.trim()) { setEditingId(null); return; }
+    if (!editingId || !editingName.trim()) {
+      setEditingId(null);
+      return;
+    }
     await updateCategory(editingId, editingName.trim());
     setEditingId(null);
     setEditingName('');
   };
 
   const confirmDelete = (cat: Category) => {
-    Alert.alert(
-      'Verwijderen',
-      `"${cat.name}" verwijderen?`,
-      [
-        { text: 'Annuleren', style: 'cancel' },
-        {
-          text: 'Verwijderen',
-          style: 'destructive',
-          onPress: () => {
-            // Hook already surfaces a toast on failure; swallow the rejection.
-            removeCategory(cat.id).catch(() => {});
-          },
+    Alert.alert('Verwijderen', `"${cat.name}" verwijderen?`, [
+      { text: 'Annuleren', style: 'cancel' },
+      {
+        text: 'Verwijderen',
+        style: 'destructive',
+        onPress: () => {
+          removeCategory(cat.id).catch(() => {});
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const startAdd = (type: 'recipe' | 'grocery') => {
     setAddingType(type);
-    setExpandedSection(type);
     setNewName('');
     setEditingId(null);
     setTimeout(() => newInputRef.current?.focus(), 120);
   };
 
   const saveNew = async () => {
-    if (!newName.trim() || !addingType) { setAddingType(null); return; }
+    if (!newName.trim() || !addingType) {
+      setAddingType(null);
+      return;
+    }
     if (addingType === 'recipe') await addRecipeCategory(newName.trim());
     else await addGroceryCategory(newName.trim());
     setNewName('');
     setAddingType(null);
   };
 
-  const toggleSection = (key: 'recipe' | 'grocery') =>
-    setExpandedSection((prev) => (prev === key ? null : key));
+  const cycleTheme = () => {
+    const idx = THEME_OPTIONS.findIndex((o) => o.value === mode);
+    const next = THEME_OPTIONS[(idx + 1) % THEME_OPTIONS.length];
+    haptics.selection();
+    setMode(next.value);
+  };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: themeColors.background }]}
+      edges={['top']}
+    >
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
-        {/* Folio — mockup MoreScreen: version + sync */}
-        <FolioStrip left="versie 1.1.0" right="instellingen" />
+        {/* Folio */}
+        <FolioStrip left="versie 1.1.0" right="laatst gesynct · nu" />
 
         {/* Editorial title */}
         <View style={styles.titleBlock}>
@@ -104,85 +158,134 @@ export default function SettingsScreen() {
           Een paar knoppen voor wie graag dingen op orde houdt.
         </Text>
 
-        {/* ── Receptcategorieën ── */}
-        <SectionCard
-          icon="book-outline"
-          title="Receptcategorieën"
-          count={recipeCategories.length}
-          expanded={expandedSection === 'recipe'}
-          onToggle={() => toggleSection('recipe')}
-        >
-          {recipeCategories.map((cat) => (
-            <CategoryRow
-              key={cat.id}
-              cat={cat}
-              isEditing={editingId === cat.id}
-              editValue={editingName}
-              onEditChange={setEditingName}
-              onEditSubmit={saveEdit}
-              onEditStart={() => startEdit(cat)}
-              onDelete={() => confirmDelete(cat)}
-            />
-          ))}
-          {addingType === 'recipe' ? (
-            <AddRow
-              inputRef={newInputRef}
-              value={newName}
-              onChange={setNewName}
-              onSubmit={saveNew}
-              onCancel={() => setAddingType(null)}
-            />
-          ) : (
-            <AddButton label="Categorie toevoegen" onPress={() => startAdd('recipe')} />
-          )}
-        </SectionCard>
-
-        {/* ── Boodschappencategorieën ── */}
-        <SectionCard
-          icon="bag-outline"
-          title="Boodschappencategorieën"
-          count={groceryCategories.length}
-          expanded={expandedSection === 'grocery'}
-          onToggle={() => toggleSection('grocery')}
-        >
-          {groceryCategories.map((cat) => (
-            <CategoryRow
-              key={cat.id}
-              cat={cat}
-              isEditing={editingId === cat.id}
-              editValue={editingName}
-              onEditChange={setEditingName}
-              onEditSubmit={saveEdit}
-              onEditStart={() => startEdit(cat)}
-              onDelete={() => confirmDelete(cat)}
-            />
-          ))}
-          {addingType === 'grocery' ? (
-            <AddRow
-              inputRef={newInputRef}
-              value={newName}
-              onChange={setNewName}
-              onSubmit={saveNew}
-              onCancel={() => setAddingType(null)}
-            />
-          ) : (
-            <AddButton label="Categorie toevoegen" onPress={() => startAdd('grocery')} />
-          )}
-        </SectionCard>
-
-        {/* ── Verschijning ── */}
-        <ThemeSection />
-
-        {/* ── Over de app — mockup-style flat info rows ── */}
-        <View style={styles.aboutSection}>
-          <RuleWithLabel label="over de app" bold />
-          <View style={styles.aboutBody}>
-            <FlatRow label="Versie" value="v1.1.0" />
-            <FlatRow label="Gebouwd met" value="Expo + SQLite" last />
+        {/* ─── het gezin ─── */}
+        <View style={styles.section}>
+          <RuleWithLabel label="het gezin" bold />
+          <View style={styles.familyRow}>
+            {FAMILY.map((m) => (
+              <View key={m.key} style={styles.familyCol}>
+                <FamilyDot who={m.key} size={42} />
+                <Text style={styles.familyLabel}>{m.label}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
-        {/* Editorial credit — mockup footer */}
+        {/* ─── onze recepten ─── */}
+        <View style={styles.section}>
+          <RuleWithLabel label="onze recepten" bold />
+          <View style={styles.sectionBody}>
+            <Row
+              label="categorieën"
+              value={String(recipeCategories.length)}
+              expanded={expanded === 'recipe'}
+              onPress={() => toggle('recipe')}
+            />
+            {expanded === 'recipe' && (
+              <CategoryList
+                items={recipeCategories}
+                editingId={editingId}
+                editingName={editingName}
+                addingHere={addingType === 'recipe'}
+                newName={newName}
+                newInputRef={newInputRef}
+                onEditStart={startEdit}
+                onEditChange={setEditingName}
+                onEditSubmit={saveEdit}
+                onDelete={confirmDelete}
+                onAddStart={() => startAdd('recipe')}
+                onAddChange={setNewName}
+                onAddSubmit={saveNew}
+                onAddCancel={() => setAddingType(null)}
+              />
+            )}
+            <Row
+              label="boodschappen"
+              value={String(groceryCategories.length)}
+              expanded={expanded === 'grocery'}
+              onPress={() => toggle('grocery')}
+              last
+            />
+            {expanded === 'grocery' && (
+              <CategoryList
+                items={groceryCategories}
+                editingId={editingId}
+                editingName={editingName}
+                addingHere={addingType === 'grocery'}
+                newName={newName}
+                newInputRef={newInputRef}
+                onEditStart={startEdit}
+                onEditChange={setEditingName}
+                onEditSubmit={saveEdit}
+                onDelete={confirmDelete}
+                onAddStart={() => startAdd('grocery')}
+                onAddChange={setNewName}
+                onAddSubmit={saveNew}
+                onAddCancel={() => setAddingType(null)}
+              />
+            )}
+          </View>
+        </View>
+
+        {/* ─── op het scherm ─── */}
+        <View style={styles.section}>
+          <RuleWithLabel label="op het scherm" bold />
+          <View style={styles.sectionBody}>
+            <Row
+              label="donker thema"
+              value={THEME_LABEL[mode]}
+              expanded={expanded === 'theme'}
+              onPress={() => toggle('theme')}
+              last
+            />
+            {expanded === 'theme' && (
+              <View style={styles.themeRow}>
+                {THEME_OPTIONS.map((opt) => {
+                  const active = mode === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      onPress={() => {
+                        haptics.selection();
+                        setMode(opt.value);
+                      }}
+                      activeOpacity={0.8}
+                      style={[
+                        styles.themeChip,
+                        active && {
+                          borderColor: themeColors.primary,
+                          backgroundColor: themeColors.primary,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.themeChipLabel,
+                          active && { color: colors.background },
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+          {/* discreet "next" affordance also exists as tap on row itself */}
+          <TouchableOpacity onPress={cycleTheme} style={{ height: 0 }} />
+        </View>
+
+        {/* ─── over de app ─── */}
+        <View style={styles.section}>
+          <RuleWithLabel label="over de app" bold />
+          <View style={styles.sectionBody}>
+            <Row label="versie" value="v1.1.0" inert />
+            <Row label="gebouwd met" value="Expo + SQLite" inert last />
+          </View>
+        </View>
+
+        {/* Editorial credit */}
         <Text style={styles.credit}>
           Gemaakt op de keukentafel,{'\n'}met liefde voor goed eten en mooie pagina's.
         </Text>
@@ -191,202 +294,132 @@ export default function SettingsScreen() {
   );
 }
 
-function FlatRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
-  return (
-    <View style={[styles.flatRow, !last && styles.flatRowDivider]}>
-      <Text style={styles.flatRowLabel}>{label}</Text>
-      <Text style={styles.flatRowValue}>{value}</Text>
-    </View>
-  );
-}
-
-// ── Theme section ──────────────────────────────────────────────────────────
-
-const THEME_OPTIONS: { value: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { value: 'system', label: 'Systeem', icon: 'phone-portrait-outline' },
-  { value: 'light',  label: 'Licht',   icon: 'sunny-outline' },
-  { value: 'dark',   label: 'Donker',  icon: 'moon-outline' },
-];
-
-function ThemeSection() {
-  const { mode, setMode } = useThemeMode();
-  const themeColors = useThemeColors();
-
-  return (
-    <View style={[styles.sectionCard, { marginTop: spacing.md }]}>
-      <View style={styles.cardHeaderStatic}>
-        <View style={styles.cardIconWrap}>
-          <Ionicons name="contrast-outline" size={18} color={colors.textLight} />
-        </View>
-        <Text style={styles.cardTitle}>Verschijning</Text>
-      </View>
-      <View style={[styles.cardBody, { padding: spacing.md, gap: 8 }]}>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {THEME_OPTIONS.map((opt) => {
-            const active = mode === opt.value;
-            return (
-              <TouchableOpacity
-                key={opt.value}
-                onPress={() => {
-                  haptics.selection();
-                  setMode(opt.value);
-                }}
-                activeOpacity={0.8}
-                style={{
-                  flex: 1,
-                  borderWidth: 1,
-                  borderColor: active ? themeColors.primary : colors.borderColor,
-                  backgroundColor: active ? themeColors.primary : 'transparent',
-                  borderRadius: 12,
-                  paddingVertical: 12,
-                  alignItems: 'center',
-                  gap: 4,
-                }}
-              >
-                <Ionicons
-                  name={opt.icon}
-                  size={18}
-                  color={active ? colors.background : colors.textMedium}
-                />
-                <Text
-                  style={{
-                    fontFamily: fonts.bodyMedium,
-                    fontSize: 12,
-                    letterSpacing: 1,
-                    textTransform: 'uppercase',
-                    color: active ? colors.background : colors.textMedium,
-                  }}
-                >
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        <Text style={[typography.bodyItalic, { marginTop: 4 }]}>
-          Donkere modus loopt nog uit. Sommige schermen blijven licht totdat ze zijn aangepast.
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-// ── Sub-components ──────────────────────────────────────────────────────────
-
-interface SectionCardProps {
-  icon: string;
-  title: string;
-  count: number;
-  expanded: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}
-
-function SectionCard({ icon, title, count, expanded, onToggle, children }: SectionCardProps) {
-  return (
-    <View style={[styles.sectionCard, { marginTop: spacing.md }]}>
-      <TouchableOpacity style={styles.cardHeader} onPress={onToggle} activeOpacity={0.7}>
-        <View style={styles.cardIconWrap}>
-          <Ionicons name={icon as any} size={18} color={colors.textLight} />
-        </View>
-        <Text style={styles.cardTitle}>{title}</Text>
-        <Text style={styles.cardCount}>{count}</Text>
-        <Ionicons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={16}
-          color={colors.textFaint}
-        />
-      </TouchableOpacity>
-      {expanded && <View style={styles.cardBody}>{children}</View>}
-    </View>
-  );
-}
-
-interface CategoryRowProps {
-  cat: Category;
-  isEditing: boolean;
-  editValue: string;
-  onEditChange: (v: string) => void;
-  onEditSubmit: () => void;
-  onEditStart: () => void;
-  onDelete: () => void;
-}
-
-function CategoryRow({
-  cat, isEditing, editValue, onEditChange, onEditSubmit, onEditStart, onDelete,
-}: CategoryRowProps) {
-  return (
-    <View style={styles.catRow}>
-      {isEditing ? (
-        <TextInput
-          style={styles.catInput}
-          value={editValue}
-          onChangeText={onEditChange}
-          onSubmitEditing={onEditSubmit}
-          onBlur={onEditSubmit}
-          autoFocus
-          returnKeyType="done"
-        />
-      ) : (
-        <Text style={styles.catName}>{cat.name}</Text>
-      )}
-      <View style={styles.catActions}>
-        <TouchableOpacity onPress={onEditStart} hitSlop={8} style={styles.iconBtn}>
-          <Ionicons name="pencil-outline" size={15} color={colors.textFaint} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onDelete} hitSlop={8} style={styles.iconBtn}>
-          <Ionicons name="trash-outline" size={15} color={colors.textFaint} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-interface AddRowProps {
-  inputRef: React.RefObject<TextInput>;
+// ── Row: mockup setting row ────────────────────────────────────────────────
+function Row({
+  label,
+  value,
+  expanded,
+  onPress,
+  inert,
+  last,
+}: {
+  label: string;
   value: string;
-  onChange: (v: string) => void;
-  onSubmit: () => void;
-  onCancel: () => void;
-}
-
-function AddRow({ inputRef, value, onChange, onSubmit, onCancel }: AddRowProps) {
-  return (
-    <View style={styles.catRow}>
-      <TextInput
-        ref={inputRef}
-        style={styles.catInput}
-        value={value}
-        onChangeText={onChange}
-        onSubmitEditing={onSubmit}
-        placeholder="Nieuwe categorie..."
-        placeholderTextColor={colors.textFaint}
-        returnKeyType="done"
-        autoFocus
-      />
-      <View style={styles.catActions}>
-        <TouchableOpacity onPress={onSubmit} hitSlop={8} style={styles.iconBtn}>
-          <Ionicons name="checkmark" size={18} color={colors.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onCancel} hitSlop={8} style={styles.iconBtn}>
-          <Ionicons name="close" size={18} color={colors.textLight} />
-        </TouchableOpacity>
-      </View>
+  expanded?: boolean;
+  onPress?: () => void;
+  inert?: boolean;
+  last?: boolean;
+}) {
+  const body = (
+    <View style={[styles.row, !last && styles.rowDivider]}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue}>{value}</Text>
+      {!inert && (
+        <Ionicons
+          name={expanded ? 'chevron-down' : 'chevron-forward'}
+          size={14}
+          color={colors.textFaint}
+          style={{ marginLeft: 6 }}
+        />
+      )}
     </View>
   );
-}
-
-function AddButton({ label, onPress }: { label: string; onPress: () => void }) {
+  if (inert || !onPress) return body;
   return (
-    <TouchableOpacity style={styles.addRow} onPress={onPress} activeOpacity={0.7}>
-      <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
-      <Text style={styles.addText}>{label}</Text>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.65}>
+      {body}
     </TouchableOpacity>
   );
 }
 
-// ── Styles ──────────────────────────────────────────────────────────────────
+// ── Inline category list (sub-content of "onze recepten" rows) ─────────────
+function CategoryList({
+  items,
+  editingId,
+  editingName,
+  addingHere,
+  newName,
+  newInputRef,
+  onEditStart,
+  onEditChange,
+  onEditSubmit,
+  onDelete,
+  onAddStart,
+  onAddChange,
+  onAddSubmit,
+  onAddCancel,
+}: {
+  items: Category[];
+  editingId: string | null;
+  editingName: string;
+  addingHere: boolean;
+  newName: string;
+  newInputRef: React.RefObject<TextInput>;
+  onEditStart: (cat: Category) => void;
+  onEditChange: (v: string) => void;
+  onEditSubmit: () => void;
+  onDelete: (cat: Category) => void;
+  onAddStart: () => void;
+  onAddChange: (v: string) => void;
+  onAddSubmit: () => void;
+  onAddCancel: () => void;
+}) {
+  return (
+    <View style={styles.subList}>
+      {items.map((cat) => (
+        <View key={cat.id} style={styles.catRow}>
+          {editingId === cat.id ? (
+            <TextInput
+              style={styles.catInput}
+              value={editingName}
+              onChangeText={onEditChange}
+              onSubmitEditing={onEditSubmit}
+              onBlur={onEditSubmit}
+              autoFocus
+              returnKeyType="done"
+            />
+          ) : (
+            <Text style={styles.catName}>{cat.name}</Text>
+          )}
+          <TouchableOpacity onPress={() => onEditStart(cat)} hitSlop={8} style={styles.iconBtn}>
+            <Ionicons name="pencil-outline" size={14} color={colors.textFaint} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onDelete(cat)} hitSlop={8} style={styles.iconBtn}>
+            <Ionicons name="trash-outline" size={14} color={colors.textFaint} />
+          </TouchableOpacity>
+        </View>
+      ))}
+      {addingHere ? (
+        <View style={styles.catRow}>
+          <TextInput
+            ref={newInputRef}
+            style={styles.catInput}
+            value={newName}
+            onChangeText={onAddChange}
+            onSubmitEditing={onAddSubmit}
+            placeholder="Nieuwe categorie…"
+            placeholderTextColor={colors.textFaint}
+            returnKeyType="done"
+            autoFocus
+          />
+          <TouchableOpacity onPress={onAddSubmit} hitSlop={8} style={styles.iconBtn}>
+            <Ionicons name="checkmark" size={16} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onAddCancel} hitSlop={8} style={styles.iconBtn}>
+            <Ionicons name="close" size={16} color={colors.textLight} />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity onPress={onAddStart} style={styles.addBtn} activeOpacity={0.7}>
+          <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
+          <Text style={styles.addBtnLabel}>categorie toevoegen</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
 
+// ── Styles ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   titleBlock: {
@@ -400,36 +433,120 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textLight,
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
     lineHeight: 18,
   },
-  aboutSection: {
+
+  // Section block: RuleWithLabel + body
+  section: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xl,
   },
-  aboutBody: { marginTop: 6 },
-  flatRow: {
+  sectionBody: { marginTop: 6 },
+
+  // Family row
+  familyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: spacing.md,
+  },
+  familyCol: { alignItems: 'center' },
+  familyLabel: {
+    fontFamily: fonts.display,
+    fontSize: 13,
+    color: colors.textDark,
+    marginTop: 6,
+  },
+
+  // Mockup setting row (label / mono value / chevron)
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
   },
-  flatRowDivider: {
+  rowDivider: {
     borderBottomWidth: 0.5,
     borderBottomColor: colors.borderSoft,
   },
-  flatRowLabel: {
+  rowLabel: {
     flex: 1,
     fontFamily: fonts.display,
     fontSize: 15,
     color: colors.textMedium,
   },
-  flatRowValue: {
+  rowValue: {
     fontFamily: fonts.mono,
     fontSize: 10,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
     color: colors.textLight,
   },
+
+  // Inline expandable content
+  subList: {
+    paddingLeft: spacing.md,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderSoft,
+  },
+  catRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  catName: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 14,
+    color: colors.textDark,
+  },
+  catInput: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 14,
+    color: colors.textDark,
+    paddingVertical: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.primary,
+  },
+  iconBtn: { padding: 6 },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+  },
+  addBtnLabel: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.primary,
+  },
+
+  // Theme chip strip
+  themeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderSoft,
+  },
+  themeChip: {
+    flex: 1,
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
+    borderRadius: 999,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  themeChipLabel: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 11,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.textMedium,
+  },
+
+  // Credit footer
   credit: {
     fontFamily: fonts.displayItalic,
     fontStyle: 'italic',
@@ -440,91 +557,5 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
     lineHeight: 20,
-  },
-
-  sectionCard: {
-    marginHorizontal: spacing.lg,
-    borderWidth: 0.5,
-    borderColor: colors.borderColor,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: colors.background,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: spacing.md,
-  },
-  cardHeaderStatic: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: spacing.md,
-  },
-  cardIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.backgroundLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardTitle: {
-    flex: 1,
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.textDark,
-  },
-  cardCount: {
-    fontFamily: fonts.mono,
-    fontSize: 10,
-    color: colors.textFaint,
-    letterSpacing: 1,
-    marginRight: 4,
-  },
-  cardBody: {
-    borderTopWidth: 0.5,
-    borderTopColor: colors.borderSoft,
-  },
-
-  catRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.borderSoft,
-  },
-  catName: {
-    flex: 1,
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.textDark,
-  },
-  catInput: {
-    flex: 1,
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.textDark,
-    paddingVertical: 2,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.primary,
-  },
-  catActions: { flexDirection: 'row', gap: 2 },
-  iconBtn: { padding: 8 },
-
-  addRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  addText: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: 'italic',
-    fontSize: 13,
-    color: colors.primary,
   },
 });

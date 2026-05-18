@@ -389,7 +389,6 @@ function AddButton({ label, onPress }: { label: string; onPress: () => void }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  folio: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   titleBlock: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
@@ -527,26 +526,5 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     fontSize: 13,
     color: colors.primary,
-  },
-
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.borderSoft,
-  },
-  infoLabel: {
-    fontFamily: fonts.display,
-    fontSize: 14,
-    color: colors.textLight,
-  },
-  infoValue: {
-    fontFamily: fonts.mono,
-    fontSize: 10,
-    color: colors.textDark,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
   },
 });

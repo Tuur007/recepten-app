@@ -13,6 +13,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, type ViewStyle, type TextStyle } from 'react-native';
 import { colors, fonts, typography, spacing } from '../../constants/Designsystem';
+import type { FamilyMember } from '../../store/familyStore';
 
 // ─── FolioStrip ──────────────────────────────────────────────────────────────
 export function FolioStrip({
@@ -78,29 +79,23 @@ const stylesRule = StyleSheet.create({
 });
 
 // ─── FamilyDot ───────────────────────────────────────────────────────────────
-export type FamilyKey = 'tuur' | 'louise' | 'basiel' | 'jules';
-
 export function FamilyDot({
-  who,
+  member,
   size = 18,
   ring = false,
-  label,
 }: {
-  who: FamilyKey;
+  member: FamilyMember;
   size?: number;
   ring?: boolean;
-  /** Optional override; defaults to first letter of `who` */
-  label?: string;
 }) {
-  const bg = colors.family[who];
-  const initial = (label ?? who[0]).toUpperCase();
+  const initial = (member.name.trim()[0] ?? '?').toUpperCase();
   return (
     <View
       style={{
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: bg,
+        backgroundColor: member.color,
         alignItems: 'center',
         justifyContent: 'center',
         ...(ring
@@ -125,12 +120,12 @@ export function FamilyDot({
 
 // ─── FamilyRow ───────────────────────────────────────────────────────────────
 export function FamilyRow({
-  who,
+  members,
   size = 18,
   overlap = 6,
   ring = true,
 }: {
-  who: FamilyKey[];
+  members: FamilyMember[];
   size?: number;
   /** px overlap between adjacent dots */
   overlap?: number;
@@ -138,9 +133,9 @@ export function FamilyRow({
 }) {
   return (
     <View style={{ flexDirection: 'row' }}>
-      {who.map((k, i) => (
-        <View key={k} style={{ marginLeft: i === 0 ? 0 : -overlap }}>
-          <FamilyDot who={k} size={size} ring={ring} />
+      {members.map((m, i) => (
+        <View key={m.id} style={{ marginLeft: i === 0 ? 0 : -overlap }}>
+          <FamilyDot member={m} size={size} ring={ring} />
         </View>
       ))}
     </View>

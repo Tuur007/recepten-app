@@ -14,6 +14,35 @@ export const CREATE_RECIPES_TABLE = `
   );
 `;
 
+// Bron van waarheid voor verse installaties: alle kolommen die anders via de
+// migraties-lijst worden toegevoegd, staan hier in één CREATE statement.
+// Voeg nieuwe kolommen altijd HIER toe én als nieuwe migratie-entry hieronder.
+export const CREATE_RECIPES_TABLE_FULL = `
+  CREATE TABLE IF NOT EXISTS recipes (
+    id               TEXT PRIMARY KEY NOT NULL,
+    title            TEXT NOT NULL,
+    ingredients      TEXT NOT NULL DEFAULT '[]',
+    steps            TEXT NOT NULL DEFAULT '[]',
+    source_url       TEXT,
+    duration         INTEGER,
+    category         TEXT NOT NULL DEFAULT '',
+    is_favorite      INTEGER NOT NULL DEFAULT 0,
+    image_uri        TEXT,
+    allergens        TEXT NOT NULL DEFAULT '[]',
+    difficulty       TEXT,
+    preparation_time INTEGER,
+    cooking_time     INTEGER,
+    servings         INTEGER,
+    rating           REAL,
+    times_cooked     INTEGER NOT NULL DEFAULT 0,
+    last_cooked      TEXT,
+    notes            TEXT,
+    equipment        TEXT,
+    created_at       TEXT NOT NULL,
+    updated_at       TEXT NOT NULL
+  );
+`;
+
 export const CREATE_GROCERY_ITEMS_TABLE = `
   CREATE TABLE IF NOT EXISTS grocery_items (
     id            TEXT PRIMARY KEY NOT NULL,
@@ -53,8 +82,9 @@ export const DEFAULT_GROCERY_CATEGORIES = [
   'Diepvries', 'Dranken', 'Snacks', 'Overig',
 ];
 
+// Nooit bestaande entries aanpassen — alleen nieuwe toevoegen.
+// Nieuwe kolommen: voeg hier én in CREATE_RECIPES_TABLE_FULL toe.
 // Each entry runs once, guarded by PRAGMA user_version.
-// Never edit an existing entry — always append a new one.
 export const MIGRATIONS: string[] = [
   // v1: recipe categories
   `ALTER TABLE recipes ADD COLUMN category TEXT NOT NULL DEFAULT ''`,

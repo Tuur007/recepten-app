@@ -16,7 +16,7 @@
 // Bestaande functionaliteit (categorie CRUD, theme-mode) blijft behouden — alleen
 // de presentatie is aangepast naar de mockup-stijl.
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -29,27 +29,35 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
+import { useSQLiteContext } from 'expo-sqlite';
+
 import { useCategories } from '../../store/categoriesStore';
 import { Category } from '../../features/categories/repository';
+import {
+  FAMILY_COLORS,
+  useFamilyActions,
+  useFamilyStore,
+  type FamilyMember,
+} from '../../store/familyStore';
 import { colors, spacing, fonts } from '../../constants/Designsystem';
 import { useThemeColors, useThemeMode, type ThemeMode } from '../../theme';
-import { haptics } from '../../utils/feedback';
+import { haptics, toast } from '../../utils/feedback';
 import {
   FolioStrip,
   EditorialTitle,
   RuleWithLabel,
   FamilyDot,
-  type FamilyKey,
 } from '../../components/ui/EditorialBits';
+import {
+  exportAppData,
+  importAppData,
+  loadLastExportAt,
+  pickAndPreviewImport,
+  shareExport,
+  type AppExport,
+} from '../../services/sync';
 
-type ExpandKey = 'recipe' | 'grocery' | 'theme' | null;
-
-const FAMILY: { key: FamilyKey; label: string }[] = [
-  { key: 'tuur', label: 'Tuur' },
-  { key: 'louise', label: 'Louise' },
-  { key: 'basiel', label: 'Basiel' },
-  { key: 'jules', label: 'Jules' },
-];
+type ExpandKey = 'recipe' | 'grocery' | 'theme' | 'family' | 'backup' | null;
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'system', label: 'Systeem' },
@@ -65,6 +73,7 @@ const THEME_LABEL: Record<ThemeMode, string> = {
 
 export default function SettingsScreen() {
   const themeColors = useThemeColors();
+  const db = useSQLiteContext();
   const {
     recipeCategories,
     groceryCategories,
@@ -75,12 +84,32 @@ export default function SettingsScreen() {
   } = useCategories();
   const { mode, setMode } = useThemeMode();
 
+  const members = useFamilyStore((s) => s.members);
+  const {
+    addMember,
+    removeMember,
+    toggleActive,
+    updateName,
+    updateColor,
+    replaceMembers,
+    setFamilyName: setFamilyNamePersisted,
+  } = useFamilyActions();
+
   const [expanded, setExpanded] = useState<ExpandKey>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [addingType, setAddingType] = useState<'recipe' | 'grocery' | null>(null);
   const [newName, setNewName] = useState('');
   const newInputRef = useRef<TextInput>(null);
+
+  const [familyMemberDraft, setFamilyMemberDraft] = useState<Record<string, string>>({});
+  const [lastExportAt, setLastExportAt] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    loadLastExportAt(db).then(setLastExportAt).catch(() => {});
+  }, [db]);
 
   const toggle = (key: Exclude<ExpandKey, null>) =>
     setExpanded((prev) => (prev === key ? null : key));
@@ -139,6 +168,110 @@ export default function SettingsScreen() {
     setMode(next.value);
   };
 
+  const handleNameDraftChange = (id: string, value: string) => {
+    setFamilyMemberDraft((prev) => ({ ...prev, [id]: value }));
+  };
+  const commitNameDraft = (id: string) => {
+    const draft = familyMemberDraft[id];
+    if (draft === undefined) return;
+    updateName(id, draft.trim());
+    setFamilyMemberDraft((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+  const handleAddMember = () => {
+    addMember();
+    haptics.light();
+  };
+  const confirmRemoveMember = (member: FamilyMember) => {
+    Alert.alert(
+      'Verwijderen',
+      `${member.name.trim() || 'Dit gezinslid'} verwijderen?`,
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        {
+          text: 'Verwijderen',
+          style: 'destructive',
+          onPress: () => {
+            removeMember(member.id);
+            haptics.success();
+          },
+        },
+      ],
+    );
+  };
+
+  const handleExport = async () => {
+    if (exporting) return;
+    try {
+      setExporting(true);
+      haptics.light();
+      const data = await exportAppData(db);
+      await shareExport(db, data);
+      const next = await loadLastExportAt(db);
+      setLastExportAt(next);
+      toast.success('Geëxporteerd', 'Kies waar je de back-up bewaart.');
+    } catch (err) {
+      console.error('[settings] export failed:', err);
+      toast.error('Export mislukt', err instanceof Error ? err.message : undefined);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (importing) return;
+    try {
+      setImporting(true);
+      haptics.light();
+      const picked = await pickAndPreviewImport(db);
+      if (!picked) {
+        setImporting(false);
+        return;
+      }
+      const { preview, data } = picked;
+      Alert.alert(
+        'Back-up importeren',
+        `${preview.recipesIncoming} recepten gevonden — ${preview.recipesExisting} al aanwezig.\n\nDoorgaan?`,
+        [
+          {
+            text: 'Annuleren',
+            style: 'cancel',
+            onPress: () => setImporting(false),
+          },
+          {
+            text: 'Importeren',
+            onPress: () => runImport(data),
+          },
+        ],
+      );
+    } catch (err) {
+      console.error('[settings] import preview failed:', err);
+      toast.error('Importeren mislukt', err instanceof Error ? err.message : undefined);
+      setImporting(false);
+    }
+  };
+
+  const runImport = async (data: AppExport) => {
+    try {
+      const result = await importAppData(db, data);
+      if (data.familyName) setFamilyNamePersisted(data.familyName);
+      if (Array.isArray(data.familyMembers)) replaceMembers(data.familyMembers);
+      haptics.success();
+      toast.success(
+        'Import voltooid',
+        `+${result.recipesAdded} · ${result.recipesUpdated} bijgewerkt · ${result.conflictsSkipped} overgeslagen`,
+      );
+    } catch (err) {
+      console.error('[settings] import failed:', err);
+      toast.error('Import mislukt', err instanceof Error ? err.message : undefined);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: themeColors.background }]}
@@ -161,13 +294,79 @@ export default function SettingsScreen() {
         {/* ─── het gezin ─── */}
         <View style={styles.section}>
           <RuleWithLabel label="het gezin" bold />
-          <View style={styles.familyRow}>
-            {FAMILY.map((m) => (
-              <View key={m.key} style={styles.familyCol}>
-                <FamilyDot who={m.key} size={42} />
-                <Text style={styles.familyLabel}>{m.label}</Text>
-              </View>
-            ))}
+          <View style={styles.sectionBody}>
+            {members.length === 0 ? (
+              <Text style={styles.emptyHint}>
+                Nog geen gezinsleden. Voeg toe wie er mee aan tafel zit.
+              </Text>
+            ) : (
+              members.map((member) => {
+                const draft = familyMemberDraft[member.id];
+                const value = draft ?? member.name;
+                return (
+                  <View key={member.id} style={styles.memberBlock}>
+                    <View style={styles.memberRow}>
+                      <FamilyDot member={member} size={32} />
+                      <TextInput
+                        style={[
+                          styles.memberInput,
+                          !member.active && { color: colors.textFaint },
+                        ]}
+                        value={value}
+                        onChangeText={(v) => handleNameDraftChange(member.id, v)}
+                        onBlur={() => commitNameDraft(member.id)}
+                        onSubmitEditing={() => commitNameDraft(member.id)}
+                        placeholder="naam"
+                        placeholderTextColor={colors.textFaint}
+                        returnKeyType="done"
+                      />
+                      <TouchableOpacity
+                        onPress={() => toggleActive(member.id)}
+                        hitSlop={8}
+                        style={styles.iconBtn}
+                      >
+                        <Ionicons
+                          name={member.active ? 'eye-outline' : 'eye-off-outline'}
+                          size={16}
+                          color={member.active ? colors.primary : colors.textFaint}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => confirmRemoveMember(member)}
+                        hitSlop={8}
+                        style={styles.iconBtn}
+                      >
+                        <Ionicons name="trash-outline" size={14} color={colors.textFaint} />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.swatchRow}>
+                      {FAMILY_COLORS.map((c) => {
+                        const active = c === member.color;
+                        return (
+                          <TouchableOpacity
+                            key={c}
+                            onPress={() => {
+                              updateColor(member.id, c);
+                              haptics.selection();
+                            }}
+                            hitSlop={4}
+                            style={[
+                              styles.swatch,
+                              { backgroundColor: c },
+                              active && styles.swatchActive,
+                            ]}
+                          />
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })
+            )}
+            <TouchableOpacity onPress={handleAddMember} style={styles.addBtn} activeOpacity={0.7}>
+              <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
+              <Text style={styles.addBtnLabel}>voeg gezinslid toe</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -274,6 +473,50 @@ export default function SettingsScreen() {
           </View>
           {/* discreet "next" affordance also exists as tap on row itself */}
           <TouchableOpacity onPress={cycleTheme} style={{ height: 0 }} />
+        </View>
+
+        {/* ─── back-up & herstel ─── */}
+        <View style={styles.section}>
+          <RuleWithLabel label="back-up & herstel" bold />
+          <View style={styles.sectionBody}>
+            <Row
+              label="laatste export"
+              value={lastExportAt ? formatExportDate(lastExportAt) : 'nog niet'}
+              inert
+            />
+            <TouchableOpacity
+              onPress={handleExport}
+              activeOpacity={0.7}
+              disabled={exporting}
+              style={[styles.backupAction, !exporting && styles.backupActionPrimary]}
+            >
+              <Ionicons
+                name="share-outline"
+                size={14}
+                color={exporting ? colors.textFaint : colors.background}
+                style={{ marginRight: 8 }}
+              />
+              <Text style={[styles.backupActionLabel, exporting && { color: colors.textFaint }]}>
+                {exporting ? 'bezig…' : 'exporteer alles'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleImport}
+              activeOpacity={0.7}
+              disabled={importing}
+              style={[styles.backupAction, styles.backupActionSecondary]}
+            >
+              <Ionicons
+                name="download-outline"
+                size={14}
+                color={colors.textDark}
+                style={{ marginRight: 8 }}
+              />
+              <Text style={[styles.backupActionLabel, { color: colors.textDark }]}>
+                {importing ? 'bezig…' : 'importeer back-up'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ─── over de app ─── */}
@@ -443,18 +686,49 @@ const styles = StyleSheet.create({
   },
   sectionBody: { marginTop: 6 },
 
-  // Family row
-  familyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: spacing.md,
-  },
-  familyCol: { alignItems: 'center' },
-  familyLabel: {
-    fontFamily: fonts.display,
+  // Family editor
+  emptyHint: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
     fontSize: 13,
+    color: colors.textLight,
+    paddingVertical: spacing.sm,
+  },
+  memberBlock: {
+    paddingTop: spacing.sm,
+    paddingBottom: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderSoft,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  memberInput: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 15,
     color: colors.textDark,
-    marginTop: 6,
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSoft,
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+    paddingLeft: 44, // align with name input (FamilyDot 32 + gap 12)
+  },
+  swatch: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  swatchActive: {
+    borderColor: colors.textDark,
   },
 
   // Mockup setting row (label / mono value / chevron)
@@ -546,6 +820,32 @@ const styles = StyleSheet.create({
     color: colors.textMedium,
   },
 
+  // Back-up actions
+  backupAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 999,
+    marginTop: spacing.sm,
+  },
+  backupActionPrimary: {
+    backgroundColor: colors.textDark,
+  },
+  backupActionSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
+  },
+  backupActionLabel: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+    color: colors.background,
+  },
+
   // Credit footer
   credit: {
     fontFamily: fonts.displayItalic,
@@ -559,3 +859,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+
+const MONTHS_NL = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+
+function formatExportDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = MONTHS_NL[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+}

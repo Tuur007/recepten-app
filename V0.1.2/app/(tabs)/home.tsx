@@ -26,6 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useRecipes } from '../../features/recipes/hooks';
 import { useWeekPlannerStore } from '../../store/weekPlannerStore';
+import { useFamilyStore } from '../../store/familyStore';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import {
@@ -68,6 +69,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const { recipes, isLoading } = useRecipes();
   const { mealPlan } = useWeekPlannerStore();
+  const activeMembers = useFamilyStore((s) => s.members.filter((m) => m.active));
+  const familyName = useFamilyStore((s) => s.familyName);
   const themeColors = useThemeColors();
 
   const todayIdx = new Date().getDay();
@@ -87,7 +90,7 @@ export default function HomeScreen() {
       const dinnerId = mealPlan[key]?.dinner;
       out.push({
         dayShort: DAY_SHORT[idx],
-        recipe: dinnerId ? recipes.find((r) => r.id === dinnerId) : null,
+        recipe: dinnerId ? recipes.find((r) => r.id === dinnerId) : undefined,
       });
     }
     return out;
@@ -124,7 +127,7 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Folio */}
-          <FolioStrip left={dateLabel} right={weekLabel} />
+          <FolioStrip left={dateLabel} right={familyName.trim() ? familyName : weekLabel} />
 
           {/* Nr. centered */}
           <View style={styles.nrWrap}>
@@ -169,10 +172,12 @@ export default function HomeScreen() {
               <MetaStrip items={metaItems} style={{ marginTop: spacing.lg }} />
 
               {/* Aan tafel */}
-              <View style={styles.tableRow}>
-                <Text style={typography.folio}>aan tafel · 4</Text>
-                <FamilyRow who={['tuur', 'louise', 'basiel', 'jules']} size={18} />
-              </View>
+              {activeMembers.length > 0 && (
+                <View style={styles.tableRow}>
+                  <Text style={typography.folio}>aan tafel · {activeMembers.length}</Text>
+                  <FamilyRow members={activeMembers} size={18} />
+                </View>
+              )}
 
               {/* CTA */}
               <View style={styles.ctaStack}>

@@ -1,9 +1,9 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View } from 'react-native';
 import { SQLiteProvider } from 'expo-sqlite';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Toast from 'react-native-toast-message';
 
 import { useEditorialFonts } from '../utils/fonts';
@@ -14,6 +14,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { initializeDatabase } from '../database';
 import { toastConfig } from '../components/ui/ToastConfig';
 import { useHydrateTheme, useResolvedScheme, useThemeColors } from '../theme';
+import { useFamilyStore, useHydrateFamily } from '../store/familyStore';
 
 export default function RootLayout() {
   const fontsLoaded = useEditorialFonts();
@@ -47,8 +48,24 @@ export default function RootLayout() {
 
 function ThemedRoot() {
   useHydrateTheme();
+  useHydrateFamily();
   const themeColors = useThemeColors();
   const scheme = useResolvedScheme();
+
+  const router = useRouter();
+  const segments = useSegments();
+  const familyHydrated = useFamilyStore((s) => s.hydrated);
+  const onboardingComplete = useFamilyStore((s) => s.onboardingComplete);
+
+  useEffect(() => {
+    if (!familyHydrated) return;
+    const onOnboarding = segments[0] === 'onboarding';
+    if (!onboardingComplete && !onOnboarding) {
+      router.replace('/onboarding');
+    } else if (onboardingComplete && onOnboarding) {
+      router.replace('/(tabs)/home');
+    }
+  }, [familyHydrated, onboardingComplete, segments, router]);
 
   return (
     <>
@@ -63,6 +80,10 @@ function ThemedRoot() {
           contentStyle: { backgroundColor: themeColors.background },
         }}
       >
+        <Stack.Screen
+          name="onboarding"
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="recipes/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="recipes/search" options={{ headerShown: false }} />

@@ -130,4 +130,6 @@ export const MIGRATIONS: string[] = [
   `UPDATE recipes SET duration=COALESCE(preparation_time,0)+COALESCE(cooking_time,0) WHERE preparation_time IS NOT NULL OR cooking_time IS NOT NULL`,
   // v22: app preferences (theme mode, etc.)
   `CREATE TABLE IF NOT EXISTS app_prefs (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)`,
+  // v23: grocery item shop reference
+  `ALTER TABLE grocery_items ADD COLUMN store_id TEXT`,
 ];

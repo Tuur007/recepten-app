@@ -33,6 +33,7 @@ import { useGroceryStore } from '../../store/groceryStore';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useCategories } from '../../store/categoriesStore';
 import { GroceryItemEnhanced } from '../../features/grocery/components/GroceryItemEnhanced';
+import { GroceryItemDetailModal } from '../../features/grocery/components/GroceryItemDetailModal';
 import { BulkActionsBar } from '../../features/grocery/components/BulkActionsBar';
 import { CategoryGroupHeader } from '../../features/grocery/components/CategoryGroupHeader';
 import { AddFromRecipeModal } from '../../features/grocery/components/AddFromRecipeModal';
@@ -42,6 +43,7 @@ import { DEFAULT_AISLES, getAisleForItem } from '../../constants/aisles';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
 import type { Recipe } from '../../types/recipe';
+import type { GroceryItem } from '../../types/grocery';
 import { FolioStrip, EditorialTitle } from '../../components/ui/EditorialBits';
 
 type ListRow =
@@ -55,6 +57,7 @@ export default function GroceryScreen() {
     addManual,
     addFromRecipe,
     toggleChecked,
+    updateItem,
     remove,
     clearAll,
   } = useGrocery();
@@ -69,6 +72,7 @@ export default function GroceryScreen() {
 
   const [recipeModalVisible, setRecipeModalVisible] = useState(false);
   const [manualModalVisible, setManualModalVisible] = useState(false);
+  const [editItem, setEditItem] = useState<GroceryItem | null>(null);
   const [manualName, setManualName] = useState('');
   const [manualQty, setManualQty] = useState('');
   const [manualUnit, setManualUnit] = useState('');
@@ -135,7 +139,7 @@ export default function GroceryScreen() {
       <GroceryItemEnhanced
         item={item.data}
         onToggleCheck={(id) => toggleChecked(id)}
-        onQuantityChange={(id, qty) => useGroceryStore.getState().updateQuantity(id, qty)}
+        onEdit={(groceryItem) => setEditItem(groceryItem)}
         onDelete={(id) => remove(id)}
       />
     );
@@ -376,6 +380,16 @@ export default function GroceryScreen() {
         recipes={recipes}
         onConfirm={handleAddFromRecipe}
         onClose={() => setRecipeModalVisible(false)}
+      />
+
+      <GroceryItemDetailModal
+        item={editItem}
+        visible={!!editItem}
+        onClose={() => setEditItem(null)}
+        onSave={async (id, changes) => {
+          await updateItem(id, changes);
+          setEditItem(null);
+        }}
       />
     </SafeAreaView>
   );

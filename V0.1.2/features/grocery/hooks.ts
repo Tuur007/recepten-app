@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { GroceryItem, GroceryItemInput } from '../../types/grocery';
+import { GroceryItem, GroceryItemInput, GroceryItemUpdate } from '../../types/grocery';
 import { Ingredient } from '../../types/recipe';
 import { GroceryRepository } from './repository';
 import { useGroceryStore } from '../../store/groceryStore';
@@ -190,6 +190,24 @@ export function useGrocery() {
     }
   }, [db, items, clearCheckedInStore]);
 
+  const updateItem = useCallback(
+    async (id: string, changes: GroceryItemUpdate): Promise<void> => {
+      const item = items.find((i) => i.id === id);
+      if (!item) return;
+      updateItemInStore(id, changes as Partial<GroceryItem>);
+      try {
+        await GroceryRepository.update(db, id, changes);
+        haptics.light();
+      } catch (err) {
+        console.error('[useGrocery.updateItem] Failed:', err);
+        updateItemInStore(id, item);
+        toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.');
+        throw err;
+      }
+    },
+    [db, items, updateItemInStore],
+  );
+
   const clearAll = useCallback(async (): Promise<void> => {
     if (items.length === 0) return;
     try {
@@ -219,6 +237,7 @@ export function useGrocery() {
     removeSource,
     removeSingleSource,
     toggleChecked,
+    updateItem,
     remove,
     clearChecked,
     clearAll,

@@ -8,6 +8,7 @@ export interface FamilyMember {
   name: string;
   color: string;
   active: boolean;
+  allergies?: string[];
 }
 
 export const FAMILY_COLORS = [
@@ -160,6 +161,13 @@ export function useFamilyActions() {
     persistMembers(db);
   };
 
+  const updateAllergies = (id: string, allergies: string[]): void => {
+    store.getState().setMembersInternal(
+      store.getState().members.map((m) => (m.id === id ? { ...m, allergies } : m)),
+    );
+    persistMembers(db);
+  };
+
   const setFamilyName = (name: string): void => {
     store.getState().setFamilyNameInternal(name);
     writePref(db, PREF_NAME, name).catch((err) =>
@@ -186,6 +194,7 @@ export function useFamilyActions() {
     toggleActive,
     updateName,
     updateColor,
+    updateAllergies,
     setFamilyName,
     completeOnboarding,
     replaceMembers,

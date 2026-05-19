@@ -40,6 +40,8 @@ import {
   useFamilyStore,
   type FamilyMember,
 } from '../../store/familyStore';
+import { useShopsStore, useShopsActions } from '../../store/shopsStore';
+import { ALLERGENS } from '../../types/recipe';
 import { colors, spacing, fonts } from '../../constants/Designsystem';
 import { useThemeColors, useThemeMode, type ThemeMode } from '../../theme';
 import { haptics, toast } from '../../utils/feedback';
@@ -59,7 +61,7 @@ import {
 } from '../../services/sync';
 import { requestNotificationPermission } from '../../services/notifications';
 
-type ExpandKey = 'recipe' | 'grocery' | 'theme' | 'family' | 'backup' | null;
+type ExpandKey = 'recipe' | 'grocery' | 'theme' | 'family' | 'backup' | 'shops' | null;
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'system', label: 'Systeem' },
@@ -95,9 +97,18 @@ export default function SettingsScreen() {
     toggleActive,
     updateName,
     updateColor,
+    updateAllergies,
     replaceMembers,
     setFamilyName: setFamilyNamePersisted,
   } = useFamilyActions();
+
+  const shops = useShopsStore((s) => s.shops);
+  const { addShop, removeShop } = useShopsActions();
+  const [newShopName, setNewShopName] = useState('');
+  const [addingShop, setAddingShop] = useState(false);
+  const newShopInputRef = useRef<TextInput>(null);
+
+  const [allergyExpandedId, setAllergyExpandedId] = useState<string | null>(null);
 
   const [expanded, setExpanded] = useState<ExpandKey>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -379,6 +390,49 @@ export default function SettingsScreen() {
                         );
                       })}
                     </View>
+
+                    {/* Allergieën */}
+                    <TouchableOpacity
+                      onPress={() => setAllergyExpandedId((prev) => (prev === member.id ? null : member.id))}
+                      activeOpacity={0.7}
+                      style={styles.allergyToggle}
+                    >
+                      <Text style={styles.allergyToggleLabel}>
+                        {(member.allergies?.length ?? 0) > 0
+                          ? `${member.allergies!.length} allergie${member.allergies!.length === 1 ? '' : 'ën'}`
+                          : 'allergieën'}
+                      </Text>
+                      <Ionicons
+                        name={allergyExpandedId === member.id ? 'chevron-down' : 'chevron-forward'}
+                        size={12}
+                        color={colors.textFaint}
+                      />
+                    </TouchableOpacity>
+                    {allergyExpandedId === member.id && (
+                      <View style={styles.allergyGrid}>
+                        {ALLERGENS.map((allergen) => {
+                          const active = member.allergies?.includes(allergen) ?? false;
+                          return (
+                            <TouchableOpacity
+                              key={allergen}
+                              onPress={() => {
+                                const current = member.allergies ?? [];
+                                const next = active
+                                  ? current.filter((a) => a !== allergen)
+                                  : [...current, allergen];
+                                updateAllergies(member.id, next);
+                                haptics.selection();
+                              }}
+                              style={[styles.allergyChip, active && styles.allergyChipActive]}
+                            >
+                              <Text style={[styles.allergyChipText, active && styles.allergyChipTextActive]}>
+                                {allergen}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
                   </View>
                 );
               })
@@ -442,6 +496,83 @@ export default function SettingsScreen() {
                 onAddSubmit={saveNew}
                 onAddCancel={() => setAddingType(null)}
               />
+            )}
+          </View>
+        </View>
+
+        {/* ─── de winkels ─── */}
+        <View style={styles.section}>
+          <RuleWithLabel label="de winkels" bold />
+          <View style={styles.sectionBody}>
+            <Row
+              label="supermarkten"
+              value={String(shops.length)}
+              expanded={expanded === 'shops'}
+              onPress={() => toggle('shops')}
+              last
+            />
+            {expanded === 'shops' && (
+              <View style={styles.subList}>
+                {shops.map((shop) => (
+                  <View key={shop.id} style={styles.catRow}>
+                    <Text style={styles.catName}>{shop.name}</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        Alert.alert('Verwijderen', `"${shop.name}" verwijderen?`, [
+                          { text: 'Annuleren', style: 'cancel' },
+                          { text: 'Verwijderen', style: 'destructive', onPress: () => { removeShop(shop.id); haptics.medium(); } },
+                        ]);
+                      }}
+                      hitSlop={8}
+                      style={styles.iconBtn}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={colors.textFaint} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {addingShop ? (
+                  <View style={styles.catRow}>
+                    <TextInput
+                      ref={newShopInputRef}
+                      style={styles.catInput}
+                      value={newShopName}
+                      onChangeText={setNewShopName}
+                      onSubmitEditing={() => {
+                        if (newShopName.trim()) { addShop(newShopName.trim()); haptics.light(); }
+                        setNewShopName('');
+                        setAddingShop(false);
+                      }}
+                      placeholder="Naam winkel…"
+                      placeholderTextColor={colors.textFaint}
+                      returnKeyType="done"
+                      autoFocus
+                    />
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (newShopName.trim()) { addShop(newShopName.trim()); haptics.light(); }
+                        setNewShopName('');
+                        setAddingShop(false);
+                      }}
+                      hitSlop={8}
+                      style={styles.iconBtn}
+                    >
+                      <Ionicons name="checkmark" size={16} color={colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => { setAddingShop(false); setNewShopName(''); }} hitSlop={8} style={styles.iconBtn}>
+                      <Ionicons name="close" size={16} color={colors.textLight} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => { setAddingShop(true); setTimeout(() => newShopInputRef.current?.focus(), 120); }}
+                    style={styles.addBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
+                    <Text style={styles.addBtnLabel}>winkel toevoegen</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
           </View>
         </View>
@@ -755,6 +886,49 @@ const styles = StyleSheet.create({
   },
   swatchActive: {
     borderColor: colors.textDark,
+  },
+
+  // Allergen chips per family member
+  allergyToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+    paddingLeft: 44,
+  },
+  allergyToggleLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.textFaint,
+  },
+  allergyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+    paddingLeft: 44,
+  },
+  allergyChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
+  },
+  allergyChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  allergyChipText: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 0.8,
+    color: colors.textLight,
+  },
+  allergyChipTextActive: {
+    color: colors.background,
   },
 
   // Mockup setting row (label / mono value / chevron)

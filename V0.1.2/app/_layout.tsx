@@ -15,6 +15,7 @@ import { initializeDatabase, seedStarterRecipes } from '../database';
 import { toastConfig } from '../components/ui/ToastConfig';
 import { useHydrateTheme, useResolvedScheme, useThemeColors } from '../theme';
 import { useFamilyStore, useHydrateFamily } from '../store/familyStore';
+import { useHydrateShops } from '../store/shopsStore';
 import { useHydrateWeekPlanner } from '../store/weekPlannerStore';
 
 export default function RootLayout() {
@@ -56,6 +57,7 @@ export default function RootLayout() {
 function ThemedRoot() {
   useHydrateTheme();
   useHydrateFamily();
+  useHydrateShops();
   useHydrateWeekPlanner();
   const themeColors = useThemeColors();
   const scheme = useResolvedScheme();

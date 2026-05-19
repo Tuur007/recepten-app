@@ -85,7 +85,11 @@ export default function WeekPlannerScreen() {
   const { recipes, isLoading } = useRecipes();
   const setMeal = useWeekPlannerStore((s) => s.setMeal);
   const removeMeal = useWeekPlannerStore((s) => s.removeMeal);
-  const activeMembers = useFamilyStore((s) => s.members.filter((m) => m.active));
+  const familyMembers = useFamilyStore((s) => s.members);
+  const activeMembers = useMemo(
+    () => familyMembers.filter((m) => m.active),
+    [familyMembers],
+  );
   const themeColors = useThemeColors();
 
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);

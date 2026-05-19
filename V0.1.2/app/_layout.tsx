@@ -62,18 +62,21 @@ function ThemedRoot() {
 
   const router = useRouter();
   const segments = useSegments();
+  // `useSegments()` returns a fresh array on every render — depending on the
+  // array itself in the effect would re-fire on every parent render.
+  const firstSegment = segments[0];
   const familyHydrated = useFamilyStore((s) => s.hydrated);
   const onboardingComplete = useFamilyStore((s) => s.onboardingComplete);
 
   useEffect(() => {
     if (!familyHydrated) return;
-    const onOnboarding = segments[0] === 'onboarding';
+    const onOnboarding = firstSegment === 'onboarding';
     if (!onboardingComplete && !onOnboarding) {
       router.replace('/onboarding');
     } else if (onboardingComplete && onOnboarding) {
       router.replace('/(tabs)/home');
     }
-  }, [familyHydrated, onboardingComplete, segments, router]);
+  }, [familyHydrated, onboardingComplete, firstSegment, router]);
 
   return (
     <>

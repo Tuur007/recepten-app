@@ -70,7 +70,8 @@ export default function HomeScreen() {
   const { recipes, isLoading } = useRecipes();
   const currentWeekKey = useMemo(() => getISOWeek(new Date()), []);
   const mealPlan = useMealPlan(currentWeekKey);
-  const activeMembers = useFamilyStore((s) => s.members.filter((m) => m.active));
+  const members = useFamilyStore((s) => s.members);
+  const activeMembers = useMemo(() => members.filter((m) => m.active), [members]);
   const familyName = useFamilyStore((s) => s.familyName);
   const themeColors = useThemeColors();
 

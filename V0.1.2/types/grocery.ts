@@ -16,6 +16,7 @@ export interface GroceryItem {
   createdAt: string;
   price?: number;
   aisle?: string;
+  storeId?: string;
 }
 
 // totalQuantity is intentionally excluded from input — computed by computeTotalQuantity()

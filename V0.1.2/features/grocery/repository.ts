@@ -14,6 +14,7 @@ interface GroceryRow {
   created_at: string;
   aisle: string | null;
   price: number | null;
+  store_id: string | null;
 }
 
 function rowToItem(row: GroceryRow): GroceryItem {
@@ -34,13 +35,14 @@ function rowToItem(row: GroceryRow): GroceryItem {
     createdAt: row.created_at,
     aisle: row.aisle ?? undefined,
     price: row.price ?? undefined,
+    storeId: row.store_id ?? undefined,
   };
 }
 
 export const GroceryRepository = {
   async getAll(db: SQLiteDatabase): Promise<GroceryItem[]> {
     const rows = await db.getAllAsync<GroceryRow>(
-      'SELECT id, name, unit, category, sources, total_quantity, checked, created_at, aisle, price FROM grocery_items ORDER BY checked ASC, created_at DESC',
+      'SELECT id, name, unit, category, sources, total_quantity, checked, created_at, aisle, price, store_id FROM grocery_items ORDER BY checked ASC, created_at DESC',
     );
     return rows.map(rowToItem);
   },
@@ -53,9 +55,9 @@ export const GroceryRepository = {
     const totalQuantity = computeTotalQuantity(input.sources);
 
     await db.runAsync(
-      `INSERT INTO grocery_items (id, name, unit, category, sources, total_quantity, checked, created_at, aisle, price)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, input.name, input.unit, input.category ?? '', JSON.stringify(input.sources), totalQuantity, input.checked ? 1 : 0, now, input.aisle ?? null, input.price ?? null],
+      `INSERT INTO grocery_items (id, name, unit, category, sources, total_quantity, checked, created_at, aisle, price, store_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, input.name, input.unit, input.category ?? '', JSON.stringify(input.sources), totalQuantity, input.checked ? 1 : 0, now, input.aisle ?? null, input.price ?? null, input.storeId ?? null],
     );
     return { id, ...input, category: input.category ?? '', totalQuantity, createdAt: now };
   },
@@ -63,8 +65,8 @@ export const GroceryRepository = {
   async upsertMany(db: SQLiteDatabase, items: GroceryItem[]): Promise<void> {
     for (const item of items) {
       await db.runAsync(
-        `INSERT INTO grocery_items (id, name, unit, category, sources, total_quantity, checked, created_at, aisle, price)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO grocery_items (id, name, unit, category, sources, total_quantity, checked, created_at, aisle, price, store_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name,
            unit = excluded.unit,
@@ -73,7 +75,8 @@ export const GroceryRepository = {
            total_quantity = excluded.total_quantity,
            checked = excluded.checked,
            aisle = excluded.aisle,
-           price = excluded.price`,
+           price = excluded.price,
+           store_id = excluded.store_id`,
         [
           item.id,
           item.name,
@@ -85,6 +88,7 @@ export const GroceryRepository = {
           item.createdAt,
           item.aisle ?? null,
           item.price ?? null,
+          item.storeId ?? null,
         ],
       );
     }
@@ -100,6 +104,7 @@ export const GroceryRepository = {
     if (changes.checked !== undefined) { fields.push('checked = ?'); values.push(changes.checked ? 1 : 0); }
     if (changes.aisle !== undefined) { fields.push('aisle = ?'); values.push(changes.aisle ?? null); }
     if (changes.price !== undefined) { fields.push('price = ?'); values.push(changes.price ?? null); }
+    if (changes.storeId !== undefined) { fields.push('store_id = ?'); values.push(changes.storeId ?? null); }
     if (changes.sources !== undefined) {
       fields.push('sources = ?');
       values.push(JSON.stringify(changes.sources));

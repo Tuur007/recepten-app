@@ -2,17 +2,20 @@ import { View, Text, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from 'react-native-reanimated';
 import { GroceryItem } from '../../../types/grocery';
+import { useShopsStore } from '../../../store/shopsStore';
 import { haptics } from '../../../utils/feedback';
-import { QuantityControls } from './QuantityControls';
 
 interface Props {
   item: GroceryItem;
   onToggleCheck: (id: string) => void;
-  onQuantityChange: (id: string, quantity: number) => void;
+  onEdit: (item: GroceryItem) => void;
   onDelete: (id: string) => void;
 }
 
-export function GroceryItemEnhanced({ item, onToggleCheck, onQuantityChange, onDelete }: Props) {
+export function GroceryItemEnhanced({ item, onToggleCheck, onEdit, onDelete }: Props) {
+  const shops = useShopsStore((s) => s.shops);
+  const shopName = item.storeId ? shops.find((s) => s.id === item.storeId)?.name : undefined;
+
   const textColor = item.checked ? '#B0A9A0' : '#191613';
   const bg = item.checked ? '#F0E8DF' : '#F6F1E7';
   const displayQty = item.totalQuantity;
@@ -42,43 +45,51 @@ export function GroceryItemEnhanced({ item, onToggleCheck, onQuantityChange, onD
           />
         </Pressable>
 
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: textColor,
-              fontFamily: 'Inter_600SemiBold',
-              textDecorationLine: item.checked ? 'line-through' : 'none',
-            }}
-          >
-            {item.name}
-          </Text>
-          {item.sources.length > 0 && (
-            <Text
-              style={{ fontSize: 11, color: '#9A9390', fontFamily: 'Inter_400Regular', marginTop: 2 }}
-            >
-              Van: {item.sources.map((s) => s.sourceName).join(', ')}
-            </Text>
-          )}
-        </View>
-
-        {!item.checked && displayQty > 0 && (
-          <View style={{ alignItems: 'flex-end' }}>
-            <QuantityControls
-              quantity={displayQty}
-              unit={item.unit || undefined}
-              onQuantityChange={(qty) => onQuantityChange(item.id, qty)}
-            />
-            {item.price != null && (
+        <Pressable
+          onPress={() => {
+            haptics.selection();
+            onEdit(item);
+          }}
+          style={({ pressed }) => ({ flex: 1, opacity: pressed ? 0.7 : 1 })}
+        >
+          <View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text
-                style={{ fontSize: 11, color: '#9A9390', marginTop: 4, fontFamily: 'Inter_400Regular' }}
+                style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: textColor,
+                  fontFamily: 'Inter_600SemiBold',
+                  textDecorationLine: item.checked ? 'line-through' : 'none',
+                  flexShrink: 1,
+                }}
               >
-                €{(item.price * (displayQty / 100)).toFixed(2)}
+                {displayQty > 0 ? `${displayQty}${item.unit ? ` ${item.unit}` : ''} ` : ''}{item.name}
+              </Text>
+              {shopName && !item.checked && (
+                <View
+                  style={{
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    borderWidth: 0.5,
+                    borderColor: '#C2492A',
+                  }}
+                >
+                  <Text style={{ fontFamily: 'JetBrainsMono_400Regular', fontSize: 8, letterSpacing: 0.5, color: '#C2492A', textTransform: 'uppercase' }}>
+                    {shopName}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {item.sources.length > 0 && (
+              <Text style={{ fontSize: 11, color: '#9A9390', fontFamily: 'Inter_400Regular', marginTop: 2 }}>
+                {item.sources.map((s) => s.sourceName).join(', ')}
+                {item.price != null ? `  ·  €${(item.price * (displayQty > 0 ? displayQty : 1)).toFixed(2)}` : ''}
               </Text>
             )}
           </View>
-        )}
+        </Pressable>
 
         <Pressable
           onPress={() => {

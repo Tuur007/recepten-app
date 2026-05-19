@@ -37,6 +37,7 @@ import { scaleIngredients } from '../../utils/servingsScaler';
 import { findTimesInStep, formatDuration } from '../../utils/parseTimeFromStep';
 import { Ingredient } from '../../types/recipe';
 import { ALLERGENS } from '../../types/recipe';
+import { useFamilyStore } from '../../store/familyStore';
 
 const PAPER = colors.background;
 
@@ -57,6 +58,7 @@ export default function RecipeDetailScreen() {
   const { recipes, isLoading, update, remove } = useRecipes();
   const { addFromRecipe } = useGrocery();
   const themeColors = useThemeColors();
+  const familyMembers = useFamilyStore((s) => s.members);
 
   const recipe = recipes.find(r => r.id === id);
 
@@ -363,18 +365,41 @@ export default function RecipeDetailScreen() {
         </View>
 
         {/* Allergenen */}
-        {recipe.allergens?.length > 0 && (
-          <>
-            <Section title="iii. allergenen" count={recipe.allergens.length} />
-            <View style={styles.allergenRow}>
-              {recipe.allergens.map((a) => (
-                <View key={a} style={styles.allergenChip}>
-                  <Text style={styles.allergenChipText}>{a}</Text>
+        {recipe.allergens?.length > 0 && (() => {
+          const warnings = familyMembers
+            .filter((m) => m.active && m.allergies && m.allergies.some((a) => recipe.allergens.includes(a)))
+            .map((m) => ({
+              name: m.name.trim() || 'Gezinslid',
+              color: m.color,
+              allergens: m.allergies!.filter((a) => recipe.allergens.includes(a)),
+            }));
+          return (
+            <>
+              <Section title="iii. allergenen" count={recipe.allergens.length} />
+              {warnings.length > 0 && (
+                <View style={styles.allergyWarningBox}>
+                  {warnings.map((w) => (
+                    <View key={w.name} style={styles.allergyWarningRow}>
+                      <View style={[styles.allergyDot, { backgroundColor: w.color }]} />
+                      <Text style={styles.allergyWarningText}>
+                        <Text style={{ fontFamily: fonts.bodyMedium }}>{w.name}</Text>
+                        {' is allergisch voor '}
+                        {w.allergens.join(', ')}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
-          </>
-        )}
+              )}
+              <View style={styles.allergenRow}>
+                {recipe.allergens.map((a) => (
+                  <View key={a} style={styles.allergenChip}>
+                    <Text style={styles.allergenChipText}>{a}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          );
+        })()}
 
         {/* Beoordeling */}
         <View style={styles.ratingSection}>
@@ -997,6 +1022,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: 8,
     marginBottom: spacing.md,
+  },
+  allergyWarningBox: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    padding: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.primary,
+    backgroundColor: 'rgba(194,73,42,0.05)',
+    gap: 6,
+  },
+  allergyWarningRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  allergyDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  allergyWarningText: {
+    flex: 1,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.textDark,
+    lineHeight: 17,
   },
   cookedBtn: {
     borderWidth: 1,

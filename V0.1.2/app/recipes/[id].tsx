@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -28,6 +28,8 @@ import { ServingsSelector } from '../../components/ui/ServingsSelector';
 import { StarRating } from '../../components/ui/StarRating';
 import { CookTimer } from '../../components/ui/CookTimer';
 import { MetaStrip } from '../../components/ui/EditorialBits';
+import { RecipeShareCard } from '../../components/ui/RecipeShareCard';
+import { shareRecipeCard } from '../../utils/shareRecipe';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
 import { generateId } from '../../utils/id';
@@ -69,6 +71,8 @@ export default function RecipeDetailScreen() {
   const [newIngUnit, setNewIngUnit] = useState('');
   const [notesEdit, setNotesEdit] = useState(false);
   const [notesTxt, setNotesTxt] = useState(() => recipe?.notes ?? '');
+  const [sharing, setSharing] = useState(false);
+  const shareCardRef = useRef<View>(null);
 
   // Use the recipe's own servings as the base; fall back to 4
   const baseServings = recipe?.servings ?? 4;
@@ -108,6 +112,25 @@ export default function RecipeDetailScreen() {
         },
       ],
     );
+  };
+
+  const handleShareRecipe = async () => {
+    if (sharing) return;
+    setSharing(true);
+    haptics.light();
+    // Wacht een tick zodat de off-screen RecipeShareCard zeker gerenderd is.
+    await new Promise((r) => setTimeout(r, 100));
+    try {
+      await shareRecipeCard(
+        shareCardRef,
+        `recept-${recipe.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error('Delen mislukt', msg);
+    } finally {
+      setSharing(false);
+    }
   };
 
   const openGroceryModal = () => {
@@ -179,6 +202,15 @@ export default function RecipeDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
+      {/* Off-screen render van de deelkaart zodat captureRef altijd iets vindt. */}
+      <View
+        ref={shareCardRef}
+        collapsable={false}
+        style={styles.offscreen}
+        pointerEvents="none"
+      >
+        <RecipeShareCard recipe={recipe} />
+      </View>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
@@ -194,6 +226,17 @@ export default function RecipeDetailScreen() {
             onPress={() => update(recipe.id, { isFavorite: !recipe.isFavorite })}
             size={22}
           />
+          <TouchableOpacity
+            onPress={handleShareRecipe}
+            hitSlop={8}
+            disabled={sharing}
+          >
+            <Ionicons
+              name="share-social-outline"
+              size={20}
+              color={sharing ? colors.textFaint : colors.textDark}
+            />
+          </TouchableOpacity>
           <TouchableOpacity onPress={handleDeleteRecipe} hitSlop={8}>
             <Ionicons name="trash-outline" size={20} color={colors.textLight} />
           </TouchableOpacity>
@@ -689,6 +732,7 @@ function CookOverlay({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: PAPER },
+  offscreen: { position: 'absolute', left: -9999, top: -9999 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

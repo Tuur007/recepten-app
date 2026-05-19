@@ -25,7 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRecipes } from '../../features/recipes/hooks';
-import { useWeekPlannerStore } from '../../store/weekPlannerStore';
+import { useMealPlan, getISOWeek } from '../../store/weekPlannerStore';
 import { useFamilyStore } from '../../store/familyStore';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
@@ -68,7 +68,8 @@ function splitTitle(title: string) {
 export default function HomeScreen() {
   const router = useRouter();
   const { recipes, isLoading } = useRecipes();
-  const { mealPlan } = useWeekPlannerStore();
+  const currentWeekKey = useMemo(() => getISOWeek(new Date()), []);
+  const mealPlan = useMealPlan(currentWeekKey);
   const activeMembers = useFamilyStore((s) => s.members.filter((m) => m.active));
   const familyName = useFamilyStore((s) => s.familyName);
   const themeColors = useThemeColors();

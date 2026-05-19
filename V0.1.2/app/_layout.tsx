@@ -11,10 +11,11 @@ import { colors } from '../constants/Designsystem';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { SplashScreen } from '../components/Splashscreen';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { initializeDatabase } from '../database';
+import { initializeDatabase, seedStarterRecipes } from '../database';
 import { toastConfig } from '../components/ui/ToastConfig';
 import { useHydrateTheme, useResolvedScheme, useThemeColors } from '../theme';
 import { useFamilyStore, useHydrateFamily } from '../store/familyStore';
+import { useHydrateWeekPlanner } from '../store/weekPlannerStore';
 
 export default function RootLayout() {
   const fontsLoaded = useEditorialFonts();
@@ -36,7 +37,13 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <Suspense fallback={<LoadingScreen />}>
-          <SQLiteProvider databaseName="recepten.db" onInit={initializeDatabase}>
+          <SQLiteProvider
+            databaseName="recepten.db"
+            onInit={async (db) => {
+              await initializeDatabase(db);
+              await seedStarterRecipes(db);
+            }}
+          >
             <ThemedRoot />
           </SQLiteProvider>
         </Suspense>
@@ -49,6 +56,7 @@ export default function RootLayout() {
 function ThemedRoot() {
   useHydrateTheme();
   useHydrateFamily();
+  useHydrateWeekPlanner();
   const themeColors = useThemeColors();
   const scheme = useResolvedScheme();
 

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef, useState } from 'react'
 import {
   Image,
   StyleSheet,
@@ -9,6 +9,9 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { colors, shadows } from '../../../constants/Designsystem'
 import { Recipe } from '../../../types/recipe'
+import { RecipeShareCard } from '../../../components/ui/RecipeShareCard'
+import { shareRecipeCard } from '../../../utils/shareRecipe'
+import { haptics, toast } from '../../../utils/feedback'
 
 interface RecipeCardProps {
   recipe: Recipe
@@ -27,9 +30,38 @@ export function RecipeCard({
   onToggleFavorite,
 }: RecipeCardProps) {
   const bgColor = recipe.isFavorite ? '#d4a574' : '#9dd4c3'
+  const shareRef = useRef<View>(null)
+  const [sharing, setSharing] = useState(false)
+
+  const handleShare = async (e: { stopPropagation: () => void }) => {
+    e.stopPropagation()
+    if (sharing) return
+    setSharing(true)
+    haptics.light()
+    await new Promise((r) => setTimeout(r, 100))
+    try {
+      await shareRecipeCard(
+        shareRef,
+        `recept-${recipe.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`,
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error('Delen mislukt', msg)
+    } finally {
+      setSharing(false)
+    }
+  }
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
+      <View
+        ref={shareRef}
+        collapsable={false}
+        style={styles.offscreen}
+        pointerEvents="none"
+      >
+        <RecipeShareCard recipe={recipe} />
+      </View>
       <View style={styles.imageContainer}>
         {recipe.imageUri ? (
           <Image source={{ uri: toDisplayUri(recipe.imageUri) }} style={styles.image} />
@@ -97,12 +129,26 @@ export function RecipeCard({
           </View>
         ) : null}
 
-        <Text style={styles.date}>
-          {new Date(recipe.createdAt).toLocaleDateString('nl-NL', {
-            month: 'short',
-            day: 'numeric',
-          })}
-        </Text>
+        <View style={styles.bottomRow}>
+          <Text style={styles.date}>
+            {new Date(recipe.createdAt).toLocaleDateString('nl-NL', {
+              month: 'short',
+              day: 'numeric',
+            })}
+          </Text>
+          <TouchableOpacity
+            onPress={handleShare}
+            hitSlop={8}
+            disabled={sharing}
+            style={styles.shareBtn}
+          >
+            <Ionicons
+              name="share-social-outline"
+              size={14}
+              color={sharing ? colors.textFaint : colors.textLight}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   )
@@ -177,4 +223,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  shareBtn: { padding: 2 },
+  offscreen: { position: 'absolute', left: -9999, top: -9999 },
 })

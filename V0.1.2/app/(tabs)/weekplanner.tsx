@@ -29,15 +29,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useRecipes } from '../../features/recipes/hooks';
-import { useWeekPlannerStore, type MealType } from '../../store/weekPlannerStore';
+import {
+  useWeekPlannerStore,
+  useMealPlan,
+  getISOWeek,
+  type MealType,
+} from '../../store/weekPlannerStore';
 import { useFamilyStore, type FamilyMember } from '../../store/familyStore';
+import {
+  cancelDinnerNotification,
+  scheduleDinnerNotification,
+} from '../../services/notifications';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import type { Recipe } from '../../types/recipe';
 import { haptics, toast } from '../../utils/feedback';
 import { useThemeColors } from '../../theme';
 import {
-  FolioStrip,
   EditorialTitle,
   FamilyRow,
 } from '../../components/ui/EditorialBits';
@@ -69,10 +77,14 @@ function splitTail(s: string) {
   return { lead: w.slice(0, -1).join(' '), tail: w[w.length - 1] };
 }
 
+const MIN_WEEK_OFFSET = -4;
+const MAX_WEEK_OFFSET = 8;
+
 export default function WeekPlannerScreen() {
   const router = useRouter();
   const { recipes, isLoading } = useRecipes();
-  const { mealPlan, setMeal, removeMeal } = useWeekPlannerStore();
+  const setMeal = useWeekPlannerStore((s) => s.setMeal);
+  const removeMeal = useWeekPlannerStore((s) => s.removeMeal);
   const activeMembers = useFamilyStore((s) => s.members.filter((m) => m.active));
   const themeColors = useThemeColors();
 
@@ -82,26 +94,35 @@ export default function WeekPlannerScreen() {
   const [prefVeg, setPrefVeg] = useState(false);
   const [prefSnel, setPrefSnel] = useState(false);
   const [prefMaxMin, setPrefMaxMin] = useState('');
+  const [weekOffset, setWeekOffset] = useState(0);
 
-  const weekDays = useMemo(() => {
+  const { weekDays, weekKey, weekLabel } = useMemo(() => {
     const today = new Date();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-    return DAY_KEYS.map((key, i) => {
+    const target = new Date(today);
+    target.setDate(today.getDate() + weekOffset * 7);
+    const monday = new Date(target);
+    monday.setDate(target.getDate() - ((target.getDay() + 6) % 7));
+    const days = DAY_KEYS.map((key, i) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      const isToday = d.toDateString() === today.toDateString();
-      return { key, short: DAY_SHORT[i], date: d.getDate(), isToday };
+      const isToday =
+        weekOffset === 0 && d.toDateString() === today.toDateString();
+      return {
+        key,
+        short: DAY_SHORT[i],
+        date: d.getDate(),
+        dateObj: d,
+        isToday,
+      };
     });
-  }, []);
+    const months = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+    const key = getISOWeek(target);
+    const weekNum = key.split('-W')[1] ?? '–';
+    const label = `week ${weekNum} · ${months[target.getMonth()]}`;
+    return { weekDays: days, weekKey: key, weekLabel: label };
+  }, [weekOffset]);
 
-  const weekLabel = useMemo(() => {
-    const d = new Date();
-    const onejan = new Date(d.getFullYear(), 0, 1);
-    const w = Math.ceil(((d.getTime() - onejan.getTime()) / 86400000 + onejan.getDay() + 1) / 7);
-    const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
-    return `week ${w} · ${months[d.getMonth()]}`;
-  }, []);
+  const mealPlan = useMealPlan(weekKey);
 
   const getRecipe = useCallback(
     (recipeId: string | null) => (recipeId ? recipes.find((r) => r.id === recipeId) ?? null : null),
@@ -131,15 +152,33 @@ export default function WeekPlannerScreen() {
 
   const handlePick = useCallback((recipeId: string) => {
     if (!pickerTarget) return;
-    setMeal(pickerTarget.day, pickerTarget.mealType, recipeId);
+    setMeal(weekKey, pickerTarget.day, pickerTarget.mealType, recipeId);
     haptics.light();
     const recipe = recipes.find((r) => r.id === recipeId);
     if (recipe) {
       toast.success(`Ingepland · ${MEAL_LABEL[pickerTarget.mealType]}`, recipe.title);
     }
+    if (pickerTarget.mealType === 'dinner' && recipe) {
+      const dateForDay = weekDays.find((d) => d.key === pickerTarget.day)?.dateObj;
+      if (dateForDay && dateForDay.getTime() > Date.now()) {
+        scheduleDinnerNotification(pickerTarget.day, recipe.title, dateForDay).catch((err) =>
+          console.warn('[notif] schedule failed:', err),
+        );
+      }
+    }
     setPickerTarget(null);
     setPickerQuery('');
-  }, [pickerTarget, setMeal, recipes]);
+  }, [pickerTarget, setMeal, weekKey, recipes, weekDays]);
+
+  const handleRemoveMeal = useCallback((day: string, mealType: MealType) => {
+    haptics.light();
+    removeMeal(weekKey, day, mealType);
+    if (mealType === 'dinner') {
+      cancelDinnerNotification(day).catch((err) =>
+        console.warn('[notif] cancel failed:', err),
+      );
+    }
+  }, [removeMeal, weekKey]);
 
   const applyFillGaps = useCallback((pool: Recipe[]) => {
     if (!pool.length) {
@@ -171,13 +210,21 @@ export default function WeekPlannerScreen() {
     const ordered = [...preferred, ...fallback];
     emptySlots.forEach((slot, i) => {
       const recipe = ordered[i % ordered.length];
-      setMeal(slot.day, slot.mealType, recipe.id);
+      setMeal(weekKey, slot.day, slot.mealType, recipe.id);
+      if (slot.mealType === 'dinner') {
+        const dateForDay = weekDays.find((d) => d.key === slot.day)?.dateObj;
+        if (dateForDay && dateForDay.getTime() > Date.now()) {
+          scheduleDinnerNotification(slot.day, recipe.title, dateForDay).catch((err) =>
+            console.warn('[notif] schedule failed:', err),
+          );
+        }
+      }
     });
     haptics.success();
     toast.success(
       `${emptySlots.length} ${emptySlots.length === 1 ? 'maaltijd' : 'maaltijden'} ingepland`,
     );
-  }, [weekDays, mealPlan, setMeal]);
+  }, [weekDays, mealPlan, setMeal, weekKey]);
 
   const handleFillGaps = useCallback(() => {
     if (!recipes.length) {
@@ -206,8 +253,52 @@ export default function WeekPlannerScreen() {
       edges={['top']}
     >
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
-        {/* Folio */}
-        <FolioStrip left={weekLabel} right="‹  ·  ›" />
+        {/* Folio + week navigatie */}
+        <View style={styles.folioRow}>
+          <Text style={typography.folio}>{weekLabel}</Text>
+          <View style={styles.navGroup}>
+            <TouchableOpacity
+              onPress={() => {
+                if (weekOffset > MIN_WEEK_OFFSET) {
+                  haptics.selection();
+                  setWeekOffset((o) => o - 1);
+                }
+              }}
+              disabled={weekOffset <= MIN_WEEK_OFFSET}
+              hitSlop={8}
+              activeOpacity={0.6}
+            >
+              <Text
+                style={[
+                  styles.navLabel,
+                  weekOffset <= MIN_WEEK_OFFSET && styles.navDisabled,
+                ]}
+              >
+                ‹ vorige
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                if (weekOffset < MAX_WEEK_OFFSET) {
+                  haptics.selection();
+                  setWeekOffset((o) => o + 1);
+                }
+              }}
+              disabled={weekOffset >= MAX_WEEK_OFFSET}
+              hitSlop={8}
+              activeOpacity={0.6}
+            >
+              <Text
+                style={[
+                  styles.navLabel,
+                  weekOffset >= MAX_WEEK_OFFSET && styles.navDisabled,
+                ]}
+              >
+                volgende ›
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Masthead */}
         <View style={styles.masthead}>
@@ -226,6 +317,21 @@ export default function WeekPlannerScreen() {
         <Text style={styles.subtitle}>
           {planned} ingepland · {gaps} {gaps === 1 ? 'gat' : 'gaten'} · {totalSlots} maaltijden.
         </Text>
+
+        {weekOffset !== 0 && (
+          <View style={styles.backChipWrap}>
+            <TouchableOpacity
+              onPress={() => {
+                haptics.selection();
+                setWeekOffset(0);
+              }}
+              activeOpacity={0.7}
+              style={styles.backChip}
+            >
+              <Text style={styles.backChipLabel}>· terug naar deze week ·</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Day spreads */}
         <View style={{ marginTop: spacing.lg }}>
@@ -279,7 +385,7 @@ export default function WeekPlannerScreen() {
                             mealType={mealType}
                             members={activeMembers}
                             onChange={() => setPickerTarget({ day: key, mealType })}
-                            onRemove={() => { haptics.light(); removeMeal(key, mealType); }}
+                            onRemove={() => handleRemoveMeal(key, mealType)}
                             onOpen={(rid) => router.push(`/recipes/${rid}`)}
                           />
                         </React.Fragment>
@@ -556,6 +662,42 @@ function PrefToggle({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+
+  folioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  navGroup: { flexDirection: 'row', gap: 14 },
+  navLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    color: colors.textDark,
+  },
+  navDisabled: { color: colors.textFaint },
+
+  backChipWrap: {
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  backChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 0.5,
+    borderColor: colors.primary,
+  },
+  backChipLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.primary,
+  },
 
   masthead: {
     paddingHorizontal: spacing.lg,

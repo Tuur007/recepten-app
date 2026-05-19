@@ -8,15 +8,21 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
 import { RecipeRepository } from '../../features/recipes/repository';
 import { GroceryRepository } from '../../features/grocery/repository';
-import { useWeekPlannerStore, type MealPlan } from '../../store/weekPlannerStore';
+import {
+  useWeekPlannerStore,
+  getISOWeek,
+  type MealPlan,
+  type WeeksMap,
+} from '../../store/weekPlannerStore';
 import { useFamilyStore, type FamilyMember } from '../../store/familyStore';
+import { cancelAllNotifications } from '../notifications';
 import type { Recipe } from '../../types/recipe';
 import type { GroceryItem } from '../../types/grocery';
 import { generateId } from '../../utils/id';
 
-export const APP_EXPORT_VERSION = 1;
+export const APP_EXPORT_VERSION = 2;
 const PREF_LAST_EXPORT = 'last_export_at';
-const PREF_WEEK_PLAN = 'week_plan';
+const PREF_WEEK_PLAN = 'week_plan_v2';
 
 export interface AppExport {
   version: number;
@@ -25,7 +31,8 @@ export interface AppExport {
   familyMembers: FamilyMember[];
   recipes: Recipe[];
   groceryItems: GroceryItem[];
-  weekPlan: MealPlan;
+  /** Multi-week vanaf v2; in v1 was dit een enkele week (Record<DayKey, DayPlan>). */
+  weekPlan: WeeksMap | MealPlan;
 }
 
 export interface ImportResult {
@@ -116,7 +123,7 @@ export async function exportAppData(db: SQLiteDatabase): Promise<AppExport> {
     GroceryRepository.getAll(db),
   ]);
   const family = useFamilyStore.getState();
-  const weekPlan = useWeekPlannerStore.getState().mealPlan;
+  const weekPlan = useWeekPlannerStore.getState().weeks;
   return {
     version: APP_EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
@@ -248,8 +255,13 @@ export async function importAppData(
 
   if (data.weekPlan && typeof data.weekPlan === 'object') {
     try {
-      useWeekPlannerStore.getState().setMealPlan(data.weekPlan);
-      await writePref(db, PREF_WEEK_PLAN, JSON.stringify(data.weekPlan));
+      // Bestaande herinneringen zijn niet meer geldig na het binnenhalen van
+      // een andere planner — eerst alles cancellen, weekplanner-events zullen
+      // ze opnieuw inplannen waar nodig.
+      await cancelAllNotifications();
+      const weeks = normalizeWeekPlan(data);
+      useWeekPlannerStore.getState().setWeeks(weeks);
+      await writePref(db, PREF_WEEK_PLAN, JSON.stringify(weeks));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       result.errors.push(`weekplanner: ${msg}`);
@@ -257,6 +269,16 @@ export async function importAppData(
   }
 
   return result;
+}
+
+function normalizeWeekPlan(data: AppExport): WeeksMap {
+  const raw = data.weekPlan as unknown;
+  if (!raw || typeof raw !== 'object') return {};
+  // v2+ : weekKey → MealPlan
+  if (data.version >= 2) return raw as WeeksMap;
+  // v1: één MealPlan ({MON: DayPlan, ...}). Plaats hem onder de huidige week.
+  const weekKey = getISOWeek(new Date());
+  return { [weekKey]: raw as MealPlan };
 }
 
 async function upsertRecipe(db: SQLiteDatabase, recipe: Recipe): Promise<void> {

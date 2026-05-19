@@ -30,6 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useSQLiteContext } from 'expo-sqlite';
+import Constants from 'expo-constants';
 
 import { useCategories } from '../../store/categoriesStore';
 import { Category } from '../../features/categories/repository';
@@ -56,6 +57,7 @@ import {
   shareExport,
   type AppExport,
 } from '../../services/sync';
+import { requestNotificationPermission } from '../../services/notifications';
 
 type ExpandKey = 'recipe' | 'grocery' | 'theme' | 'family' | 'backup' | null;
 
@@ -85,6 +87,8 @@ export default function SettingsScreen() {
   const { mode, setMode } = useThemeMode();
 
   const members = useFamilyStore((s) => s.members);
+  const familyName = useFamilyStore((s) => s.familyName);
+  const appVersion = Constants.expoConfig?.version ?? '–';
   const {
     addMember,
     removeMember,
@@ -254,6 +258,19 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleRequestNotifications = async () => {
+    haptics.light();
+    const granted = await requestNotificationPermission();
+    if (granted) {
+      toast.success('Meldingen aan', 'Je hoort het wel rond 16u.');
+    } else {
+      toast.error(
+        'Meldingen geweigerd',
+        'Zet ze aan in de iOS/Android-instellingen om herinneringen te krijgen.',
+      );
+    }
+  };
+
   const runImport = async (data: AppExport) => {
     try {
       const result = await importAppData(db, data);
@@ -279,7 +296,10 @@ export default function SettingsScreen() {
     >
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Folio */}
-        <FolioStrip left="versie 1.1.0" right="laatst gesynct · nu" />
+        <FolioStrip
+          left={`versie ${appVersion}`}
+          right={familyName.trim() ? familyName : 'instellingen'}
+        />
 
         {/* Editorial title */}
         <View style={styles.titleBlock}>
@@ -516,6 +536,12 @@ export default function SettingsScreen() {
                 {importing ? 'bezig…' : 'importeer back-up'}
               </Text>
             </TouchableOpacity>
+            <View style={styles.notifRow}>
+              <Text style={styles.notifLabel}>meldingen</Text>
+              <TouchableOpacity onPress={handleRequestNotifications} activeOpacity={0.7}>
+                <Text style={styles.notifAction}>opnieuw toestaan</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -523,7 +549,7 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <RuleWithLabel label="over de app" bold />
           <View style={styles.sectionBody}>
-            <Row label="versie" value="v1.1.0" inert />
+            <Row label="versie" value={`v${appVersion}`} inert />
             <Row label="gebouwd met" value="Expo + SQLite" inert last />
           </View>
         </View>
@@ -844,6 +870,27 @@ const styles = StyleSheet.create({
     letterSpacing: 1.8,
     textTransform: 'uppercase',
     color: colors.background,
+  },
+  notifRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.md,
+    marginTop: spacing.sm,
+    borderTopWidth: 0.5,
+    borderTopColor: colors.borderSoft,
+  },
+  notifLabel: {
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.textMedium,
+  },
+  notifAction: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.primary,
   },
 
   // Credit footer

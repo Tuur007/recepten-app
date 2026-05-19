@@ -11,6 +11,8 @@ import {
 } from './schema';
 import { initImageDirectory } from '../utils/imageStorage';
 import { generateId } from '../utils/id';
+import { RecipeRepository } from '../features/recipes/repository';
+import { STARTER_RECIPES } from './seeds';
 
 export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
   await initImageDirectory();
@@ -79,4 +81,27 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
       );
     }
   }
+}
+
+/**
+ * Voert de starter-recepten in bij een verse installatie. Idempotent: doet
+ * niets als de recepten-tabel al rijen bevat, dus bestaande gebruikers zien
+ * deze seeds nooit terug.
+ */
+export async function seedStarterRecipes(db: SQLiteDatabase): Promise<void> {
+  const result = await db.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM recipes',
+  );
+  if ((result?.count ?? 0) > 0) return;
+
+  let inserted = 0;
+  for (const recipe of STARTER_RECIPES) {
+    try {
+      await RecipeRepository.create(db, recipe);
+      inserted++;
+    } catch (err) {
+      console.error(`[db] seed "${recipe.title}" failed:`, err);
+    }
+  }
+  console.log(`[db] seeded ${inserted} starter recipes`);
 }

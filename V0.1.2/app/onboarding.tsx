@@ -26,6 +26,7 @@ import {
   type FamilyMember,
 } from '../store/familyStore';
 import { haptics } from '../utils/feedback';
+import { requestNotificationPermission } from '../services/notifications';
 
 type Step = 1 | 2;
 
@@ -78,6 +79,8 @@ export default function OnboardingScreen() {
     Object.keys(memberDraft).forEach((id) => commitName(id));
     completeOnboarding();
     haptics.success();
+    // Vraag notificatiepermissie — niet-blokkerend.
+    requestNotificationPermission().catch(() => {});
     router.replace('/(tabs)/home');
   };
 
@@ -182,6 +185,10 @@ export default function OnboardingScreen() {
                 <Text style={styles.addLabel}>voeg gezinslid toe</Text>
               </TouchableOpacity>
             )}
+
+            <Text style={styles.notifHint}>
+              · we herinneren je elke dag om 16u aan je diner ·
+            </Text>
 
             <View style={styles.ctaWrap}>
               <TouchableOpacity
@@ -349,5 +356,13 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     fontSize: 14,
     color: colors.primary,
+  },
+  notifHint: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 12,
+    color: colors.textFaint,
+    textAlign: 'center',
+    marginTop: spacing.lg,
   },
 });

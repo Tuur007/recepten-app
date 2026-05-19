@@ -30,6 +30,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useRecipes } from '../../features/recipes/hooks';
 import { useWeekPlannerStore, type MealType } from '../../store/weekPlannerStore';
+import { useFamilyStore, type FamilyMember } from '../../store/familyStore';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import type { Recipe } from '../../types/recipe';
@@ -39,7 +40,6 @@ import {
   FolioStrip,
   EditorialTitle,
   FamilyRow,
-  type FamilyKey,
 } from '../../components/ui/EditorialBits';
 
 const DAY_KEYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
@@ -69,14 +69,11 @@ function splitTail(s: string) {
   return { lead: w.slice(0, -1).join(' '), tail: w[w.length - 1] };
 }
 
-// Demo: all 4 family members eat together by default.
-// Eventueel later vervangen door een per-maaltijd attendance-instelling.
-const DEFAULT_FAMILY: FamilyKey[] = ['tuur', 'louise', 'basiel', 'jules'];
-
 export default function WeekPlannerScreen() {
   const router = useRouter();
   const { recipes, isLoading } = useRecipes();
   const { mealPlan, setMeal, removeMeal } = useWeekPlannerStore();
+  const activeMembers = useFamilyStore((s) => s.members.filter((m) => m.active));
   const themeColors = useThemeColors();
 
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
@@ -280,6 +277,7 @@ export default function WeekPlannerScreen() {
                           <MealRow
                             recipe={recipe}
                             mealType={mealType}
+                            members={activeMembers}
                             onChange={() => setPickerTarget({ day: key, mealType })}
                             onRemove={() => { haptics.light(); removeMeal(key, mealType); }}
                             onOpen={(rid) => router.push(`/recipes/${rid}`)}
@@ -434,12 +432,14 @@ export default function WeekPlannerScreen() {
 function MealRow({
   recipe,
   mealType,
+  members,
   onChange,
   onRemove,
   onOpen,
 }: {
   recipe: Recipe | null;
   mealType: MealType;
+  members: FamilyMember[];
   onChange: () => void;
   onRemove: () => void;
   onOpen: (id: string) => void;
@@ -472,7 +472,9 @@ function MealRow({
           <Text style={mealStyles.title} numberOfLines={1}>
             {recipe.title}
           </Text>
-          <FamilyRow who={DEFAULT_FAMILY} size={12} overlap={4} />
+          {members.length > 0 && (
+            <FamilyRow members={members} size={12} overlap={4} />
+          )}
           <TouchableOpacity
             hitSlop={8}
             onPress={onRemove}

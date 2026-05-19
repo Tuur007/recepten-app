@@ -28,8 +28,6 @@ import {
 import { haptics } from '../utils/feedback';
 import { requestNotificationPermission } from '../services/notifications';
 
-type Step = 1 | 2;
-
 export default function OnboardingScreen() {
   const router = useRouter();
   const familyName = useFamilyStore((s) => s.familyName);
@@ -43,7 +41,7 @@ export default function OnboardingScreen() {
     completeOnboarding,
   } = useFamilyActions();
 
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] = useState(1);
   const [nameInput, setNameInput] = useState(familyName);
   const [memberDraft, setMemberDraft] = useState<Record<string, string>>({});
 

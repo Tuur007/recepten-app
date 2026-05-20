@@ -28,6 +28,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useSQLiteContext } from 'expo-sqlite';
@@ -92,6 +93,7 @@ export default function SettingsScreen() {
   } = useCategories();
   const { mode, setMode } = useThemeMode();
 
+  const router = useRouter();
   const members = useFamilyStore((s) => s.members);
   const familyName = useFamilyStore((s) => s.familyName);
   const appVersion = Constants.expoConfig?.version ?? '–';
@@ -133,7 +135,7 @@ export default function SettingsScreen() {
 
   // Cloud family members
   const [cloudMembers, setCloudMembers] = useState<Array<{ id: string; user_id: string; role: string }>>([]);
-  const { familyId } = useAuthStore();
+  const { familyId, user } = useAuthStore();
 
   const loadInviteCodes = useCallback(async () => {
     const codes = await listInviteCodes().catch(() => []);
@@ -490,49 +492,77 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <RuleWithLabel label="uitnodigingen" bold />
           <View style={styles.sectionBody}>
-            <Row
-              label="codes"
-              value={inviteCodes.filter((c) => !c.used_by).length + ' actief'}
-              expanded={expanded === 'invites'}
-              onPress={() => {
-                if (expanded !== 'invites') loadInviteCodes();
-                toggle('invites');
-              }}
-              last
-            />
-            {expanded === 'invites' && (
-              <View style={styles.subList}>
-                {generatedCode && (
-                  <View style={styles.codeBox}>
-                    <Text style={styles.codeText}>{generatedCode}</Text>
+            {!user ? (
+              <View style={styles.authPrompt}>
+                <Text style={[styles.codeHint, { marginBottom: spacing.sm }]}>
+                  Log in om gezinsleden uit te nodigen.
+                </Text>
+                <TouchableOpacity onPress={() => router.push('/auth/login')} style={styles.addBtn} activeOpacity={0.7}>
+                  <Ionicons name="log-in-outline" size={14} color={colors.primary} />
+                  <Text style={styles.addBtnLabel}>inloggen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/auth/register')} style={styles.addBtn} activeOpacity={0.7}>
+                  <Ionicons name="person-add-outline" size={14} color={colors.primary} />
+                  <Text style={styles.addBtnLabel}>account aanmaken</Text>
+                </TouchableOpacity>
+              </View>
+            ) : !familyId ? (
+              <View style={styles.authPrompt}>
+                <Text style={[styles.codeHint, { marginBottom: spacing.sm }]}>
+                  Maak eerst een gezin aan om uitnodigingscodes te gebruiken.
+                </Text>
+                <TouchableOpacity onPress={() => router.push('/auth/family-setup')} style={styles.addBtn} activeOpacity={0.7}>
+                  <Ionicons name="home-outline" size={14} color={colors.primary} />
+                  <Text style={styles.addBtnLabel}>gezin aanmaken</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <Row
+                  label="codes"
+                  value={inviteCodes.filter((c) => !c.used_by).length + ' actief'}
+                  expanded={expanded === 'invites'}
+                  onPress={() => {
+                    if (expanded !== 'invites') loadInviteCodes();
+                    toggle('invites');
+                  }}
+                  last
+                />
+                {expanded === 'invites' && (
+                  <View style={styles.subList}>
+                    {generatedCode && (
+                      <View style={styles.codeBox}>
+                        <Text style={styles.codeText}>{generatedCode}</Text>
+                        <TouchableOpacity
+                          onPress={() => { Clipboard.setString(generatedCode); toast.success('Gekopieerd', generatedCode); haptics.light(); }}
+                          hitSlop={8}
+                          style={styles.iconBtn}
+                        >
+                          <Ionicons name="copy-outline" size={16} color={colors.primary} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    <Text style={styles.codeHint}>Geldig voor 7 dagen · eenmalig gebruik</Text>
+                    {inviteCodes.filter((c) => !c.used_by).map((c) => (
+                      <View key={c.id} style={styles.catRow}>
+                        <Text style={styles.codeListItem}>{c.code}</Text>
+                        <Text style={styles.codeExpiry}>
+                          {new Date(c.expires_at) > new Date() ? 'actief' : 'verlopen'}
+                        </Text>
+                      </View>
+                    ))}
                     <TouchableOpacity
-                      onPress={() => { Clipboard.setString(generatedCode); toast.success('Gekopieerd', generatedCode); haptics.light(); }}
-                      hitSlop={8}
-                      style={styles.iconBtn}
+                      onPress={handleCreateInviteCode}
+                      style={styles.addBtn}
+                      activeOpacity={0.7}
+                      disabled={creatingCode}
                     >
-                      <Ionicons name="copy-outline" size={16} color={colors.primary} />
+                      <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
+                      <Text style={styles.addBtnLabel}>{creatingCode ? 'bezig…' : 'uitnodigingscode aanmaken'}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
-                <Text style={styles.codeHint}>Geldig voor 7 dagen · eenmalig gebruik</Text>
-                {inviteCodes.filter((c) => !c.used_by).map((c) => (
-                  <View key={c.id} style={styles.catRow}>
-                    <Text style={styles.codeListItem}>{c.code}</Text>
-                    <Text style={styles.codeExpiry}>
-                      {new Date(c.expires_at) > new Date() ? 'actief' : 'verlopen'}
-                    </Text>
-                  </View>
-                ))}
-                <TouchableOpacity
-                  onPress={handleCreateInviteCode}
-                  style={styles.addBtn}
-                  activeOpacity={0.7}
-                  disabled={creatingCode}
-                >
-                  <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
-                  <Text style={styles.addBtnLabel}>{creatingCode ? 'bezig…' : 'uitnodigingscode aanmaken'}</Text>
-                </TouchableOpacity>
-              </View>
+              </>
             )}
           </View>
         </View>
@@ -1205,6 +1235,10 @@ const styles = StyleSheet.create({
   },
 
   // Invite codes
+  authPrompt: {
+    paddingVertical: spacing.sm,
+    gap: 4,
+  },
   codeBox: {
     flexDirection: 'row',
     alignItems: 'center',

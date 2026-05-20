@@ -132,14 +132,31 @@ CREATE POLICY "family members only" ON grocery_items
 CREATE POLICY "family members only" ON week_plans
   FOR ALL USING (family_id = public.my_family_id());
 
-CREATE POLICY "own family" ON families
-  FOR ALL USING (id = public.my_family_id());
+-- families: lees/wijzig alleen eigen gezin, maar maak aanmaken mogelijk voor ingelogde users
+CREATE POLICY "view own family" ON families
+  FOR SELECT USING (id = public.my_family_id());
+CREATE POLICY "create family" ON families
+  FOR INSERT WITH CHECK (owner_id = auth.uid());
+CREATE POLICY "update own family" ON families
+  FOR UPDATE USING (id = public.my_family_id());
+CREATE POLICY "delete own family" ON families
+  FOR DELETE USING (id = public.my_family_id());
 
-CREATE POLICY "own family members" ON family_members
-  FOR ALL USING (family_id = public.my_family_id());
+-- family_members: lees gezinsleden van eigen gezin, maar laat ingelogde users zichzelf toevoegen
+CREATE POLICY "view family members" ON family_members
+  FOR SELECT USING (family_id = public.my_family_id());
+CREATE POLICY "join family" ON family_members
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "update family members" ON family_members
+  FOR UPDATE USING (family_id = public.my_family_id());
+CREATE POLICY "remove family members" ON family_members
+  FOR DELETE USING (family_id = public.my_family_id());
 
+-- invite_codes: eigen gezin ziet alle codes; elke ingelogde user kan geldige codes lezen (voor verzilveren)
 CREATE POLICY "own invite codes" ON invite_codes
   FOR ALL USING (family_id = public.my_family_id());
+CREATE POLICY "redeem invite codes" ON invite_codes
+  FOR SELECT USING (used_by IS NULL AND expires_at > now());
 
 -- Shared recipes: iedereen met token kan lezen
 CREATE POLICY "public read with token" ON shared_recipes

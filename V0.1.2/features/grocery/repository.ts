@@ -2,6 +2,7 @@ import { type SQLiteDatabase } from 'expo-sqlite';
 import { GroceryItem, GroceryItemInput, GroceryItemUpdate, SourceLineage, computeTotalQuantity } from '../../types/grocery';
 import type { SQLiteBindValue } from 'expo-sqlite';
 import { generateId } from '../../utils/id';
+import { pushGroceryItem, deleteGroceryItemRemote } from '../../services/sync/supabaseSync';
 
 interface GroceryRow {
   id: string;
@@ -59,7 +60,9 @@ export const GroceryRepository = {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, input.name, input.unit, input.category ?? '', JSON.stringify(input.sources), totalQuantity, input.checked ? 1 : 0, now, input.aisle ?? null, input.price ?? null, input.storeId ?? null],
     );
-    return { id, ...input, category: input.category ?? '', totalQuantity, createdAt: now };
+    const item = { id, ...input, category: input.category ?? '', totalQuantity, createdAt: now };
+    pushGroceryItem(item).catch(console.error);
+    return item;
   },
 
   async upsertMany(db: SQLiteDatabase, items: GroceryItem[]): Promise<void> {
@@ -123,6 +126,7 @@ export const GroceryRepository = {
 
   async delete(db: SQLiteDatabase, id: string): Promise<void> {
     await db.runAsync('DELETE FROM grocery_items WHERE id = ?', [id]);
+    deleteGroceryItemRemote(id).catch(console.error);
   },
 
   async clearChecked(db: SQLiteDatabase): Promise<void> {

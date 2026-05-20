@@ -115,37 +115,37 @@ ALTER TABLE week_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shared_recipes ENABLE ROW LEVEL SECURITY;
 
 -- Helper functie: geeft family_id terug van ingelogde user
-CREATE OR REPLACE FUNCTION auth.family_id()
+CREATE OR REPLACE FUNCTION public.my_family_id()
 RETURNS UUID AS $$
-  SELECT family_id FROM family_members
+  SELECT family_id FROM public.family_members
   WHERE user_id = auth.uid()
   LIMIT 1
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
 
 -- RLS Policies: users zien enkel hun eigen family data
 CREATE POLICY "family members only" ON recipes
-  FOR ALL USING (family_id = auth.family_id());
+  FOR ALL USING (family_id = public.my_family_id());
 
 CREATE POLICY "family members only" ON grocery_items
-  FOR ALL USING (family_id = auth.family_id());
+  FOR ALL USING (family_id = public.my_family_id());
 
 CREATE POLICY "family members only" ON week_plans
-  FOR ALL USING (family_id = auth.family_id());
+  FOR ALL USING (family_id = public.my_family_id());
 
 CREATE POLICY "own family" ON families
-  FOR ALL USING (id = auth.family_id());
+  FOR ALL USING (id = public.my_family_id());
 
 CREATE POLICY "own family members" ON family_members
-  FOR ALL USING (family_id = auth.family_id());
+  FOR ALL USING (family_id = public.my_family_id());
 
 CREATE POLICY "own invite codes" ON invite_codes
-  FOR ALL USING (family_id = auth.family_id());
+  FOR ALL USING (family_id = public.my_family_id());
 
 -- Shared recipes: iedereen met token kan lezen
 CREATE POLICY "public read with token" ON shared_recipes
   FOR SELECT USING (true);
 CREATE POLICY "own family shares" ON shared_recipes
-  FOR INSERT WITH CHECK (from_family_id = auth.family_id());
+  FOR INSERT WITH CHECK (from_family_id = public.my_family_id());
 
 -- Realtime inschakelen
 ALTER PUBLICATION supabase_realtime ADD TABLE recipes;

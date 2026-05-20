@@ -24,33 +24,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isInitialized: false,
 
   initialize: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    set({ session, user: session?.user ?? null });
-
-    if (session?.user) {
-      const { data } = await supabase
-        .from('family_members')
-        .select('family_id')
-        .eq('user_id', session.user.id)
-        .single();
-      set({ familyId: data?.family_id ?? null });
-    }
-
-    set({ isInitialized: true });
-
-    supabase.auth.onAuthStateChange(async (_event, session) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
       set({ session, user: session?.user ?? null });
-      if (!session?.user) {
-        set({ familyId: null });
-        return;
+
+      if (session?.user) {
+        try {
+          const { data } = await supabase
+            .from('family_members')
+            .select('family_id')
+            .eq('user_id', session.user.id)
+            .single();
+          set({ familyId: data?.family_id ?? null });
+        } catch (err) {
+          console.warn('Failed to load family_id:', err);
+        }
       }
-      const { data } = await supabase
-        .from('family_members')
-        .select('family_id')
-        .eq('user_id', session.user.id)
-        .single();
-      set({ familyId: data?.family_id ?? null });
-    });
+
+      set({ isInitialized: true });
+
+      supabase.auth.onAuthStateChange(async (_event, session) => {
+        set({ session, user: session?.user ?? null });
+        if (!session?.user) {
+          set({ familyId: null });
+          return;
+        }
+        try {
+          const { data } = await supabase
+            .from('family_members')
+            .select('family_id')
+            .eq('user_id', session.user.id)
+            .single();
+          set({ familyId: data?.family_id ?? null });
+        } catch (err) {
+          console.warn('Failed to load family_id on auth change:', err);
+        }
+      });
+    } catch (err) {
+      console.warn('Auth initialize failed:', err);
+      set({ isInitialized: true });
+    }
   },
 
   signIn: async (email, password) => {

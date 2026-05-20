@@ -83,7 +83,9 @@ function ThemedRoot() {
   useEffect(() => {
     if (authInitRef.current) return;
     authInitRef.current = true;
-    useAuthStore.getState().initialize().catch(console.error);
+    useAuthStore.getState().initialize().catch((err) => {
+      console.warn('Auth init failed:', err?.message ?? err);
+    });
   }, []);
 
   // Auth-based routing

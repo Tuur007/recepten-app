@@ -33,7 +33,6 @@ export default function RegisterScreen() {
 
     if (!email.trim()) { setEmailError('E-mailadres is verplicht.'); return; }
     if (password.length < 6) { setPasswordError('Wachtwoord moet minstens 6 tekens zijn.'); return; }
-    if (!inviteCode.trim()) { setCodeError('Uitnodigingscode is verplicht.'); return; }
 
     setSubmitting(true);
     try {
@@ -46,11 +45,15 @@ export default function RegisterScreen() {
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Registratie mislukt. Probeer opnieuw.');
 
-      const familyId = await redeemInviteCode(inviteCode.trim(), user.id);
-      useAuthStore.getState().setFamilyId(familyId);
+      if (inviteCode.trim()) {
+        const familyId = await redeemInviteCode(inviteCode.trim(), user.id);
+        useAuthStore.getState().setFamilyId(familyId);
+      } else {
+        // Geen code → gezin aanmaken als eigenaar
+        router.replace('/auth/family-setup');
+      }
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Auth guard in _layout will redirect to (tabs)/home
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Registratie mislukt.';
       if (message.toLowerCase().includes('uitnodig') || message.toLowerCase().includes('invite') || message.toLowerCase().includes('code')) {
@@ -73,7 +76,7 @@ export default function RegisterScreen() {
         </View>
 
         <Text style={[styles.intro, { color: themeColors.textLight }]}>
-          Maak een account aan en word lid van een gezin via een uitnodigingscode.
+          Maak een account aan. Heb je een uitnodigingscode? Vul die in om lid te worden van een bestaand gezin. Anders maak je daarna een nieuw gezin aan.
         </Text>
 
         <View style={styles.form}>
@@ -101,7 +104,7 @@ export default function RegisterScreen() {
             />
           </View>
 
-          <RuleWithLabel label="uitnodigingscode" bold />
+          <RuleWithLabel label="uitnodigingscode (optioneel)" bold />
 
           <View style={styles.fieldGroup}>
             <AppTextInput

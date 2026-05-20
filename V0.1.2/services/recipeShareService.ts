@@ -6,6 +6,7 @@ import type { Recipe } from '../types/recipe';
 const APP_DEEP_LINK = 'receptenapp://recipe/share/';
 
 export async function shareRecipeViaWhatsApp(recipe: Recipe): Promise<void> {
+  if (!supabase) throw new Error('Supabase niet geconfigureerd.');
   const { familyId } = useAuthStore.getState();
   if (!familyId) throw new Error('Niet ingelogd');
 
@@ -27,6 +28,7 @@ export async function shareRecipeViaWhatsApp(recipe: Recipe): Promise<void> {
 }
 
 export async function fetchSharedRecipe(token: string): Promise<Recipe | null> {
+  if (!supabase) return null;
   const { data: shareRow } = await supabase
     .from('shared_recipes')
     .select('recipe_id, from_family_id')

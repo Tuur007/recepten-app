@@ -141,7 +141,7 @@ export default function SettingsScreen() {
   }, []);
 
   const loadCloudMembers = useCallback(async () => {
-    if (!familyId) return;
+    if (!familyId || !supabase) return;
     const { data } = await supabase
       .from('family_members')
       .select('id, user_id, role')

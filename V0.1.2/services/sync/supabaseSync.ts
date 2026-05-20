@@ -96,12 +96,14 @@ function rowToGrocery(row: Record<string, unknown>): GroceryItem {
 // ─── Push (lokaal → Supabase) ─────────────────────────────────────────────────
 
 export async function pushRecipe(recipe: Recipe): Promise<void> {
+  if (!supabase) return;
   const familyId = useAuthStore.getState().familyId;
   if (!familyId) return;
   await supabase.from('recipes').upsert(recipeToRow(recipe, familyId));
 }
 
 export async function deleteRecipeRemote(id: string): Promise<void> {
+  if (!supabase) return;
   await supabase
     .from('recipes')
     .update({ deleted_at: new Date().toISOString() })
@@ -109,12 +111,14 @@ export async function deleteRecipeRemote(id: string): Promise<void> {
 }
 
 export async function pushGroceryItem(item: GroceryItem): Promise<void> {
+  if (!supabase) return;
   const familyId = useAuthStore.getState().familyId;
   if (!familyId) return;
   await supabase.from('grocery_items').upsert(groceryToRow(item, familyId));
 }
 
 export async function deleteGroceryItemRemote(id: string): Promise<void> {
+  if (!supabase) return;
   await supabase
     .from('grocery_items')
     .update({ deleted_at: new Date().toISOString() })
@@ -124,6 +128,7 @@ export async function deleteGroceryItemRemote(id: string): Promise<void> {
 // ─── Pull (Supabase → lokaal) ─────────────────────────────────────────────────
 
 export async function pullAll(): Promise<void> {
+  if (!supabase) return;
   const familyId = useAuthStore.getState().familyId;
   if (!familyId) return;
 
@@ -154,7 +159,9 @@ export async function pullAll(): Promise<void> {
 // ─── Realtime subscriptions ───────────────────────────────────────────────────
 
 export function subscribeToFamily(familyId: string): () => void {
-  const recipeChannel = supabase
+  if (!supabase) return () => {};
+  const client = supabase;
+  const recipeChannel = client
     .channel(`recipes:${familyId}`)
     .on(
       'postgres_changes',
@@ -177,7 +184,7 @@ export function subscribeToFamily(familyId: string): () => void {
     )
     .subscribe();
 
-  const groceryChannel = supabase
+  const groceryChannel = client
     .channel(`grocery:${familyId}`)
     .on(
       'postgres_changes',
@@ -201,7 +208,7 @@ export function subscribeToFamily(familyId: string): () => void {
     .subscribe();
 
   return () => {
-    supabase.removeChannel(recipeChannel);
-    supabase.removeChannel(groceryChannel);
+    client.removeChannel(recipeChannel);
+    client.removeChannel(groceryChannel);
   };
 }

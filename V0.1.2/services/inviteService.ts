@@ -10,6 +10,7 @@ function generateCode(): string {
 }
 
 export async function createInviteCode(): Promise<string> {
+  if (!supabase) throw new Error('Supabase niet geconfigureerd.');
   const { familyId, user } = useAuthStore.getState();
   if (!familyId || !user) throw new Error('Niet ingelogd');
 
@@ -25,6 +26,7 @@ export async function createInviteCode(): Promise<string> {
 }
 
 export async function redeemInviteCode(code: string, userId: string): Promise<string> {
+  if (!supabase) throw new Error('Supabase niet geconfigureerd.');
   const { data: invite, error } = await supabase
     .from('invite_codes')
     .select('*')
@@ -52,6 +54,7 @@ export async function redeemInviteCode(code: string, userId: string): Promise<st
 }
 
 export async function listInviteCodes() {
+  if (!supabase) return [];
   const { familyId } = useAuthStore.getState();
   if (!familyId) return [];
 

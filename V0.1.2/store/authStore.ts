@@ -16,7 +16,7 @@ interface AuthState {
   setFamilyId: (id: string | null) => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   session: null,
   user: null,
   familyId: null,
@@ -24,6 +24,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isInitialized: false,
 
   initialize: async () => {
+    if (!supabase) {
+      set({ isInitialized: true });
+      return;
+    }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       set({ session, user: session?.user ?? null });
@@ -36,8 +40,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             .eq('user_id', session.user.id)
             .single();
           set({ familyId: data?.family_id ?? null });
-        } catch (err) {
-          console.warn('Failed to load family_id:', err);
+        } catch {
+          // Network/RLS may block this; safe to continue
         }
       }
 
@@ -45,7 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       supabase.auth.onAuthStateChange(async (_event, session) => {
         set({ session, user: session?.user ?? null });
-        if (!session?.user) {
+        if (!session?.user || !supabase) {
           set({ familyId: null });
           return;
         }
@@ -56,17 +60,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             .eq('user_id', session.user.id)
             .single();
           set({ familyId: data?.family_id ?? null });
-        } catch (err) {
-          console.warn('Failed to load family_id on auth change:', err);
+        } catch {
+          // ignore
         }
       });
-    } catch (err) {
-      console.warn('Auth initialize failed:', err);
+    } catch {
       set({ isInitialized: true });
     }
   },
 
   signIn: async (email, password) => {
+    if (!supabase) throw new Error('Supabase niet geconfigureerd.');
     set({ isLoading: true });
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -77,6 +81,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signUp: async (email, password) => {
+    if (!supabase) throw new Error('Supabase niet geconfigureerd.');
     set({ isLoading: true });
     try {
       const { error } = await supabase.auth.signUp({ email, password });
@@ -87,7 +92,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    await supabase.auth.signOut();
+    if (supabase) await supabase.auth.signOut();
     set({ session: null, user: null, familyId: null });
   },
 

@@ -30,6 +30,10 @@ export default function FamilySetupScreen() {
       Toast.show({ type: 'error', text1: 'Niet ingelogd', text2: 'Log eerst in.' });
       return;
     }
+    if (!supabase) {
+      Toast.show({ type: 'error', text1: 'Supabase niet geconfigureerd' });
+      return;
+    }
 
     setLoading(true);
     try {

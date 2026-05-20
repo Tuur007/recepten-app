@@ -38,7 +38,6 @@
       "expo-router",
       "expo-sqlite",
       "expo-file-system",
-      "expo-sharing",
       "expo-document-picker",
       [
         "expo-notifications",

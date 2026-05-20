@@ -16,8 +16,9 @@
 // Bestaande functionaliteit (categorie CRUD, theme-mode) blijft behouden — alleen
 // de presentatie is aangepast naar de mockup-stijl.
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
+  Clipboard,
   StyleSheet,
   Text,
   View,
@@ -60,8 +61,11 @@ import {
   type AppExport,
 } from '../../services/sync';
 import { requestNotificationPermission } from '../../services/notifications';
+import { useAuthStore } from '../../store/authStore';
+import { createInviteCode, listInviteCodes } from '../../services/inviteService';
+import { supabase } from '../../services/supabase';
 
-type ExpandKey = 'recipe' | 'grocery' | 'theme' | 'family' | 'backup' | 'shops' | null;
+type ExpandKey = 'recipe' | 'grocery' | 'theme' | 'family' | 'backup' | 'shops' | 'invites' | 'cloudFamily' | null;
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'system', label: 'Systeem' },
@@ -121,6 +125,29 @@ export default function SettingsScreen() {
   const [lastExportAt, setLastExportAt] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+
+  // Invite codes
+  const [inviteCodes, setInviteCodes] = useState<Array<{ id: string; code: string; expires_at: string; used_by: string | null }>>([]);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [creatingCode, setCreatingCode] = useState(false);
+
+  // Cloud family members
+  const [cloudMembers, setCloudMembers] = useState<Array<{ id: string; user_id: string; role: string }>>([]);
+  const { familyId } = useAuthStore();
+
+  const loadInviteCodes = useCallback(async () => {
+    const codes = await listInviteCodes().catch(() => []);
+    setInviteCodes(codes as typeof inviteCodes);
+  }, []);
+
+  const loadCloudMembers = useCallback(async () => {
+    if (!familyId) return;
+    const { data } = await supabase
+      .from('family_members')
+      .select('id, user_id, role')
+      .eq('family_id', familyId);
+    setCloudMembers((data ?? []) as typeof cloudMembers);
+  }, [familyId]);
 
   useEffect(() => {
     loadLastExportAt(db).then(setLastExportAt).catch(() => {});
@@ -279,6 +306,21 @@ export default function SettingsScreen() {
         'Meldingen geweigerd',
         'Zet ze aan in de iOS/Android-instellingen om herinneringen te krijgen.',
       );
+    }
+  };
+
+  const handleCreateInviteCode = async () => {
+    if (creatingCode) return;
+    setCreatingCode(true);
+    try {
+      const code = await createInviteCode();
+      setGeneratedCode(code);
+      haptics.success();
+      await loadInviteCodes();
+    } catch (err) {
+      toast.error('Fout', err instanceof Error ? err.message : 'Code aanmaken mislukt.');
+    } finally {
+      setCreatingCode(false);
     }
   };
 
@@ -443,6 +485,88 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* ─── uitnodigingen ─── */}
+        <View style={styles.section}>
+          <RuleWithLabel label="uitnodigingen" bold />
+          <View style={styles.sectionBody}>
+            <Row
+              label="codes"
+              value={inviteCodes.filter((c) => !c.used_by).length + ' actief'}
+              expanded={expanded === 'invites'}
+              onPress={() => {
+                if (expanded !== 'invites') loadInviteCodes();
+                toggle('invites');
+              }}
+              last
+            />
+            {expanded === 'invites' && (
+              <View style={styles.subList}>
+                {generatedCode && (
+                  <View style={styles.codeBox}>
+                    <Text style={styles.codeText}>{generatedCode}</Text>
+                    <TouchableOpacity
+                      onPress={() => { Clipboard.setString(generatedCode); toast.success('Gekopieerd', generatedCode); haptics.light(); }}
+                      hitSlop={8}
+                      style={styles.iconBtn}
+                    >
+                      <Ionicons name="copy-outline" size={16} color={colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                <Text style={styles.codeHint}>Geldig voor 7 dagen · eenmalig gebruik</Text>
+                {inviteCodes.filter((c) => !c.used_by).map((c) => (
+                  <View key={c.id} style={styles.catRow}>
+                    <Text style={styles.codeListItem}>{c.code}</Text>
+                    <Text style={styles.codeExpiry}>
+                      {new Date(c.expires_at) > new Date() ? 'actief' : 'verlopen'}
+                    </Text>
+                  </View>
+                ))}
+                <TouchableOpacity
+                  onPress={handleCreateInviteCode}
+                  style={styles.addBtn}
+                  activeOpacity={0.7}
+                  disabled={creatingCode}
+                >
+                  <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
+                  <Text style={styles.addBtnLabel}>{creatingCode ? 'bezig…' : 'uitnodigingscode aanmaken'}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* ─── gezinsleden (cloud) ─── */}
+        {familyId && (
+          <View style={styles.section}>
+            <RuleWithLabel label="gezinsleden" bold />
+            <View style={styles.sectionBody}>
+              <Row
+                label="leden"
+                value={cloudMembers.length ? `${cloudMembers.length} ${cloudMembers.length === 1 ? 'lid' : 'leden'}` : '–'}
+                expanded={expanded === 'cloudFamily'}
+                onPress={() => {
+                  if (expanded !== 'cloudFamily') loadCloudMembers();
+                  toggle('cloudFamily');
+                }}
+                last
+              />
+              {expanded === 'cloudFamily' && (
+                <View style={styles.subList}>
+                  {cloudMembers.map((m) => (
+                    <View key={m.id} style={styles.catRow}>
+                      <Text style={styles.catName}>{m.user_id.slice(0, 8)}…</Text>
+                      {m.role === 'owner' && (
+                        <Text style={styles.ownerBadge}>EIGENAAR</Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* ─── onze recepten ─── */}
         <View style={styles.section}>
@@ -1078,6 +1202,59 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
     lineHeight: 20,
+  },
+
+  // Invite codes
+  codeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.borderSoft,
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
+  codeText: {
+    flex: 1,
+    fontFamily: fonts.mono,
+    fontSize: 16,
+    letterSpacing: 2,
+    color: colors.textDark,
+  },
+  codeHint: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 11,
+    color: colors.textFaint,
+    marginBottom: 8,
+  },
+  codeListItem: {
+    flex: 1,
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    letterSpacing: 1.4,
+    color: colors.textMedium,
+  },
+  codeExpiry: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.textFaint,
+  },
+
+  // Cloud family members
+  ownerBadge: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.primary,
+    borderWidth: 0.5,
+    borderColor: colors.primary,
+    borderRadius: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
   },
 });
 

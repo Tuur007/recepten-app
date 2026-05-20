@@ -30,6 +30,7 @@ import { CookTimer } from '../../components/ui/CookTimer';
 import { MetaStrip } from '../../components/ui/EditorialBits';
 import { RecipeShareCard } from '../../components/ui/RecipeShareCard';
 import { shareRecipeCard } from '../../utils/shareRecipe';
+import { shareRecipeViaWhatsApp } from '../../services/recipeShareService';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
 import { generateId } from '../../utils/id';
@@ -74,6 +75,7 @@ export default function RecipeDetailScreen() {
   const [notesEdit, setNotesEdit] = useState(false);
   const [notesTxt, setNotesTxt] = useState(() => recipe?.notes ?? '');
   const [sharing, setSharing] = useState(false);
+  const [sharingLink, setSharingLink] = useState(false);
   const shareCardRef = useRef<View>(null);
 
   // Use the recipe's own servings as the base; fall back to 4
@@ -97,6 +99,19 @@ export default function RecipeDetailScreen() {
   }
 
   const steps = recipe.steps ?? [];
+
+  const handleShareLink = async () => {
+    if (sharingLink) return;
+    setSharingLink(true);
+    haptics.light();
+    try {
+      await shareRecipeViaWhatsApp(recipe);
+    } catch (err) {
+      toast.error('Delen mislukt', err instanceof Error ? err.message : 'Controleer je internetverbinding.');
+    } finally {
+      setSharingLink(false);
+    }
+  };
 
   const handleDeleteRecipe = () => {
     Alert.alert(
@@ -237,6 +252,17 @@ export default function RecipeDetailScreen() {
               name="share-social-outline"
               size={20}
               color={sharing ? colors.textFaint : colors.textDark}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleShareLink}
+            hitSlop={8}
+            disabled={sharingLink}
+          >
+            <Ionicons
+              name="link-outline"
+              size={20}
+              color={sharingLink ? colors.textFaint : colors.textDark}
             />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleDeleteRecipe} hitSlop={8}>

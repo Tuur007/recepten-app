@@ -114,11 +114,13 @@ ALTER TABLE grocery_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE week_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shared_recipes ENABLE ROW LEVEL SECURITY;
 
--- Helper functie: geeft family_id terug van ingelogde user
+-- Helper functie: geeft family_id terug van ingelogde user.
+-- ORDER BY joined_at ASC zorgt dat het oudste (= primaire) lidmaatschap wint.
 CREATE OR REPLACE FUNCTION public.my_family_id()
 RETURNS UUID AS $$
   SELECT family_id FROM public.family_members
   WHERE user_id = auth.uid()
+  ORDER BY joined_at ASC
   LIMIT 1
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
 
@@ -158,11 +160,19 @@ CREATE POLICY "own invite codes" ON invite_codes
 CREATE POLICY "redeem invite codes" ON invite_codes
   FOR SELECT USING (used_by IS NULL AND expires_at > now());
 
--- Shared recipes: iedereen met token kan lezen
-CREATE POLICY "public read with token" ON shared_recipes
-  FOR SELECT USING (true);
+-- Shared recipes: niet rechtstreeks leesbaar — gebruik get_shared_recipe(token)
 CREATE POLICY "own family shares" ON shared_recipes
   FOR INSERT WITH CHECK (from_family_id = public.my_family_id());
+
+CREATE OR REPLACE FUNCTION public.get_shared_recipe(token TEXT)
+RETURNS SETOF shared_recipes AS $$
+  SELECT * FROM public.shared_recipes
+  WHERE share_token = token
+    AND (expires_at IS NULL OR expires_at > now())
+  LIMIT 1
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.get_shared_recipe(TEXT) TO anon, authenticated;
 
 -- Realtime inschakelen
 ALTER PUBLICATION supabase_realtime ADD TABLE recipes;

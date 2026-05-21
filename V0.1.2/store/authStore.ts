@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 
@@ -16,85 +17,87 @@ interface AuthState {
   setFamilyId: (id: string | null) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  session: null,
-  user: null,
-  familyId: null,
-  isLoading: false,
-  isInitialized: false,
+export const useAuthStore = create<AuthState>()(
+  immer((set) => ({
+    session: null,
+    user: null,
+    familyId: null,
+    isLoading: false,
+    isInitialized: false,
 
-  initialize: async () => {
-    if (!supabase) {
-      set({ isInitialized: true });
-      return;
-    }
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      set({ session, user: session?.user ?? null });
-
-      if (session?.user) {
-        try {
-          const { data } = await supabase
-            .from('family_members')
-            .select('family_id')
-            .eq('user_id', session.user.id)
-            .single();
-          set({ familyId: data?.family_id ?? null });
-        } catch {
-          // Network/RLS may block this; safe to continue
-        }
+    initialize: async () => {
+      if (!supabase) {
+        set({ isInitialized: true });
+        return;
       }
-
-      set({ isInitialized: true });
-
-      supabase.auth.onAuthStateChange(async (_event, session) => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         set({ session, user: session?.user ?? null });
-        if (!session?.user || !supabase) {
-          set({ familyId: null });
-          return;
+
+        if (session?.user) {
+          try {
+            const { data } = await supabase
+              .from('family_members')
+              .select('family_id')
+              .eq('user_id', session.user.id)
+              .single();
+            set({ familyId: data?.family_id ?? null });
+          } catch {
+            // Network/RLS may block this; safe to continue
+          }
         }
-        try {
-          const { data } = await supabase
-            .from('family_members')
-            .select('family_id')
-            .eq('user_id', session.user.id)
-            .single();
-          set({ familyId: data?.family_id ?? null });
-        } catch {
-          // ignore
-        }
-      });
-    } catch {
-      set({ isInitialized: true });
-    }
-  },
 
-  signIn: async (email, password) => {
-    if (!supabase) throw new Error('Supabase niet geconfigureerd.');
-    set({ isLoading: true });
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-    } finally {
-      set({ isLoading: false });
-    }
-  },
+        set({ isInitialized: true });
 
-  signUp: async (email, password) => {
-    if (!supabase) throw new Error('Supabase niet geconfigureerd.');
-    set({ isLoading: true });
-    try {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
-    } finally {
-      set({ isLoading: false });
-    }
-  },
+        supabase.auth.onAuthStateChange(async (_event, session) => {
+          set({ session, user: session?.user ?? null });
+          if (!session?.user || !supabase) {
+            set({ familyId: null });
+            return;
+          }
+          try {
+            const { data } = await supabase
+              .from('family_members')
+              .select('family_id')
+              .eq('user_id', session.user.id)
+              .single();
+            set({ familyId: data?.family_id ?? null });
+          } catch {
+            // ignore
+          }
+        });
+      } catch {
+        set({ isInitialized: true });
+      }
+    },
 
-  signOut: async () => {
-    if (supabase) await supabase.auth.signOut();
-    set({ session: null, user: null, familyId: null });
-  },
+    signIn: async (email, password) => {
+      if (!supabase) throw new Error('Supabase niet geconfigureerd.');
+      set({ isLoading: true });
+      try {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } finally {
+        set({ isLoading: false });
+      }
+    },
 
-  setFamilyId: (familyId) => set({ familyId }),
-}));
+    signUp: async (email, password) => {
+      if (!supabase) throw new Error('Supabase niet geconfigureerd.');
+      set({ isLoading: true });
+      try {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+      } finally {
+        set({ isLoading: false });
+      }
+    },
+
+    signOut: async () => {
+      if (supabase) await supabase.auth.signOut();
+      set({ session: null, user: null, familyId: null });
+    },
+
+    setFamilyId: (familyId) => set({ familyId }),
+  })),
+);

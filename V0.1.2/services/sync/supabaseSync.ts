@@ -1,7 +1,12 @@
-import { supabase } from '../supabase';
+import { type SQLiteDatabase } from 'expo-sqlite';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { supabase as defaultSupabase } from '../supabase';
 import { useRecipeStore } from '../../store/recipeStore';
 import { useGroceryStore } from '../../store/groceryStore';
+import { useWeekPlannerStore, type MealPlan, type WeeksMap } from '../../store/weekPlannerStore';
 import { useAuthStore } from '../../store/authStore';
+import { RecipeRepository } from '../../features/recipes/repository';
+import { GroceryRepository } from '../../features/grocery/repository';
 import type { Recipe } from '../../types/recipe';
 import type { GroceryItem } from '../../types/grocery';
 
@@ -96,71 +101,129 @@ function rowToGrocery(row: Record<string, unknown>): GroceryItem {
 // ─── Push (lokaal → Supabase) ─────────────────────────────────────────────────
 
 export async function pushRecipe(recipe: Recipe): Promise<void> {
-  if (!supabase) return;
+  if (!defaultSupabase) return;
   const familyId = useAuthStore.getState().familyId;
   if (!familyId) return;
-  await supabase.from('recipes').upsert(recipeToRow(recipe, familyId));
+  await defaultSupabase.from('recipes').upsert(recipeToRow(recipe, familyId));
 }
 
 export async function deleteRecipeRemote(id: string): Promise<void> {
-  if (!supabase) return;
-  await supabase
+  if (!defaultSupabase) return;
+  await defaultSupabase
     .from('recipes')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id);
 }
 
 export async function pushGroceryItem(item: GroceryItem): Promise<void> {
-  if (!supabase) return;
+  if (!defaultSupabase) return;
   const familyId = useAuthStore.getState().familyId;
   if (!familyId) return;
-  await supabase.from('grocery_items').upsert(groceryToRow(item, familyId));
+  await defaultSupabase.from('grocery_items').upsert(groceryToRow(item, familyId));
 }
 
 export async function deleteGroceryItemRemote(id: string): Promise<void> {
-  if (!supabase) return;
-  await supabase
+  if (!defaultSupabase) return;
+  await defaultSupabase
     .from('grocery_items')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id);
 }
 
+export async function pushWeekPlan(weekKey: string, plan: MealPlan): Promise<void> {
+  if (!defaultSupabase) return;
+  const familyId = useAuthStore.getState().familyId;
+  if (!familyId) return;
+  await defaultSupabase
+    .from('week_plans')
+    .upsert(
+      {
+        family_id: familyId,
+        week_key: weekKey,
+        plan_data: plan,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'family_id,week_key' },
+    );
+}
+
 // ─── Pull (Supabase → lokaal) ─────────────────────────────────────────────────
 
-export async function pullAll(): Promise<void> {
-  if (!supabase) return;
+interface WeekPlanRow {
+  week_key: string;
+  plan_data: MealPlan;
+}
+
+function mergeIncomingWeeks(existing: WeeksMap, rows: WeekPlanRow[]): WeeksMap {
+  const merged: WeeksMap = { ...existing };
+  for (const row of rows) {
+    if (row?.week_key && row?.plan_data && typeof row.plan_data === 'object') {
+      merged[row.week_key] = row.plan_data;
+    }
+  }
+  return merged;
+}
+
+/**
+ * Haalt alle gezins-data uit Supabase en schrijft die door naar SQLite én
+ * naar de in-memory stores. Het `client`-argument is overridebaar voor tests;
+ * in productie wordt de default Supabase-client gebruikt.
+ */
+export async function pullAll(
+  db: SQLiteDatabase,
+  client: SupabaseClient | null = defaultSupabase,
+): Promise<void> {
+  if (!client) return;
   const familyId = useAuthStore.getState().familyId;
   if (!familyId) return;
 
-  const [recipesRes, groceryRes] = await Promise.all([
-    supabase
+  const [recipesRes, groceryRes, weeksRes] = await Promise.all([
+    client
       .from('recipes')
       .select('*')
       .eq('family_id', familyId)
       .is('deleted_at', null),
-    supabase
+    client
       .from('grocery_items')
       .select('*')
       .eq('family_id', familyId)
       .is('deleted_at', null),
+    client
+      .from('week_plans')
+      .select('*')
+      .eq('family_id', familyId),
   ]);
 
-  if (recipesRes.data) {
+  if (recipesRes.data && Array.isArray(recipesRes.data)) {
     const recipes = recipesRes.data.map(rowToRecipe);
+    await RecipeRepository.upsertMany(db, recipes);
     useRecipeStore.getState().setRecipes(recipes);
   }
 
-  if (groceryRes.data) {
+  if (groceryRes.data && Array.isArray(groceryRes.data)) {
     const items = groceryRes.data.map(rowToGrocery);
+    await GroceryRepository.upsertMany(db, items);
     useGroceryStore.getState().setItems(items);
+  }
+
+  if (weeksRes.data && Array.isArray(weeksRes.data)) {
+    const merged = mergeIncomingWeeks(
+      useWeekPlannerStore.getState().weeks,
+      weeksRes.data as WeekPlanRow[],
+    );
+    useWeekPlannerStore.getState().setWeeks(merged);
   }
 }
 
 // ─── Realtime subscriptions ───────────────────────────────────────────────────
 
-export function subscribeToFamily(familyId: string): () => void {
-  if (!supabase) return () => {};
-  const client = supabase;
+export function subscribeToFamily(
+  familyId: string,
+  db: SQLiteDatabase,
+  client: SupabaseClient | null = defaultSupabase,
+): () => void {
+  if (!client) return () => {};
+
   const recipeChannel = client
     .channel(`recipes:${familyId}`)
     .on(
@@ -171,14 +234,17 @@ export function subscribeToFamily(familyId: string): () => void {
         const newRow = payload.new as Record<string, unknown> | undefined;
         const oldRow = payload.old as Record<string, unknown> | undefined;
         if (payload.eventType === 'DELETE' || newRow?.deleted_at) {
-          store.removeRecipe(((oldRow?.id ?? newRow?.id) as string));
+          const id = (oldRow?.id ?? newRow?.id) as string;
+          store.removeRecipe(id);
+          RecipeRepository.delete(db, id).catch(console.error);
         } else if (payload.eventType === 'INSERT' && newRow) {
-          store.addRecipe(rowToRecipe(newRow));
+          const recipe = rowToRecipe(newRow);
+          store.addRecipe(recipe);
+          RecipeRepository.upsertMany(db, [recipe]).catch(console.error);
         } else if (payload.eventType === 'UPDATE' && newRow) {
-          store.updateRecipeInStore(
-            newRow.id as string,
-            rowToRecipe(newRow),
-          );
+          const recipe = rowToRecipe(newRow);
+          store.updateRecipeInStore(recipe.id, recipe);
+          RecipeRepository.upsertMany(db, [recipe]).catch(console.error);
         }
       },
     )
@@ -194,15 +260,38 @@ export function subscribeToFamily(familyId: string): () => void {
         const newRow = payload.new as Record<string, unknown> | undefined;
         const oldRow = payload.old as Record<string, unknown> | undefined;
         if (payload.eventType === 'DELETE' || newRow?.deleted_at) {
-          store.deleteItem(((oldRow?.id ?? newRow?.id) as string));
+          const id = (oldRow?.id ?? newRow?.id) as string;
+          store.deleteItem(id);
+          GroceryRepository.delete(db, id).catch(console.error);
         } else if (payload.eventType === 'INSERT' && newRow) {
-          store.addItem(rowToGrocery(newRow));
+          const item = rowToGrocery(newRow);
+          store.addItem(item);
+          GroceryRepository.upsertMany(db, [item]).catch(console.error);
         } else if (payload.eventType === 'UPDATE' && newRow) {
-          store.updateItemInStore(
-            newRow.id as string,
-            rowToGrocery(newRow),
-          );
+          const item = rowToGrocery(newRow);
+          store.updateItemInStore(item.id, item);
+          GroceryRepository.upsertMany(db, [item]).catch(console.error);
         }
+      },
+    )
+    .subscribe();
+
+  const weekPlanChannel = client
+    .channel(`weekplans:${familyId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'week_plans', filter: `family_id=eq.${familyId}` },
+      (payload) => {
+        const newRow = payload.new as Record<string, unknown> | undefined;
+        if (!newRow) return;
+        const weekKey = newRow.week_key as string;
+        const planData = newRow.plan_data as MealPlan;
+        if (!weekKey || !planData) return;
+        const merged = mergeIncomingWeeks(
+          useWeekPlannerStore.getState().weeks,
+          [{ week_key: weekKey, plan_data: planData }],
+        );
+        useWeekPlannerStore.getState().setWeeks(merged);
       },
     )
     .subscribe();
@@ -210,5 +299,6 @@ export function subscribeToFamily(familyId: string): () => void {
   return () => {
     client.removeChannel(recipeChannel);
     client.removeChannel(groceryChannel);
+    client.removeChannel(weekPlanChannel);
   };
 }

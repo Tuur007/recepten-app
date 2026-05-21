@@ -83,6 +83,61 @@ export const RecipeRepository = {
     return row ? rowToRecipe(row) : null;
   },
 
+  async upsertMany(db: SQLiteDatabase, recipes: Recipe[]): Promise<void> {
+    for (const r of recipes) {
+      await db.runAsync(
+        `INSERT INTO recipes (
+           id, title, ingredients, steps, source_url, duration, category, is_favorite,
+           image_uri, allergens, created_at, updated_at, difficulty, preparation_time,
+           cooking_time, servings, rating, times_cooked, last_cooked, notes, equipment
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           title = excluded.title,
+           ingredients = excluded.ingredients,
+           steps = excluded.steps,
+           source_url = excluded.source_url,
+           duration = excluded.duration,
+           category = excluded.category,
+           is_favorite = excluded.is_favorite,
+           image_uri = excluded.image_uri,
+           allergens = excluded.allergens,
+           updated_at = excluded.updated_at,
+           difficulty = excluded.difficulty,
+           preparation_time = excluded.preparation_time,
+           cooking_time = excluded.cooking_time,
+           servings = excluded.servings,
+           rating = excluded.rating,
+           times_cooked = excluded.times_cooked,
+           last_cooked = excluded.last_cooked,
+           notes = excluded.notes,
+           equipment = excluded.equipment`,
+        [
+          r.id,
+          r.title,
+          JSON.stringify(r.ingredients ?? []),
+          JSON.stringify(r.steps ?? []),
+          r.sourceUrl ?? null,
+          r.duration ?? null,
+          r.category ?? '',
+          r.isFavorite ? 1 : 0,
+          r.imageUri ?? null,
+          JSON.stringify(r.allergens ?? []),
+          r.createdAt,
+          r.updatedAt,
+          r.difficulty ?? null,
+          r.preparationTime ?? null,
+          r.cookingTime ?? null,
+          r.servings ?? null,
+          r.rating ?? null,
+          r.timesCooked ?? 0,
+          r.lastCooked ?? null,
+          r.notes ?? null,
+          r.equipment ? JSON.stringify(r.equipment) : null,
+        ],
+      );
+    }
+  },
+
   async create(db: SQLiteDatabase, input: RecipeInput): Promise<Recipe> {
     const id = generateId();
     const now = new Date().toISOString();

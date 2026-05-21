@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { GroceryItem } from '../types/grocery';
 
 interface GroceryState {
@@ -12,61 +13,60 @@ interface GroceryState {
   addItem: (item: GroceryItem) => void;
   addItems: (items: GroceryItem[]) => void;
   updateItemInStore: (id: string, updates: Partial<GroceryItem>) => void;
-  removeItem: (id: string) => void;
+  deleteItem: (id: string) => void;
   clearChecked: () => void;
   selectAll: (checked: boolean) => void;
-  deleteItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   getCheckedCount: () => number;
   getUncheckedCount: () => number;
   getTotal: () => number;
 }
 
-export const useGroceryStore = create<GroceryState>((set, get) => ({
-  items: [],
-  isLoading: false,
-  hasLoaded: false,
+export const useGroceryStore = create<GroceryState>()(
+  immer((set, get) => ({
+    items: [],
+    isLoading: false,
+    hasLoaded: false,
 
-  setItems: (items) => set({ items }),
-  setLoading: (isLoading) => set({ isLoading }),
-  setLoaded: (hasLoaded) => set({ hasLoaded }),
+    setItems: (items) => set({ items }),
+    setLoading: (isLoading) => set({ isLoading }),
+    setLoaded: (hasLoaded) => set({ hasLoaded }),
 
-  addItem: (item) =>
-    set((state) => ({ items: [...state.items, item] })),
+    addItem: (item) =>
+      set((s) => { s.items.push(item); }),
 
-  addItems: (newItems) =>
-    set((state) => ({ items: [...state.items, ...newItems] })),
+    addItems: (newItems) =>
+      set((s) => { s.items.push(...newItems); }),
 
-  updateItemInStore: (id, updates) =>
-    set((state) => ({
-      items: state.items.map((i) => (i.id === id ? { ...i, ...updates } : i)),
-    })),
+    updateItemInStore: (id, updates) =>
+      set((s) => {
+        const item = s.items.find((i) => i.id === id);
+        if (item) Object.assign(item, updates);
+      }),
 
-  removeItem: (id) =>
-    set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
+    deleteItem: (id) =>
+      set((s) => { s.items = s.items.filter((i) => i.id !== id); }),
 
-  clearChecked: () =>
-    set((state) => ({ items: state.items.filter((i) => !i.checked) })),
+    clearChecked: () =>
+      set((s) => { s.items = s.items.filter((i) => !i.checked); }),
 
-  selectAll: (checked) =>
-    set((state) => ({ items: state.items.map((i) => ({ ...i, checked })) })),
+    selectAll: (checked) =>
+      set((s) => { s.items.forEach((i) => { i.checked = checked; }); }),
 
-  deleteItem: (id) =>
-    set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
+    updateQuantity: (id, quantity) =>
+      set((s) => {
+        const item = s.items.find((i) => i.id === id);
+        if (item) item.totalQuantity = quantity;
+      }),
 
-  updateQuantity: (id, quantity) =>
-    set((state) => ({
-      items: state.items.map((i) => (i.id === id ? { ...i, totalQuantity: quantity } : i)),
-    })),
+    getCheckedCount: () => get().items.filter((i) => i.checked).length,
 
-  getCheckedCount: () => get().items.filter((i) => i.checked).length,
+    getUncheckedCount: () => get().items.filter((i) => !i.checked).length,
 
-  getUncheckedCount: () => get().items.filter((i) => !i.checked).length,
-
-  getTotal: () =>
-    get().items.reduce((sum, item) => {
-      if (item.price == null) return sum;
-      const multiplier = item.totalQuantity > 0 ? item.totalQuantity : 1;
-      return sum + item.price * multiplier;
-    }, 0),
-}));
+    getTotal: () =>
+      get().items.reduce((sum, item) => {
+        if (item.price == null) return sum;
+        return sum + item.price * item.totalQuantity;
+      }, 0),
+  })),
+);

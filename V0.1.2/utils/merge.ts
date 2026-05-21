@@ -1,7 +1,12 @@
 import { GroceryItem, SourceLineage, computeTotalQuantity } from '../types/grocery';
 import { Ingredient } from '../types/recipe';
 import { generateId } from './id';
-import { normalizeIngredientName, normalizeUnit, areUnitsCompatible } from './normalize';
+import {
+  normalizeIngredientName,
+  normalizeUnit,
+  areUnitsCompatible,
+  inferCategoryFromName,
+} from './normalize';
 import { getAisleForItem } from '../constants/aisles';
 
 export function mergeIngredientsIntoGrocery(
@@ -66,7 +71,7 @@ export function mergeIngredientsIntoGrocery(
         id: generateId(),
         name: ingredient.name,
         unit: ingredient.unit,
-        category: '',
+        category: inferCategoryFromName(ingredient.name),
         sources,
         totalQuantity: computeTotalQuantity(sources),
         checked: false,

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { useEffect } from 'react';
 import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
 
@@ -65,50 +66,36 @@ interface WeekPlannerState {
   setHydrated: () => void;
 }
 
-export const useWeekPlannerStore = create<WeekPlannerState>((set, get) => ({
-  weeks: {},
-  hydrated: false,
+export const useWeekPlannerStore = create<WeekPlannerState>()(
+  immer((set, get) => ({
+    weeks: {},
+    hydrated: false,
 
-  getMealPlan: (weekKey) => get().weeks[weekKey] ?? EMPTY_WEEK_FROZEN,
+    getMealPlan: (weekKey) => get().weeks[weekKey] ?? EMPTY_WEEK_FROZEN,
 
-  setMeal: (weekKey, day, mealType, recipeId) =>
-    set((state) => {
-      const week = state.weeks[weekKey] ?? emptyWeek();
-      return {
-        weeks: {
-          ...state.weeks,
-          [weekKey]: {
-            ...week,
-            [day]: { ...(week[day] ?? emptyDay()), [mealType]: recipeId },
-          },
-        },
-      };
-    }),
+    setMeal: (weekKey, day, mealType, recipeId) =>
+      set((s) => {
+        if (!s.weeks[weekKey]) s.weeks[weekKey] = emptyWeek();
+        if (!s.weeks[weekKey][day]) s.weeks[weekKey][day] = emptyDay();
+        s.weeks[weekKey][day][mealType] = recipeId;
+      }),
 
-  removeMeal: (weekKey, day, mealType) =>
-    set((state) => {
-      const week = state.weeks[weekKey] ?? emptyWeek();
-      return {
-        weeks: {
-          ...state.weeks,
-          [weekKey]: {
-            ...week,
-            [day]: { ...(week[day] ?? emptyDay()), [mealType]: null },
-          },
-        },
-      };
-    }),
+    removeMeal: (weekKey, day, mealType) =>
+      set((s) => {
+        if (!s.weeks[weekKey]) s.weeks[weekKey] = emptyWeek();
+        if (!s.weeks[weekKey][day]) s.weeks[weekKey][day] = emptyDay();
+        s.weeks[weekKey][day][mealType] = null;
+      }),
 
-  clearWeek: (weekKey) =>
-    set((state) => ({
-      weeks: { ...state.weeks, [weekKey]: emptyWeek() },
-    })),
+    clearWeek: (weekKey) =>
+      set((s) => { s.weeks[weekKey] = emptyWeek(); }),
 
-  clearAll: () => set({ weeks: {} }),
+    clearAll: () => set({ weeks: {} }),
 
-  setWeeks: (weeks) => set({ weeks }),
-  setHydrated: () => set({ hydrated: true }),
-}));
+    setWeeks: (weeks) => set({ weeks }),
+    setHydrated: () => set({ hydrated: true }),
+  })),
+);
 
 /** Reactieve hook voor één week — gebruikt door de planner en home. */
 export function useMealPlan(weekKey: string): MealPlan {

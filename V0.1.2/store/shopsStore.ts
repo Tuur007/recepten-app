@@ -1,6 +1,7 @@
 import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
 import { useEffect } from 'react';
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { generateId } from '../utils/id';
 
 export interface Shop {
@@ -28,12 +29,14 @@ interface ShopsState {
   setHydrated: () => void;
 }
 
-export const useShopsStore = create<ShopsState>((set) => ({
-  shops: DEFAULT_SHOPS,
-  hydrated: false,
-  setShopsInternal: (shops) => set({ shops }),
-  setHydrated: () => set({ hydrated: true }),
-}));
+export const useShopsStore = create<ShopsState>()(
+  immer((set) => ({
+    shops: DEFAULT_SHOPS,
+    hydrated: false,
+    setShopsInternal: (shops) => set({ shops }),
+    setHydrated: () => set({ hydrated: true }),
+  })),
+);
 
 async function persistShops(db: SQLiteDatabase, shops: Shop[]): Promise<void> {
   await db.runAsync(

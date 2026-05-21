@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Category, CategoryRepository } from '../features/categories/repository';
@@ -18,32 +19,38 @@ interface CategoriesState {
   removeCategoryFromStore: (id: string) => void;
 }
 
-export const useCategoriesStore = create<CategoriesState>((set) => ({
-  recipeCategories: [],
-  groceryCategories: [],
-  isLoading: false,
-  hasLoaded: false,
-  setRecipeCategories: (cats) => set({ recipeCategories: cats }),
-  setGroceryCategories: (cats) => set({ groceryCategories: cats }),
-  setLoading: (v) => set({ isLoading: v }),
-  setLoaded: (v) => set({ hasLoaded: v }),
-  addCategory: (cat) =>
-    set((s) =>
-      cat.type === 'recipe'
-        ? { recipeCategories: [...s.recipeCategories, cat] }
-        : { groceryCategories: [...s.groceryCategories, cat] },
-    ),
-  updateCategoryInStore: (id, name) =>
-    set((s) => ({
-      recipeCategories: s.recipeCategories.map((c) => (c.id === id ? { ...c, name } : c)),
-      groceryCategories: s.groceryCategories.map((c) => (c.id === id ? { ...c, name } : c)),
-    })),
-  removeCategoryFromStore: (id) =>
-    set((s) => ({
-      recipeCategories: s.recipeCategories.filter((c) => c.id !== id),
-      groceryCategories: s.groceryCategories.filter((c) => c.id !== id),
-    })),
-}));
+export const useCategoriesStore = create<CategoriesState>()(
+  immer((set) => ({
+    recipeCategories: [],
+    groceryCategories: [],
+    isLoading: false,
+    hasLoaded: false,
+    setRecipeCategories: (cats) => set({ recipeCategories: cats }),
+    setGroceryCategories: (cats) => set({ groceryCategories: cats }),
+    setLoading: (v) => set({ isLoading: v }),
+    setLoaded: (v) => set({ hasLoaded: v }),
+
+    addCategory: (cat) =>
+      set((s) => {
+        if (cat.type === 'recipe') s.recipeCategories.push(cat);
+        else s.groceryCategories.push(cat);
+      }),
+
+    updateCategoryInStore: (id, name) =>
+      set((s) => {
+        const rc = s.recipeCategories.find((c) => c.id === id);
+        if (rc) rc.name = name;
+        const gc = s.groceryCategories.find((c) => c.id === id);
+        if (gc) gc.name = name;
+      }),
+
+    removeCategoryFromStore: (id) =>
+      set((s) => {
+        s.recipeCategories = s.recipeCategories.filter((c) => c.id !== id);
+        s.groceryCategories = s.groceryCategories.filter((c) => c.id !== id);
+      }),
+  })),
+);
 
 export function useCategories() {
   const db = useSQLiteContext();

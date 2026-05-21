@@ -1,0 +1,43 @@
+{
+  "extends": "../V0.1.2/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../V0.1.2/*"],
+      "react-native": ["./empty-stub.mjs"],
+      "react-native/*": ["./empty-stub.mjs"],
+      "@react-native-async-storage/async-storage": ["./empty-stub.mjs"],
+      "expo-sqlite": ["./empty-stub.mjs"],
+      "expo-sqlite/*": ["./empty-stub.mjs"],
+      "expo-haptics": ["./empty-stub.mjs"],
+      "react-native-toast-message": ["./empty-stub.mjs"],
+      "expo-file-system": ["./empty-stub.mjs"],
+      "expo-file-system/*": ["./empty-stub.mjs"],
+      "@react-native-community/netinfo": ["./empty-stub.mjs"],
+      "expo-router": ["./empty-stub.mjs"],
+      "expo-router/*": ["./empty-stub.mjs"],
+      "expo-constants": ["./empty-stub.mjs"],
+      "expo-camera": ["./empty-stub.mjs"],
+      "expo-image-picker": ["./empty-stub.mjs"],
+      "expo-document-picker": ["./empty-stub.mjs"],
+      "expo-sharing": ["./empty-stub.mjs"],
+      "expo-notifications": ["./empty-stub.mjs"],
+      "expo-keep-awake": ["./empty-stub.mjs"],
+      "expo-linking": ["./empty-stub.mjs"],
+      "expo-status-bar": ["./empty-stub.mjs"],
+      "expo-font": ["./empty-stub.mjs"],
+      "@expo/vector-icons": ["./empty-stub.mjs"],
+      "@expo/vector-icons/*": ["./empty-stub.mjs"],
+      "react-native-view-shot": ["./empty-stub.mjs"],
+      "react-native-gesture-handler": ["./empty-stub.mjs"],
+      "react-native-reanimated": ["./empty-stub.mjs"],
+      "react-native-screens": ["./empty-stub.mjs"],
+      "react-native-safe-area-context": ["./empty-stub.mjs"],
+      "react-native-url-polyfill": ["./empty-stub.mjs"],
+      "react-native-url-polyfill/auto": ["./empty-stub.mjs"],
+      "@expo-google-fonts/fraunces": ["./empty-stub.mjs"],
+      "@expo-google-fonts/inter": ["./empty-stub.mjs"],
+      "@expo-google-fonts/jetbrains-mono": ["./empty-stub.mjs"]
+    }
+  }
+}

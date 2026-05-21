@@ -1,6 +1,7 @@
 import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
 import { useEffect } from 'react';
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { generateId } from '../utils/id';
 
 export interface FamilyMember {
@@ -36,17 +37,19 @@ interface FamilyState {
   setHydrated: () => void;
 }
 
-export const useFamilyStore = create<FamilyState>((set) => ({
-  members: [],
-  familyName: '',
-  onboardingComplete: false,
-  hydrated: false,
+export const useFamilyStore = create<FamilyState>()(
+  immer((set) => ({
+    members: [],
+    familyName: '',
+    onboardingComplete: false,
+    hydrated: false,
 
-  setMembersInternal: (members) => set({ members }),
-  setFamilyNameInternal: (familyName) => set({ familyName }),
-  setOnboardingCompleteInternal: (onboardingComplete) => set({ onboardingComplete }),
-  setHydrated: () => set({ hydrated: true }),
-}));
+    setMembersInternal: (members) => set({ members }),
+    setFamilyNameInternal: (familyName) => set({ familyName }),
+    setOnboardingCompleteInternal: (onboardingComplete) => set({ onboardingComplete }),
+    setHydrated: () => set({ hydrated: true }),
+  })),
+);
 
 async function writePref(db: SQLiteDatabase, key: string, value: string): Promise<void> {
   await db.runAsync(

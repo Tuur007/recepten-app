@@ -18,7 +18,7 @@ export function useGrocery() {
     setLoaded,
     addItem,
     updateItemInStore,
-    removeItem,
+    deleteItem,
     clearChecked: clearCheckedInStore,
   } = useGroceryStore();
 
@@ -110,7 +110,7 @@ export function useGrocery() {
 
       if (filteredSources.length === 0) {
         // Optimistic: remove immediately
-        removeItem(item.id);
+        deleteItem(item.id);
         try {
           await GroceryRepository.delete(db, item.id);
         } catch (err) {
@@ -132,7 +132,7 @@ export function useGrocery() {
         }
       }
     },
-    [db, items, removeItem, updateItemInStore, addItem],
+    [db, items, deleteItem, updateItemInStore, addItem],
   );
 
   const toggleChecked = useCallback(
@@ -160,7 +160,7 @@ export function useGrocery() {
     async (id: string): Promise<void> => {
       const item = items.find((i) => i.id === id);
       // Optimistic
-      removeItem(id);
+      deleteItem(id);
       try {
         await GroceryRepository.delete(db, id);
         haptics.medium();
@@ -171,7 +171,7 @@ export function useGrocery() {
         throw err;
       }
     },
-    [db, items, removeItem, addItem],
+    [db, items, deleteItem, addItem],
   );
 
   const clearChecked = useCallback(async (): Promise<void> => {

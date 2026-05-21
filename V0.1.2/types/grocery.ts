@@ -14,6 +14,8 @@ export interface GroceryItem {
   totalQuantity: number; // always === sum(sources.map(s => s.quantity))
   checked: boolean;
   createdAt: string;
+  // Prijs per eenheid (in dezelfde unit als `unit`). getTotal() vermenigvuldigt
+  // direct met totalQuantity zonder verdere correctie.
   price?: number;
   aisle?: string;
   storeId?: string;

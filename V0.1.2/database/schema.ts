@@ -156,7 +156,7 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE grocery_items ADD COLUMN store_id TEXT`,
   // v24: nutritie-data per recept (JSON-blob met NutritionInfo)
   `ALTER TABLE recipes ADD COLUMN nutrition TEXT`,
-  // v25: recipe collections — twee tabellen via CREATE IF NOT EXISTS
+  // v25: recipe collections — gebruikersgemaakte mappen
   `CREATE TABLE IF NOT EXISTS collections (
     id          TEXT PRIMARY KEY NOT NULL,
     name        TEXT NOT NULL,
@@ -164,6 +164,7 @@ export const MIGRATIONS: string[] = [
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
   )`,
+  // v26: koppeltabel recipe ↔ collection (many-to-many)
   `CREATE TABLE IF NOT EXISTS collection_recipes (
     collection_id TEXT NOT NULL,
     recipe_id     TEXT NOT NULL,

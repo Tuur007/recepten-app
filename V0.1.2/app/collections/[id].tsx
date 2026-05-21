@@ -85,10 +85,11 @@ export default function CollectionDetailScreen() {
       {
         text: 'Verwijderen',
         style: 'destructive',
-        onPress: async () => {
-          await remove(collection.id);
-          haptics.success();
+        // Eerst navigeren — anders renderen we 1 frame de "niet gevonden" branch
+        // tussen store-update en navigate-back.
+        onPress: () => {
           router.back();
+          remove(collection.id).then(() => haptics.success()).catch(() => {});
         },
       },
     ]);

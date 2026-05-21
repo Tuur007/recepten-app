@@ -34,6 +34,7 @@ function recipeToRow(recipe: Recipe, familyId: string) {
     last_cooked: recipe.lastCooked ?? null,
     notes: recipe.notes ?? null,
     equipment: recipe.equipment ?? null,
+    nutrition: recipe.nutrition ?? null,
     created_at: recipe.createdAt,
     updated_at: recipe.updatedAt,
   };
@@ -60,6 +61,9 @@ function rowToRecipe(row: Record<string, unknown>): Recipe {
     lastCooked: row.last_cooked as string | undefined,
     notes: row.notes as string | undefined,
     equipment: Array.isArray(row.equipment) ? row.equipment as string[] : undefined,
+    nutrition: (row.nutrition && typeof row.nutrition === 'object')
+      ? (row.nutrition as Recipe['nutrition'])
+      : undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

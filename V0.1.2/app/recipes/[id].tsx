@@ -505,7 +505,11 @@ export default function RecipeDetailScreen() {
         })()}
 
         {/* Nutritie */}
-        <Section title="iv. nutritie" count={recipe.nutrition?.matchedIngredients ?? 0} suffix="ingr." />
+        <Section
+          title="iv. nutritie"
+          count={recipe.nutrition?.matchedIngredients ?? 0}
+          suffix={recipe.nutrition ? 'ingr.' : 'per portie'}
+        />
         <NutritionPanel
           nutrition={recipe.nutrition}
           loading={computingNutrition}
@@ -758,7 +762,13 @@ export default function RecipeDetailScreen() {
               <Ionicons name="close" size={22} color={colors.textLight} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>In collectie zetten</Text>
-            <TouchableOpacity onPress={() => router.push('/collections')} hitSlop={8}>
+            <TouchableOpacity
+              onPress={() => {
+                setCollectionsPickerVisible(false);
+                router.push('/collections');
+              }}
+              hitSlop={8}
+            >
               <Ionicons name="add" size={22} color={colors.primary} />
             </TouchableOpacity>
           </View>
@@ -980,7 +990,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
-  headerActions: { flexDirection: 'row', gap: 16, alignItems: 'center' },
+  headerActions: { flexDirection: 'row', gap: 14, alignItems: 'center' },
   hero: { width: '100%', height: 240 },
   metaStrip: {
     marginHorizontal: spacing.lg,

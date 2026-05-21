@@ -43,7 +43,6 @@ interface RawProduct {
   completeness?: number;
   nutriments?: {
     'energy-kcal_100g'?: number;
-    'energy-kcal'?: number;
     proteins_100g?: number;
     carbohydrates_100g?: number;
     fat_100g?: number;
@@ -63,7 +62,9 @@ function mapProduct(p: RawProduct | undefined): OFFProduct | null {
     imageUrl: p.image_front_small_url || p.image_url,
     completeness: typeof p.completeness === 'number' ? p.completeness : 0,
     nutriments: {
-      energyKcal: n['energy-kcal_100g'] ?? n['energy-kcal'],
+      // Strikt /100g — de plain `energy-kcal` is dubbelzinnig (kan
+      // per-portie of per-package zijn).
+      energyKcal: n['energy-kcal_100g'],
       protein: n.proteins_100g,
       carbs: n.carbohydrates_100g,
       fat: n.fat_100g,

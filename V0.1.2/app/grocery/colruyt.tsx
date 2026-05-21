@@ -25,7 +25,6 @@ import { useGrocery } from '../../features/grocery/hooks';
 import { getAisleForItem } from '../../constants/aisles';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
-import { haptics, toast } from '../../utils/feedback';
 import { EditorialTitle, FolioStrip } from '../../components/ui/EditorialBits';
 
 export default function ColruytSearchScreen() {
@@ -76,10 +75,9 @@ export default function ColruytSearchScreen() {
         ],
         checked: false,
       });
-      haptics.success();
-      toast.success('Toegevoegd', p.name);
-    } catch (err) {
-      toast.error('Niet toegevoegd', err instanceof Error ? err.message : undefined);
+      // addManual toast't zelf al.
+    } catch {
+      // useGrocery toast't bij fout.
     }
   };
 

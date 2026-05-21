@@ -30,7 +30,7 @@ import { getProductByBarcode, type OFFProduct } from '../../services/openFoodFac
 import { getAisleForItem } from '../../constants/aisles';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
-import { haptics, toast } from '../../utils/feedback';
+import { haptics } from '../../utils/feedback';
 import { EditorialTitle } from '../../components/ui/EditorialBits';
 
 type ScanState =
@@ -97,11 +97,10 @@ export default function BarcodeScannerScreen() {
         ],
         checked: false,
       });
-      haptics.success();
-      toast.success('Toegevoegd', fullName);
+      // addManual toast't zelf al — alleen scanner-reset hier.
       resetScan();
-    } catch (err) {
-      toast.error('Niet toegevoegd', err instanceof Error ? err.message : undefined);
+    } catch {
+      // useGrocery toast't bij fout — geen dubbele.
     }
   };
 

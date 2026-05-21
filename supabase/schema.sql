@@ -50,9 +50,28 @@ CREATE TABLE recipes (
   last_cooked TIMESTAMPTZ,
   notes TEXT,
   equipment JSONB,
+  nutrition JSONB,
   deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL
+);
+
+-- Recipe collections (gebruikersgemaakte mappen)
+CREATE TABLE IF NOT EXISTS collections (
+  id TEXT PRIMARY KEY,
+  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS collection_recipes (
+  collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+  recipe_id TEXT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  added_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (collection_id, recipe_id)
 );
 
 -- Grocery items (cloud mirror)

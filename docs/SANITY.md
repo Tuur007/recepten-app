@@ -30,22 +30,22 @@ schulden zitten verstopt in commit-historie en design-keuzes.
 Geverifieerd door grep op imports. Files met **0 importers** in de hele
 boom (`V0.1.2/app|services|components|features|store|utils|hooks|database|theme|constants|types`):
 
-| Bestand | Reden |
-|---|---|
-| `V0.1.2/hooks/useNetworkSync.ts` | Niet aangeroepen vanuit `_layout.tsx` of elders. Heel `hooks/` bevat alleen dit ene dode bestand. |
-| `V0.1.2/utils/unitConversion.ts` | Eigen versie van conversies. Niemand importeert het; `utils/merge.ts` gebruikt uitsluitend helpers uit `utils/normalize.ts`. |
-| `V0.1.2/utils/units.ts` | Definieert `KNOWN_UNITS`, `normalizeUnit`, `areUnitsCompatible` — maar `utils/normalize.ts` doet exact hetzelfde en wordt wél gebruikt. Pure shadowing. |
-| `V0.1.2/utils/linking.ts` | Geen importers. |
-| `V0.1.2/utils/validation.ts` | Geen importers. |
-| `V0.1.2/types/sync.ts` | Alleen geïmporteerd door `services/sync/types.ts` (re-export) — dat is ook dood. |
-| `V0.1.2/services/sync/types.ts` | Pure re-export van `types/sync.ts`. Geen consumer. |
-| `V0.1.2/components/WeekPlanner.tsx` | Niet geïmporteerd. (`app/(tabs)/weekplanner.tsx` is een aparte file en gebruikt deze niet.) |
-| `V0.1.2/features/recipes/components/RecipeCard.tsx` | Geen importers — `recipes.tsx` rendert recipes inline ipv via deze component. |
-| `V0.1.2/features/recipes/components/FilterBar.tsx` | Geen importers — filter-chips zijn ingebouwd in `recipes.tsx`. |
-| `V0.1.2/features/grocery/components/QuantityControls.tsx` | Geen importers. |
-| `V0.1.2/features/grocery/components/GroceryItem.tsx` | Geen importers — `grocery.tsx` gebruikt `GroceryItemEnhanced`. |
+| Bestand | Reden | Status |
+|---|---|---|
+| `V0.1.2/hooks/useNetworkSync.ts` | Niet aangeroepen vanuit `_layout.tsx` of elders. Heel `hooks/` bevat alleen dit ene dode bestand. | verwijderd (FASE 2) |
+| `V0.1.2/utils/unitConversion.ts` | Eigen versie van conversies. Niemand importeert het; `utils/merge.ts` gebruikt uitsluitend helpers uit `utils/normalize.ts`. | verwijderd (FASE 2) |
+| `V0.1.2/utils/units.ts` | Definieert `KNOWN_UNITS`, `normalizeUnit`, `areUnitsCompatible` — maar `utils/normalize.ts` doet exact hetzelfde en wordt wél gebruikt. Pure shadowing. | verwijderd (FASE 2) |
+| `V0.1.2/utils/linking.ts` | Geen importers. | verwijderd (FASE 2) |
+| `V0.1.2/utils/validation.ts` | Geen importers. | verwijderd (FASE 2) |
+| `V0.1.2/types/sync.ts` | Alleen geïmporteerd door `services/sync/types.ts` (re-export) — dat is ook dood. | verwijderd (FASE 2) |
+| `V0.1.2/services/sync/types.ts` | Pure re-export van `types/sync.ts`. Geen consumer. | verwijderd (FASE 2) |
+| `V0.1.2/components/WeekPlanner.tsx` | Niet geïmporteerd. (`app/(tabs)/weekplanner.tsx` is een aparte file en gebruikt deze niet.) | verwijderd (FASE 2) |
+| `V0.1.2/features/recipes/components/RecipeCard.tsx` | Geen importers — `recipes.tsx` rendert recipes inline ipv via deze component. | verwijderd (FASE 2) |
+| `V0.1.2/features/recipes/components/FilterBar.tsx` | Geen importers — filter-chips zijn ingebouwd in `recipes.tsx`. | verwijderd (FASE 2) |
+| `V0.1.2/features/grocery/components/QuantityControls.tsx` | Geen importers. | verwijderd (FASE 2) |
+| `V0.1.2/features/grocery/components/GroceryItem.tsx` | Geen importers — `grocery.tsx` gebruikt `GroceryItemEnhanced`. | verwijderd (FASE 2) |
 
-**Totaal: 12 dode files** verspreid over alle lagen.
+**Totaal: 12 dode files** — allemaal verwijderd in FASE 2.
 
 Eslint-warnings ("Unused vars", "no-script-url") in pre-existing files
 (`features/recipes/components/CategoryPicker.tsx`, `services/imageExtractor.ts`,
@@ -89,4 +89,13 @@ Hier alvast vastgelegd wat ik tegenkwam maar buiten FASE-0 scope valt. Niet aanr
 
 ## Klaar voor
 
-FASE 1 — secrets eruit halen. Wachten op 👍.
+FASE 3 — sync architectuur (Supabase A/B keuze: doorgaan met retry-queue
+of lokaal blijven). Wachten op 👍.
+
+## Status per fase
+
+- ✅ **FASE 0** — triage, baseline, dode-files lijst (`9817696`)
+- ✅ **FASE 1** — secrets uit `services/supabase.ts` + `.env.example` (`05b8a57`)
+- ✅ **FASE 2** — 12 dode files verwijderd, typecheck + tests groen
+- ⏳ **FASE 3** — sync architectuur
+- ⏳ **FASE 4** — `app/recipes/[id].tsx` opsplitsen

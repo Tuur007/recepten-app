@@ -42,6 +42,42 @@ export interface Ingredient {
   unit: string;
 }
 
+/**
+ * Nutritie-waardes per portie. Velden zijn optioneel zodat we deelresultaten
+ * (bv. enkel kcal + eiwit) ook kunnen tonen wanneer Open Food Facts niet
+ * elke ingrediënt heeft kunnen matchen.
+ */
+export interface NutritionInfo {
+  calories?: number;        // kcal per portie
+  protein?: number;         // g
+  carbs?: number;           // g
+  fat?: number;             // g
+  fiber?: number;           // g
+  sugar?: number;           // g
+  salt?: number;            // g
+  /** ISO-timestamp van de laatste berekening. Triggert recompute na > 30 dagen. */
+  computedAt?: string;
+  /** Aantal ingrediënten dat in OFF gevonden werd (transparantie naar de gebruiker). */
+  matchedIngredients?: number;
+  /** Totaal aantal ingrediënten in het recept op het moment van berekenen. */
+  totalIngredients?: number;
+}
+
+/** Een gebruikersgemaakte collectie ("BBQ", "snel doordeweeks"). */
+export interface RecipeCollection {
+  id: string;
+  name: string;
+  description?: string;
+  /** Volgorde-onafhankelijke set; gesorteerd op insert-time door de repository. */
+  recipeIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RecipeCollectionInput = Omit<RecipeCollection, 'id' | 'createdAt' | 'updatedAt' | 'recipeIds'> & {
+  recipeIds?: string[];
+};
+
 export interface Recipe {
   id: string;
   title: string;
@@ -64,6 +100,7 @@ export interface Recipe {
   lastCooked?: string;
   notes?: string;
   equipment?: string[];
+  nutrition?: NutritionInfo;
 }
 
 export type RecipeInput = Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>;

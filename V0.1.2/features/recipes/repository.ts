@@ -26,6 +26,7 @@ interface RecipeRow {
   last_cooked: string | null;
   notes: string | null;
   equipment: string | null;
+  nutrition: string | null;
 }
 
 function rowToRecipe(row: RecipeRow): Recipe {
@@ -33,6 +34,8 @@ function rowToRecipe(row: RecipeRow): Recipe {
   try { allergens = JSON.parse(row.allergens ?? '[]'); } catch { allergens = []; }
   let equipment: string[] | undefined;
   try { equipment = row.equipment ? JSON.parse(row.equipment) : undefined; } catch { equipment = undefined; }
+  let nutrition: Recipe['nutrition'];
+  try { nutrition = row.nutrition ? JSON.parse(row.nutrition) : undefined; } catch { nutrition = undefined; }
 
   // Derive duration from prep + cook when not set explicitly so the detail
   // stat reflects total time even before migration v21 has touched the row.
@@ -64,6 +67,7 @@ function rowToRecipe(row: RecipeRow): Recipe {
     lastCooked: row.last_cooked ?? undefined,
     notes: row.notes ?? undefined,
     equipment,
+    nutrition,
   };
 }
 
@@ -89,8 +93,8 @@ export const RecipeRepository = {
         `INSERT INTO recipes (
            id, title, ingredients, steps, source_url, duration, category, is_favorite,
            image_uri, allergens, created_at, updated_at, difficulty, preparation_time,
-           cooking_time, servings, rating, times_cooked, last_cooked, notes, equipment
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           cooking_time, servings, rating, times_cooked, last_cooked, notes, equipment, nutrition
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            title = excluded.title,
            ingredients = excluded.ingredients,
@@ -110,7 +114,8 @@ export const RecipeRepository = {
            times_cooked = excluded.times_cooked,
            last_cooked = excluded.last_cooked,
            notes = excluded.notes,
-           equipment = excluded.equipment`,
+           equipment = excluded.equipment,
+           nutrition = excluded.nutrition`,
         [
           r.id,
           r.title,
@@ -133,6 +138,7 @@ export const RecipeRepository = {
           r.lastCooked ?? null,
           r.notes ?? null,
           r.equipment ? JSON.stringify(r.equipment) : null,
+          r.nutrition ? JSON.stringify(r.nutrition) : null,
         ],
       );
     }
@@ -143,8 +149,8 @@ export const RecipeRepository = {
     const now = new Date().toISOString();
     console.log(`[RecipeRepository.create] Storing imageUri: ${input.imageUri ?? 'null'}`);
     await db.runAsync(
-      `INSERT INTO recipes (id, title, ingredients, steps, source_url, duration, category, is_favorite, image_uri, allergens, created_at, updated_at, difficulty, preparation_time, cooking_time, servings, rating, times_cooked, last_cooked, notes, equipment)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO recipes (id, title, ingredients, steps, source_url, duration, category, is_favorite, image_uri, allergens, created_at, updated_at, difficulty, preparation_time, cooking_time, servings, rating, times_cooked, last_cooked, notes, equipment, nutrition)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         input.title,
@@ -167,6 +173,7 @@ export const RecipeRepository = {
         input.lastCooked ?? null,
         input.notes ?? null,
         input.equipment ? JSON.stringify(input.equipment) : null,
+        input.nutrition ? JSON.stringify(input.nutrition) : null,
       ],
     );
     const recipe = {
@@ -200,7 +207,7 @@ export const RecipeRepository = {
     await db.runAsync(
       `UPDATE recipes
          SET title = ?, ingredients = ?, steps = ?, source_url = ?, duration = ?, category = ?, is_favorite = ?, image_uri = ?, allergens = ?, updated_at = ?,
-             difficulty = ?, preparation_time = ?, cooking_time = ?, servings = ?, rating = ?, times_cooked = ?, last_cooked = ?, notes = ?, equipment = ?
+             difficulty = ?, preparation_time = ?, cooking_time = ?, servings = ?, rating = ?, times_cooked = ?, last_cooked = ?, notes = ?, equipment = ?, nutrition = ?
        WHERE id = ?`,
       [
         merged.title,
@@ -222,6 +229,7 @@ export const RecipeRepository = {
         merged.lastCooked ?? null,
         merged.notes ?? null,
         merged.equipment ? JSON.stringify(merged.equipment) : null,
+        merged.nutrition ? JSON.stringify(merged.nutrition) : null,
         id,
       ],
     );

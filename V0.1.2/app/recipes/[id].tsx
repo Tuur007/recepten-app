@@ -28,9 +28,14 @@ import { ServingsSelector } from '../../components/ui/ServingsSelector';
 import { StarRating } from '../../components/ui/StarRating';
 import { CookTimer } from '../../components/ui/CookTimer';
 import { MetaStrip } from '../../components/ui/EditorialBits';
+import { NutritionPanel } from '../../components/ui/NutritionPanel';
 import { RecipeShareCard } from '../../components/ui/RecipeShareCard';
 import { shareRecipeCard } from '../../utils/shareRecipe';
 import { shareRecipeViaWhatsApp } from '../../services/recipeShareService';
+import { computeRecipeNutrition } from '../../services/nutrition';
+import { exportRecipeAsPdf } from '../../services/exports/pdf';
+import { exportRecipeAsCooklang } from '../../services/exports/cooklang';
+import { useCollections } from '../../store/collectionsStore';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
 import { generateId } from '../../utils/id';
@@ -76,7 +81,11 @@ export default function RecipeDetailScreen() {
   const [notesTxt, setNotesTxt] = useState(() => recipe?.notes ?? '');
   const [sharing, setSharing] = useState(false);
   const [sharingLink, setSharingLink] = useState(false);
+  const [computingNutrition, setComputingNutrition] = useState(false);
+  const [exportMenuVisible, setExportMenuVisible] = useState(false);
+  const [collectionsPickerVisible, setCollectionsPickerVisible] = useState(false);
   const shareCardRef = useRef<View>(null);
+  const { collections, addRecipe: addToCollection, removeRecipe: removeFromCollection } = useCollections();
 
   // Use the recipe's own servings as the base; fall back to 4
   const baseServings = recipe?.servings ?? 4;
@@ -182,6 +191,68 @@ export default function RecipeDetailScreen() {
     }
   };
 
+  const handleComputeNutrition = async () => {
+    if (computingNutrition) return;
+    setComputingNutrition(true);
+    haptics.light();
+    try {
+      const result = await computeRecipeNutrition(
+        recipe.ingredients ?? [],
+        recipe.servings ?? 4,
+      );
+      await update(recipe.id, { nutrition: result });
+      const matched = result.matchedIngredients ?? 0;
+      const total = result.totalIngredients ?? 0;
+      if (matched === 0) {
+        toast.error('Geen treffers', 'Geen enkel ingrediënt gevonden in Open Food Facts.');
+      } else {
+        haptics.success();
+        toast.success(
+          'Nutritie berekend',
+          total > 0 ? `${matched}/${total} ingrediënten gematcht` : undefined,
+        );
+      }
+    } catch (err) {
+      console.error('[recipe.nutrition] compute failed:', err);
+      toast.error('Berekening mislukt', err instanceof Error ? err.message : undefined);
+    } finally {
+      setComputingNutrition(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    setExportMenuVisible(false);
+    haptics.light();
+    try {
+      await exportRecipeAsPdf(recipe);
+    } catch (err) {
+      toast.error('PDF-export mislukt', err instanceof Error ? err.message : undefined);
+    }
+  };
+
+  const handleExportCooklang = async () => {
+    setExportMenuVisible(false);
+    haptics.light();
+    try {
+      await exportRecipeAsCooklang(recipe);
+    } catch (err) {
+      toast.error('Export mislukt', err instanceof Error ? err.message : undefined);
+    }
+  };
+
+  const handleToggleCollection = async (collectionId: string, currentlyIn: boolean) => {
+    try {
+      if (currentlyIn) {
+        await removeFromCollection(collectionId, recipe.id);
+      } else {
+        await addToCollection(collectionId, recipe.id);
+      }
+      haptics.light();
+    } catch {
+      /* store toasts on failure */
+    }
+  };
+
   const handleSaveNewIngredient = async () => {
     if (!newIngName.trim()) return;
     const newIng: Ingredient = {
@@ -264,6 +335,12 @@ export default function RecipeDetailScreen() {
               size={20}
               color={sharingLink ? colors.textFaint : colors.textDark}
             />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setCollectionsPickerVisible(true)} hitSlop={8}>
+            <Ionicons name="albums-outline" size={20} color={colors.textDark} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setExportMenuVisible(true)} hitSlop={8}>
+            <Ionicons name="download-outline" size={20} color={colors.textDark} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleDeleteRecipe} hitSlop={8}>
             <Ionicons name="trash-outline" size={20} color={colors.textLight} />
@@ -426,6 +503,14 @@ export default function RecipeDetailScreen() {
             </>
           );
         })()}
+
+        {/* Nutritie */}
+        <Section title="iv. nutritie" count={recipe.nutrition?.matchedIngredients ?? 0} suffix="ingr." />
+        <NutritionPanel
+          nutrition={recipe.nutrition}
+          loading={computingNutrition}
+          onCompute={handleComputeNutrition}
+        />
 
         {/* Beoordeling */}
         <View style={styles.ratingSection}>
@@ -619,6 +704,110 @@ export default function RecipeDetailScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Export-menu */}
+      <Modal
+        visible={exportMenuVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setExportMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.exportBackdrop}
+          activeOpacity={1}
+          onPress={() => setExportMenuVisible(false)}
+        >
+          <View style={styles.exportSheet}>
+            <Text style={[typography.folioBold, { marginBottom: spacing.sm }]}>exporteer</Text>
+            <TouchableOpacity style={styles.exportRow} onPress={handleExportPdf} activeOpacity={0.7}>
+              <Ionicons name="document-text-outline" size={18} color={colors.textDark} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.exportRowTitle}>als PDF</Text>
+                <Text style={styles.exportRowDesc}>printvriendelijk, met ingrediënten en stappen.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={14} color={colors.textFaint} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.exportRow}
+              onPress={handleExportCooklang}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="code-slash-outline" size={18} color={colors.textDark} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.exportRowTitle}>als .cook (Cooklang)</Text>
+                <Text style={styles.exportRowDesc}>Plain-text formaat voor andere Cooklang-apps.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={14} color={colors.textFaint} />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Collections-picker */}
+      <Modal
+        visible={collectionsPickerVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setCollectionsPickerVisible(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.background }}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setCollectionsPickerVisible(false)} hitSlop={8}>
+              <Ionicons name="close" size={22} color={colors.textLight} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>In collectie zetten</Text>
+            <TouchableOpacity onPress={() => router.push('/collections')} hitSlop={8}>
+              <Ionicons name="add" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: 4 }}>
+            {collections.length === 0 ? (
+              <View style={{ paddingTop: spacing.xxl, alignItems: 'center' }}>
+                <Text style={[typography.bodyItalic, { textAlign: 'center', marginBottom: spacing.md }]}>
+                  Nog geen collecties.{'\n'}Maak er één via het + icoon.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setCollectionsPickerVisible(false);
+                    router.push('/collections');
+                  }}
+                  style={styles.collectionsBtn}
+                  activeOpacity={0.8}
+                >
+                  <Text style={typography.buttonLabel}>beheer collecties</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              collections.map((col) => {
+                const inside = col.recipeIds.includes(recipe.id);
+                return (
+                  <TouchableOpacity
+                    key={col.id}
+                    style={styles.collectionRow}
+                    onPress={() => handleToggleCollection(col.id, inside)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={inside ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={inside ? colors.primary : colors.textFaint}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.collectionName}>{col.name}</Text>
+                      {col.description ? (
+                        <Text style={styles.collectionDesc} numberOfLines={1}>
+                          {col.description}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.collectionCount}>{col.recipeIds.length}</Text>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -1222,6 +1411,71 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.textDark,
     paddingVertical: 14,
+    borderRadius: 999,
+  },
+  exportBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-end',
+  },
+  exportSheet: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  exportRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderSoft,
+  },
+  exportRowTitle: {
+    fontFamily: fonts.display,
+    fontSize: 16,
+    color: colors.textDark,
+  },
+  exportRowDesc: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 12,
+    color: colors.textLight,
+    marginTop: 2,
+  },
+  collectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderSoft,
+  },
+  collectionName: {
+    fontFamily: fonts.display,
+    fontSize: 16,
+    color: colors.textDark,
+  },
+  collectionDesc: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 12,
+    color: colors.textLight,
+    marginTop: 2,
+  },
+  collectionCount: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: colors.textFaint,
+  },
+  collectionsBtn: {
+    backgroundColor: colors.textDark,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
     borderRadius: 999,
   },
 });

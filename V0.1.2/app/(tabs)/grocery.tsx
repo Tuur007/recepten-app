@@ -27,9 +27,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
+import { useRouter } from 'expo-router';
 import { useGrocery } from '../../features/grocery/hooks';
 import { useBulkActions } from '../../features/grocery/hooks/useBulkActions';
 import { useGroceryStore } from '../../store/groceryStore';
+import { exportGroceryListAsPdf } from '../../services/exports/pdf';
+import { haptics, toast } from '../../utils/feedback';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useCategories } from '../../store/categoriesStore';
 import { GroceryItemEnhanced } from '../../features/grocery/components/GroceryItemEnhanced';
@@ -65,6 +68,7 @@ export default function GroceryScreen() {
   const { recipes } = useRecipes();
   const { groceryCategories } = useCategories();
   const themeColors = useThemeColors();
+  const router = useRouter();
 
   const checkedCount = useGroceryStore((s) => s.getCheckedCount());
   const uncheckedCount = useGroceryStore((s) => s.getUncheckedCount());
@@ -131,6 +135,19 @@ export default function GroceryScreen() {
     setRecipeModalVisible(false);
   };
 
+  const handleExportPdf = async () => {
+    if (items.length === 0) {
+      toast.error('Lege lijst', 'Voeg eerst items toe voordat je exporteert.');
+      return;
+    }
+    haptics.light();
+    try {
+      await exportGroceryListAsPdf(items);
+    } catch (err) {
+      toast.error('PDF-export mislukt', err instanceof Error ? err.message : undefined);
+    }
+  };
+
   const renderItem = ({ item }: { item: ListRow }) => {
     if (item.type === 'header') {
       return <CategoryGroupHeader aisle={item.aisle} count={item.count} />;
@@ -170,10 +187,31 @@ export default function GroceryScreen() {
             <View style={styles.actionBtns}>
               <TouchableOpacity
                 style={styles.ghostBtn}
+                onPress={() => router.push('/grocery/scanner')}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="barcode-outline" size={16} color={colors.textDark} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.ghostBtn}
+                onPress={() => router.push('/grocery/colruyt')}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="storefront-outline" size={15} color={colors.textDark} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.ghostBtn}
                 onPress={() => setRecipeModalVisible(true)}
                 activeOpacity={0.75}
               >
                 <Ionicons name="book-outline" size={15} color={colors.textDark} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.ghostBtn}
+                onPress={handleExportPdf}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="document-text-outline" size={15} color={colors.textDark} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.ghostBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}

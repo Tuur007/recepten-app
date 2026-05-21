@@ -112,6 +112,13 @@ export default function RecipesScreen() {
             <TouchableOpacity
               style={styles.ghostBtn}
               activeOpacity={0.7}
+              onPress={() => router.push('/collections')}
+            >
+              <Ionicons name="albums-outline" size={15} color={colors.textDark} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.ghostBtn}
+              activeOpacity={0.7}
               onPress={() => router.push('/recipes/import')}
             >
               <Ionicons name="link-outline" size={15} color={colors.textDark} />

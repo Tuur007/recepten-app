@@ -38,8 +38,30 @@ export const CREATE_RECIPES_TABLE_FULL = `
     last_cooked      TEXT,
     notes            TEXT,
     equipment        TEXT,
+    nutrition        TEXT,
     created_at       TEXT NOT NULL,
     updated_at       TEXT NOT NULL
+  );
+`;
+
+export const CREATE_COLLECTIONS_TABLE = `
+  CREATE TABLE IF NOT EXISTS collections (
+    id          TEXT PRIMARY KEY NOT NULL,
+    name        TEXT NOT NULL,
+    description TEXT,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+  );
+`;
+
+export const CREATE_COLLECTION_RECIPES_TABLE = `
+  CREATE TABLE IF NOT EXISTS collection_recipes (
+    collection_id TEXT NOT NULL,
+    recipe_id     TEXT NOT NULL,
+    added_at      TEXT NOT NULL,
+    PRIMARY KEY (collection_id, recipe_id),
+    FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+    FOREIGN KEY (recipe_id)     REFERENCES recipes(id)     ON DELETE CASCADE
   );
 `;
 
@@ -132,4 +154,22 @@ export const MIGRATIONS: string[] = [
   `CREATE TABLE IF NOT EXISTS app_prefs (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)`,
   // v23: grocery item shop reference
   `ALTER TABLE grocery_items ADD COLUMN store_id TEXT`,
+  // v24: nutritie-data per recept (JSON-blob met NutritionInfo)
+  `ALTER TABLE recipes ADD COLUMN nutrition TEXT`,
+  // v25: recipe collections — twee tabellen via CREATE IF NOT EXISTS
+  `CREATE TABLE IF NOT EXISTS collections (
+    id          TEXT PRIMARY KEY NOT NULL,
+    name        TEXT NOT NULL,
+    description TEXT,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS collection_recipes (
+    collection_id TEXT NOT NULL,
+    recipe_id     TEXT NOT NULL,
+    added_at      TEXT NOT NULL,
+    PRIMARY KEY (collection_id, recipe_id),
+    FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+    FOREIGN KEY (recipe_id)     REFERENCES recipes(id)     ON DELETE CASCADE
+  )`,
 ];

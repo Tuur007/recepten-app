@@ -7,6 +7,7 @@ import {
   CREATE_COLLECTIONS_TABLE,
   CREATE_COLLECTION_RECIPES_TABLE,
   CREATE_PREFS_TABLE,
+  CREATE_SYNC_QUEUE_TABLE,
   DEFAULT_RECIPE_CATEGORIES,
   DEFAULT_GROCERY_CATEGORIES,
   MIGRATIONS,
@@ -27,6 +28,7 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
     ${CREATE_COLLECTIONS_TABLE}
     ${CREATE_COLLECTION_RECIPES_TABLE}
     ${CREATE_PREFS_TABLE}
+    ${CREATE_SYNC_QUEUE_TABLE}
   `);
 
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');

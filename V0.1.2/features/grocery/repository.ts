@@ -2,7 +2,7 @@ import { type SQLiteDatabase } from 'expo-sqlite';
 import { GroceryItem, GroceryItemInput, GroceryItemUpdate, SourceLineage, computeTotalQuantity } from '../../types/grocery';
 import type { SQLiteBindValue } from 'expo-sqlite';
 import { generateId } from '../../utils/id';
-import { pushGroceryItem, deleteGroceryItemRemote } from '../../services/sync/supabaseSync';
+import { enqueue, flushQueue } from '../../services/sync/queue';
 
 interface GroceryRow {
   id: string;
@@ -61,7 +61,8 @@ export const GroceryRepository = {
       [id, input.name, input.unit, input.category ?? '', JSON.stringify(input.sources), totalQuantity, input.checked ? 1 : 0, now, input.aisle ?? null, input.price ?? null, input.storeId ?? null],
     );
     const item = { id, ...input, category: input.category ?? '', totalQuantity, createdAt: now };
-    pushGroceryItem(item).catch(console.error);
+    await enqueue(db, 'upsert', 'grocery', id, item);
+    void flushQueue(db);
     return item;
   },
 
@@ -122,11 +123,23 @@ export const GroceryRepository = {
       `UPDATE grocery_items SET ${fields.join(', ')} WHERE id = ?`,
       values,
     );
+
+    // Refetch zodat de queue de volledige rij stuurt (Supabase upsert vereist
+    // alle NOT NULL kolommen — we kunnen niet alleen een partial pushen).
+    const row = await db.getFirstAsync<GroceryRow>(
+      'SELECT id, name, unit, category, sources, total_quantity, checked, created_at, aisle, price, store_id FROM grocery_items WHERE id = ?',
+      [id],
+    );
+    if (row) {
+      await enqueue(db, 'upsert', 'grocery', id, rowToItem(row));
+      void flushQueue(db);
+    }
   },
 
   async delete(db: SQLiteDatabase, id: string): Promise<void> {
     await db.runAsync('DELETE FROM grocery_items WHERE id = ?', [id]);
-    deleteGroceryItemRemote(id).catch(console.error);
+    await enqueue(db, 'delete', 'grocery', id, null);
+    void flushQueue(db);
   },
 
   async clearChecked(db: SQLiteDatabase): Promise<void> {

@@ -2,7 +2,7 @@ import { type SQLiteDatabase } from 'expo-sqlite';
 import { Recipe, RecipeInput, RecipeUpdate } from '../../types/recipe';
 import { generateId } from '../../utils/id';
 import { deleteRecipeImage } from '../../utils/imageStorage';
-import { pushRecipe, deleteRecipeRemote } from '../../services/sync/supabaseSync';
+import { enqueue, flushQueue } from '../../services/sync/queue';
 
 interface RecipeRow {
   id: string;
@@ -186,7 +186,8 @@ export const RecipeRepository = {
       createdAt: now,
       updatedAt: now,
     };
-    pushRecipe(recipe).catch(console.error);
+    await enqueue(db, 'upsert', 'recipe', recipe.id, recipe);
+    void flushQueue(db);
     return recipe;
   },
 
@@ -233,7 +234,8 @@ export const RecipeRepository = {
         id,
       ],
     );
-    pushRecipe({ ...merged, updatedAt: now }).catch(console.error);
+    await enqueue(db, 'upsert', 'recipe', id, { ...merged, updatedAt: now });
+    void flushQueue(db);
   },
 
   async delete(db: SQLiteDatabase, id: string): Promise<void> {
@@ -242,6 +244,7 @@ export const RecipeRepository = {
       await deleteRecipeImage(recipe.imageUri);
     }
     await db.runAsync('DELETE FROM recipes WHERE id = ?', [id]);
-    deleteRecipeRemote(id).catch(console.error);
+    await enqueue(db, 'delete', 'recipe', id, null);
+    void flushQueue(db);
   },
 };

@@ -63,23 +63,14 @@ Hier alvast vastgelegd wat ik tegenkwam maar buiten FASE-0 scope valt. Niet aanr
   off-screen kaarten + CookOverlay in één bestand. FASE 4 op de roadmap.
 - **`services/recipeParser.ts` is 800+ regels** — alle scrape-strategieën
   + image-extraction interleaved. Splitsen ook uitgestelde fase.
-- **Sync is dood ingehaakt**: `useAuthStore.initialize()` (in `store/authStore.ts`)
-  wordt nergens aangeroepen, dus de hele Supabase-auth flow is logisch
-  onbereikbaar tenzij iemand de tabs zoekt. `useNetworkSync` zelf is óók niet
-  gemount. FASE 3 vraagt expliciet om een A/B-keuze hier.
-- **`features/recipes/repository.ts` `pushRecipe(x).catch(console.error)`** — fire-
-  and-forget naar Supabase zonder retry queue. Stille data-loss bij offline.
-  Hoort in FASE 3B-2.
-- **Inviteservice + RLS**: `services/inviteService.ts` is gekoppeld aan
-  Supabase; de RLS-policy "redeem invite codes" op `supabase/schema.sql`
-  liet (in eerdere review) iedereen elke `family_id` zien. Migratiefile staat
-  klaar in `supabase/migrations/fix_rls_policies.sql` — niet handmatig
-  toegepast voor zover ik kan zien.
+- **Sync afgewerkt in FASE 3** — outbox queue (`services/sync/queue.ts`),
+  lifecycle (`services/sync/lifecycle.ts`) gemount in `_layout.tsx`,
+  NetInfo-listener flushed bij reconnect. Manuele acties (RLS migrations,
+  anon key rotatie, EAS env vars) staan in `docs/SUPABASE.md`.
 
 ### Dingen die mijn tanden jeuken (niet aanpakken)
 
-- `services/supabase.ts` heeft hardcoded URL + anon key als fallback voor
-  Expo Snack. FASE 1.
+- `services/supabase.ts` had hardcoded URL + anon key als fallback. Weg in FASE 1.
 - `utils/normalize.ts` en `utils/units.ts` zijn duplicate implementaties.
   FASE 2 raakt `utils/merge.ts` aan en kan dit meenemen — anders een latere
   cleanup.
@@ -89,13 +80,12 @@ Hier alvast vastgelegd wat ik tegenkwam maar buiten FASE-0 scope valt. Niet aanr
 
 ## Klaar voor
 
-FASE 3 — sync architectuur (Supabase A/B keuze: doorgaan met retry-queue
-of lokaal blijven). Wachten op 👍.
+FASE 4 — `app/recipes/[id].tsx` (1491 regels) opsplitsen. Wachten op 👍.
 
 ## Status per fase
 
 - ✅ **FASE 0** — triage, baseline, dode-files lijst (`9817696`)
 - ✅ **FASE 1** — secrets uit `services/supabase.ts` + `.env.example` (`05b8a57`)
 - ✅ **FASE 2** — 12 dode files verwijderd, typecheck + tests groen
-- ⏳ **FASE 3** — sync architectuur
+- ✅ **FASE 3** — outbox queue + lifecycle wire-up + RLS checklist (`docs/SUPABASE.md`)
 - ⏳ **FASE 4** — `app/recipes/[id].tsx` opsplitsen

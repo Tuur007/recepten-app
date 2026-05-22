@@ -57,16 +57,22 @@ zou `--ext .ts,.tsx --no-unused` 19 errors loggen, allemaal pre-existing.
 
 Hier alvast vastgelegd wat ik tegenkwam maar buiten FASE-0 scope valt. Niet aanraken.
 
-### Volgende sprint — kandidaten
+### Wat is opgelost in deze sanering
 
-- **`app/recipes/[id].tsx` is 1491 regels** — orchestrator + 6 modals + 4
-  off-screen kaarten + CookOverlay in één bestand. FASE 4 op de roadmap.
-- **`services/recipeParser.ts` is 800+ regels** — alle scrape-strategieën
-  + image-extraction interleaved. Splitsen ook uitgestelde fase.
+- **`[id].tsx` afgesplitst in FASE 4** — orchestrator 1491 → 767 regels.
+  Detail-componenten in `V0.1.2/features/recipes/components/detail/`:
+  `CookOverlay`, `GroceryPickerModal`, `ExportMenuModal`,
+  `CollectionsPickerModal`, `AddIngredientForm`, `Section`, `helpers`.
 - **Sync afgewerkt in FASE 3** — outbox queue (`services/sync/queue.ts`),
   lifecycle (`services/sync/lifecycle.ts`) gemount in `_layout.tsx`,
   NetInfo-listener flushed bij reconnect. Manuele acties (RLS migrations,
   anon key rotatie, EAS env vars) staan in `docs/SUPABASE.md`.
+
+### Volgende sprint — kandidaten
+
+- **`services/recipeParser.ts` is 800+ regels** — alle scrape-strategieën
+  + image-extraction interleaved. Logische opvolger als nog een refactor
+  gewenst is.
 
 ### Dingen die mijn tanden jeuken (niet aanpakken)
 
@@ -80,7 +86,8 @@ Hier alvast vastgelegd wat ik tegenkwam maar buiten FASE-0 scope valt. Niet aanr
 
 ## Klaar voor
 
-FASE 4 — `app/recipes/[id].tsx` (1491 regels) opsplitsen. Wachten op 👍.
+Sanering rond. Volgende sprint kan zich op de roadmap richten — `services/recipeParser.ts`
+(800+ regels) is de logische opvolger als nog een refactor gewenst is.
 
 ## Status per fase
 
@@ -88,4 +95,4 @@ FASE 4 — `app/recipes/[id].tsx` (1491 regels) opsplitsen. Wachten op 👍.
 - ✅ **FASE 1** — secrets uit `services/supabase.ts` + `.env.example` (`05b8a57`)
 - ✅ **FASE 2** — 12 dode files verwijderd, typecheck + tests groen
 - ✅ **FASE 3** — outbox queue + lifecycle wire-up + RLS checklist (`docs/SUPABASE.md`)
-- ⏳ **FASE 4** — `app/recipes/[id].tsx` opsplitsen
+- ✅ **FASE 4** — `[id].tsx` 1491 → 767 regels, opgesplitst in 7 detail-componenten

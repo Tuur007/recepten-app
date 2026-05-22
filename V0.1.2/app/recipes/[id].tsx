@@ -7,15 +7,11 @@ import {
   ScrollView,
   Image,
   Alert,
-  Modal,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useKeepAwake } from 'expo-keep-awake';
 
 import { useRecipes } from '../../features/recipes/hooks';
 import { useGrocery } from '../../features/grocery/hooks';
@@ -26,7 +22,6 @@ import { FavoriteButton } from '../../components/ui/FavoriteButton';
 import { CookingTimeDisplay } from '../../components/ui/CookingTimeDisplay';
 import { ServingsSelector } from '../../components/ui/ServingsSelector';
 import { StarRating } from '../../components/ui/StarRating';
-import { CookTimer } from '../../components/ui/CookTimer';
 import { MetaStrip } from '../../components/ui/EditorialBits';
 import { NutritionPanel } from '../../components/ui/NutritionPanel';
 import { RecipeShareCard } from '../../components/ui/RecipeShareCard';
@@ -40,23 +35,17 @@ import { colors, spacing, typography, fonts } from '../../constants/Designsystem
 import { useThemeColors } from '../../theme';
 import { generateId } from '../../utils/id';
 import { scaleIngredients } from '../../utils/servingsScaler';
-import { findTimesInStep, formatDuration } from '../../utils/parseTimeFromStep';
-import { Ingredient } from '../../types/recipe';
-import { ALLERGENS } from '../../types/recipe';
 import { useFamilyStore } from '../../store/familyStore';
 
+import { CookOverlay, type ActiveTimer } from '../../features/recipes/components/detail/CookOverlay';
+import { GroceryPickerModal } from '../../features/recipes/components/detail/GroceryPickerModal';
+import { ExportMenuModal } from '../../features/recipes/components/detail/ExportMenuModal';
+import { CollectionsPickerModal } from '../../features/recipes/components/detail/CollectionsPickerModal';
+import { AddIngredientForm } from '../../features/recipes/components/detail/AddIngredientForm';
+import { Section } from '../../features/recipes/components/detail/Section';
+import { toDisplayUri, stepText, splitTitle, pad2 } from '../../features/recipes/components/detail/helpers';
+
 const PAPER = colors.background;
-
-function toDisplayUri(uri: string): string {
-  if (uri.startsWith('file://') || uri.startsWith('data:') || uri.startsWith('http')) return uri;
-  return `file://${uri}`;
-}
-
-function stepText(step: unknown): string {
-  if (typeof step === 'string') return step;
-  if (step && typeof step === 'object' && 'text' in step) return String((step as { text: unknown }).text);
-  return '';
-}
 
 export default function RecipeDetailScreen() {
   const router = useRouter();
@@ -66,17 +55,13 @@ export default function RecipeDetailScreen() {
   const themeColors = useThemeColors();
   const familyMembers = useFamilyStore((s) => s.members);
 
-  const recipe = recipes.find(r => r.id === id);
+  const recipe = recipes.find((r) => r.id === id);
 
   const [cookStep, setCookStep] = useState<number | null>(null);
-  const [activeTimers, setActiveTimers] = useState<{ id: string; seconds: number; label: string }[]>([]);
+  const [activeTimers, setActiveTimers] = useState<ActiveTimer[]>([]);
   const [servings, setServings] = useState<number | null>(null);
   const [groceryModalVisible, setGroceryModalVisible] = useState(false);
   const [selectedIngIds, setSelectedIngIds] = useState<Set<string>>(new Set());
-  const [addIngVisible, setAddIngVisible] = useState(false);
-  const [newIngName, setNewIngName] = useState('');
-  const [newIngQty, setNewIngQty] = useState('');
-  const [newIngUnit, setNewIngUnit] = useState('');
   const [notesEdit, setNotesEdit] = useState(false);
   const [notesTxt, setNotesTxt] = useState(() => recipe?.notes ?? '');
   const [sharing, setSharing] = useState(false);
@@ -87,7 +72,6 @@ export default function RecipeDetailScreen() {
   const shareCardRef = useRef<View>(null);
   const { collections, addRecipe: addToCollection, removeRecipe: removeFromCollection } = useCollections();
 
-  // Use the recipe's own servings as the base; fall back to 4
   const baseServings = recipe?.servings ?? 4;
   const currentServings = servings ?? baseServings;
 
@@ -160,13 +144,12 @@ export default function RecipeDetailScreen() {
   };
 
   const openGroceryModal = () => {
-    const allIds = new Set(recipe.ingredients.map(i => i.id));
-    setSelectedIngIds(allIds);
+    setSelectedIngIds(new Set(recipe.ingredients.map((i) => i.id)));
     setGroceryModalVisible(true);
   };
 
   const toggleIngredient = (ingId: string) => {
-    setSelectedIngIds(prev => {
+    setSelectedIngIds((prev) => {
       const next = new Set(prev);
       if (next.has(ingId)) next.delete(ingId);
       else next.add(ingId);
@@ -174,20 +157,27 @@ export default function RecipeDetailScreen() {
     });
   };
 
+  const toggleAllIngredients = () => {
+    if (selectedIngIds.size === scaledIngredients.length) {
+      setSelectedIngIds(new Set());
+    } else {
+      setSelectedIngIds(new Set(scaledIngredients.map((i) => i.id)));
+    }
+  };
+
   const handleAddToGrocery = async () => {
     const selected = scaledIngredients
-      .filter(i => selectedIngIds.has(i.id))
-      .map(i => ({ ...i, quantity: i.quantity * (currentServings / baseServings) }));
+      .filter((i) => selectedIngIds.has(i.id))
+      .map((i) => ({ ...i, quantity: i.quantity * (currentServings / baseServings) }));
     if (!selected.length) {
       Alert.alert('Niets geselecteerd', 'Selecteer minstens één ingrediënt.');
       return;
     }
     setGroceryModalVisible(false);
-    // addFromRecipe surfaces its own toast on success/failure.
     try {
       await addFromRecipe(selected, recipe.id, recipe.title);
     } catch {
-      /* already toasted */
+      /* addFromRecipe surfaces its own toast */
     }
   };
 
@@ -196,10 +186,7 @@ export default function RecipeDetailScreen() {
     setComputingNutrition(true);
     haptics.light();
     try {
-      const result = await computeRecipeNutrition(
-        recipe.ingredients ?? [],
-        recipe.servings ?? 4,
-      );
+      const result = await computeRecipeNutrition(recipe.ingredients ?? [], recipe.servings ?? 4);
       await update(recipe.id, { nutrition: result });
       const matched = result.matchedIngredients ?? 0;
       const total = result.totalIngredients ?? 0;
@@ -253,53 +240,33 @@ export default function RecipeDetailScreen() {
     }
   };
 
-  const handleSaveNewIngredient = async () => {
-    if (!newIngName.trim()) return;
-    const newIng: Ingredient = {
-      id: generateId(),
-      name: newIngName.trim(),
-      quantity: parseFloat(newIngQty) || 0,
-      unit: newIngUnit.trim(),
-    };
-    await update(recipe.id, {
-      ingredients: [...recipe.ingredients, newIng],
-    });
-    setNewIngName('');
-    setNewIngQty('');
-    setNewIngUnit('');
-    setAddIngVisible(false);
-  };
-
-  const splitTitle = (title: string) => {
-    const words = title.trim().split(' ');
-    if (words.length === 1) return { lead: '', tail: title };
-    return { lead: words.slice(0, -1).join(' '), tail: words[words.length - 1] };
-  };
   const { lead, tail } = splitTitle(recipe.title);
 
-  // 4-column meta strip — mockup spread layout: voorber. / koken / porties / ing.
-  // Pads single-digit numbers to two-digit ("04") for the mono-numeral rhythm.
-  const pad = (n: number | undefined) =>
-    n != null ? String(n).padStart(2, '0') : '–';
+  // 4-column meta strip: voorber. / koken / porties / ing.
   const metaItems = [
-    { num: pad(recipe.preparationTime), unit: 'voorber.' },
-    { num: pad(recipe.cookingTime ?? recipe.duration), unit: 'koken' },
-    { num: pad(recipe.servings ?? 4), unit: 'porties' },
-    { num: pad(recipe.ingredients?.length), unit: 'ing.' },
+    { num: pad2(recipe.preparationTime), unit: 'voorber.' },
+    { num: pad2(recipe.cookingTime ?? recipe.duration), unit: 'koken' },
+    { num: pad2(recipe.servings ?? 4), unit: 'porties' },
+    { num: pad2(recipe.ingredients?.length), unit: 'ing.' },
   ];
+
+  const allergyWarnings = recipe.allergens?.length
+    ? familyMembers
+        .filter((m) => m.active && m.allergies?.some((a) => recipe.allergens.includes(a)))
+        .map((m) => ({
+          name: m.name.trim() || 'Gezinslid',
+          color: m.color,
+          allergens: m.allergies!.filter((a) => recipe.allergens.includes(a)),
+        }))
+    : [];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Off-screen render van de deelkaart zodat captureRef altijd iets vindt. */}
-      <View
-        ref={shareCardRef}
-        collapsable={false}
-        style={styles.offscreen}
-        pointerEvents="none"
-      >
+      <View ref={shareCardRef} collapsable={false} style={styles.offscreen} pointerEvents="none">
         <RecipeShareCard recipe={recipe} />
       </View>
-      {/* Header */}
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={colors.textDark} />
@@ -314,22 +281,14 @@ export default function RecipeDetailScreen() {
             onPress={() => update(recipe.id, { isFavorite: !recipe.isFavorite })}
             size={22}
           />
-          <TouchableOpacity
-            onPress={handleShareRecipe}
-            hitSlop={8}
-            disabled={sharing}
-          >
+          <TouchableOpacity onPress={handleShareRecipe} hitSlop={8} disabled={sharing}>
             <Ionicons
               name="share-social-outline"
               size={20}
               color={sharing ? colors.textFaint : colors.textDark}
             />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleShareLink}
-            hitSlop={8}
-            disabled={sharingLink}
-          >
+          <TouchableOpacity onPress={handleShareLink} hitSlop={8} disabled={sharingLink}>
             <Ionicons
               name="link-outline"
               size={20}
@@ -349,7 +308,6 @@ export default function RecipeDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Title */}
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
           {lead.length > 0 && (
             <Text style={[typography.hero32Bold, { fontSize: 42, marginTop: 8 }]}>{lead}</Text>
@@ -365,7 +323,6 @@ export default function RecipeDetailScreen() {
           </View>
         </View>
 
-        {/* Hero photo */}
         <View style={{ marginTop: spacing.lg }}>
           {recipe.imageUri ? (
             <Image source={{ uri: toDisplayUri(recipe.imageUri) }} style={styles.hero} />
@@ -374,17 +331,14 @@ export default function RecipeDetailScreen() {
           )}
         </View>
 
-        {/* Meta strip — 4-col spread: voorber. / koken / porties / ing. */}
         <MetaStrip items={metaItems} style={styles.metaStrip} />
 
-        {/* Servings selector */}
         <ServingsSelector
           current={currentServings}
           defaultServings={baseServings}
           onChange={setServings}
         />
 
-        {/* Ingrediënten */}
         <Section title="i. ingrediënten" count={recipe.ingredients?.length ?? 0} />
         <View style={{ paddingHorizontal: spacing.lg }}>
           {scaledIngredients.map((ing, idx) => (
@@ -406,60 +360,19 @@ export default function RecipeDetailScreen() {
               />
             </View>
           ))}
-
-          {/* Add ingredient inline */}
-          {addIngVisible ? (
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-              <View style={styles.addIngForm}>
-                <TextInput
-                  style={[styles.addIngInput, { flex: 2 }]}
-                  placeholder="Naam"
-                  placeholderTextColor={colors.textFaint}
-                  value={newIngName}
-                  onChangeText={setNewIngName}
-                  autoFocus
-                />
-                <TextInput
-                  style={[styles.addIngInput, { width: 56 }]}
-                  placeholder="Aantal"
-                  placeholderTextColor={colors.textFaint}
-                  value={newIngQty}
-                  onChangeText={setNewIngQty}
-                  keyboardType="decimal-pad"
-                />
-                <TextInput
-                  style={[styles.addIngInput, { width: 64 }]}
-                  placeholder="Eenheid"
-                  placeholderTextColor={colors.textFaint}
-                  value={newIngUnit}
-                  onChangeText={setNewIngUnit}
-                />
-                <TouchableOpacity onPress={handleSaveNewIngredient} hitSlop={6}>
-                  <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setAddIngVisible(false)} hitSlop={6}>
-                  <Ionicons name="close-circle-outline" size={22} color={colors.textLight} />
-                </TouchableOpacity>
-              </View>
-            </KeyboardAvoidingView>
-          ) : (
-            <TouchableOpacity style={styles.addIngBtn} onPress={() => setAddIngVisible(true)}>
-              <Ionicons name="add" size={14} color={colors.primary} />
-              <Text style={styles.addIngBtnText}>ingrediënt toevoegen</Text>
-            </TouchableOpacity>
-          )}
+          <AddIngredientForm
+            onAdd={async (ing) => {
+              await update(recipe.id, { ingredients: [...recipe.ingredients, ing] });
+            }}
+          />
         </View>
 
-        {/* Werkwijze */}
         <Section title="ii. werkwijze" count={steps.length} suffix="stappen" />
         <View style={{ paddingHorizontal: spacing.lg }}>
           {steps.map((step, i) => (
             <View
               key={i}
-              style={[
-                styles.stepRow,
-                i < steps.length - 1 && styles.stepRowDivider,
-              ]}
+              style={[styles.stepRow, i < steps.length - 1 && styles.stepRowDivider]}
             >
               <Text style={styles.stepNum}>{String(i + 1).padStart(2, '0')}</Text>
               <Text style={styles.stepText}>{stepText(step)}</Text>
@@ -467,44 +380,33 @@ export default function RecipeDetailScreen() {
           ))}
         </View>
 
-        {/* Allergenen */}
-        {recipe.allergens?.length > 0 && (() => {
-          const warnings = familyMembers
-            .filter((m) => m.active && m.allergies && m.allergies.some((a) => recipe.allergens.includes(a)))
-            .map((m) => ({
-              name: m.name.trim() || 'Gezinslid',
-              color: m.color,
-              allergens: m.allergies!.filter((a) => recipe.allergens.includes(a)),
-            }));
-          return (
-            <>
-              <Section title="iii. allergenen" count={recipe.allergens.length} />
-              {warnings.length > 0 && (
-                <View style={styles.allergyWarningBox}>
-                  {warnings.map((w) => (
-                    <View key={w.name} style={styles.allergyWarningRow}>
-                      <View style={[styles.allergyDot, { backgroundColor: w.color }]} />
-                      <Text style={styles.allergyWarningText}>
-                        <Text style={{ fontFamily: fonts.bodyMedium }}>{w.name}</Text>
-                        {' is allergisch voor '}
-                        {w.allergens.join(', ')}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-              <View style={styles.allergenRow}>
-                {recipe.allergens.map((a) => (
-                  <View key={a} style={styles.allergenChip}>
-                    <Text style={styles.allergenChipText}>{a}</Text>
+        {recipe.allergens?.length > 0 && (
+          <>
+            <Section title="iii. allergenen" count={recipe.allergens.length} />
+            {allergyWarnings.length > 0 && (
+              <View style={styles.allergyWarningBox}>
+                {allergyWarnings.map((w) => (
+                  <View key={w.name} style={styles.allergyWarningRow}>
+                    <View style={[styles.allergyDot, { backgroundColor: w.color }]} />
+                    <Text style={styles.allergyWarningText}>
+                      <Text style={{ fontFamily: fonts.bodyMedium }}>{w.name}</Text>
+                      {' is allergisch voor '}
+                      {w.allergens.join(', ')}
+                    </Text>
                   </View>
                 ))}
               </View>
-            </>
-          );
-        })()}
+            )}
+            <View style={styles.allergenRow}>
+              {recipe.allergens.map((a) => (
+                <View key={a} style={styles.allergenChip}>
+                  <Text style={styles.allergenChipText}>{a}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
 
-        {/* Nutritie */}
         <Section
           title="iv. nutritie"
           count={recipe.nutrition?.matchedIngredients ?? 0}
@@ -516,7 +418,6 @@ export default function RecipeDetailScreen() {
           onCompute={handleComputeNutrition}
         />
 
-        {/* Beoordeling */}
         <View style={styles.ratingSection}>
           <StarRating
             rating={recipe.rating ?? 0}
@@ -525,7 +426,6 @@ export default function RecipeDetailScreen() {
           />
         </View>
 
-        {/* Times cooked */}
         <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
           <TouchableOpacity
             onPress={async () => {
@@ -555,7 +455,6 @@ export default function RecipeDetailScreen() {
           )}
         </View>
 
-        {/* Notities */}
         <View style={styles.notesSection}>
           <View style={styles.notesSectionHeader}>
             <Text style={typography.folioBold}>notities</Text>
@@ -598,7 +497,6 @@ export default function RecipeDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Sticky CTA */}
       <View style={styles.ctaBar}>
         <TouchableOpacity
           style={styles.ctaPrimary}
@@ -612,16 +510,11 @@ export default function RecipeDetailScreen() {
           <Text style={typography.buttonLabel}>begin met koken</Text>
           <Ionicons name="arrow-forward" size={14} color={PAPER} style={{ marginLeft: 10 }} />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.ctaSecondary}
-          onPress={openGroceryModal}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.ctaSecondary} onPress={openGroceryModal} activeOpacity={0.7}>
           <Ionicons name="bag-outline" size={18} color={colors.textDark} />
         </TouchableOpacity>
       </View>
 
-      {/* Cook mode overlay */}
       {cookStep !== null && steps.length > 0 && (
         <CookOverlay
           stepIndex={cookStep}
@@ -644,339 +537,35 @@ export default function RecipeDetailScreen() {
         />
       )}
 
-      {/* Grocery ingredient select modal */}
-      <Modal
+      <GroceryPickerModal
         visible={groceryModalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setGroceryModalVisible(false)}
-      >
-        <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setGroceryModalVisible(false)} hitSlop={8}>
-              <Ionicons name="close" size={24} color={colors.textDark} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Ingrediënten kiezen</Text>
-            <TouchableOpacity
-              onPress={() => {
-                if (selectedIngIds.size === scaledIngredients.length) {
-                  setSelectedIngIds(new Set());
-                } else {
-                  setSelectedIngIds(new Set(scaledIngredients.map(i => i.id)));
-                }
-              }}
-              hitSlop={8}
-            >
-              <Text style={styles.selectAllText}>
-                {selectedIngIds.size === scaledIngredients.length ? 'Geen' : 'Alles'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+        ingredients={scaledIngredients}
+        selectedIds={selectedIngIds}
+        onClose={() => setGroceryModalVisible(false)}
+        onToggle={toggleIngredient}
+        onToggleAll={toggleAllIngredients}
+        onConfirm={handleAddToGrocery}
+      />
 
-          <ScrollView contentContainerStyle={{ padding: spacing.md, gap: 2 }}>
-            {scaledIngredients.map((ing) => {
-              const checked = selectedIngIds.has(ing.id);
-              return (
-                <TouchableOpacity
-                  key={ing.id}
-                  style={styles.ingCheckRow}
-                  onPress={() => toggleIngredient(ing.id)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={checked ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={22}
-                    color={checked ? colors.primary : colors.textFaint}
-                  />
-                  <Text style={styles.ingCheckNum}>{ing.displayQty}</Text>
-                  <Text style={styles.ingCheckUnit}>{ing.unit}</Text>
-                  <Text style={styles.ingCheckName}>{ing.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={styles.modalCta}
-              onPress={handleAddToGrocery}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="bag-outline" size={16} color={PAPER} style={{ marginRight: 8 }} />
-              <Text style={typography.buttonLabel}>
-                voeg {selectedIngIds.size} toe aan lijst
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </Modal>
-
-      {/* Export-menu */}
-      <Modal
+      <ExportMenuModal
         visible={exportMenuVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setExportMenuVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.exportBackdrop}
-          activeOpacity={1}
-          onPress={() => setExportMenuVisible(false)}
-        >
-          <View style={styles.exportSheet}>
-            <Text style={[typography.folioBold, { marginBottom: spacing.sm }]}>exporteer</Text>
-            <TouchableOpacity style={styles.exportRow} onPress={handleExportPdf} activeOpacity={0.7}>
-              <Ionicons name="document-text-outline" size={18} color={colors.textDark} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.exportRowTitle}>als PDF</Text>
-                <Text style={styles.exportRowDesc}>printvriendelijk, met ingrediënten en stappen.</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={14} color={colors.textFaint} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.exportRow}
-              onPress={handleExportCooklang}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="code-slash-outline" size={18} color={colors.textDark} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.exportRowTitle}>als .cook (Cooklang)</Text>
-                <Text style={styles.exportRowDesc}>Plain-text formaat voor andere Cooklang-apps.</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={14} color={colors.textFaint} />
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setExportMenuVisible(false)}
+        onExportPdf={handleExportPdf}
+        onExportCooklang={handleExportCooklang}
+      />
 
-      {/* Collections-picker */}
-      <Modal
+      <CollectionsPickerModal
         visible={collectionsPickerVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setCollectionsPickerVisible(false)}
-      >
-        <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.background }}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setCollectionsPickerVisible(false)} hitSlop={8}>
-              <Ionicons name="close" size={22} color={colors.textLight} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>In collectie zetten</Text>
-            <TouchableOpacity
-              onPress={() => {
-                setCollectionsPickerVisible(false);
-                router.push('/collections');
-              }}
-              hitSlop={8}
-            >
-              <Ionicons name="add" size={22} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: 4 }}>
-            {collections.length === 0 ? (
-              <View style={{ paddingTop: spacing.xxl, alignItems: 'center' }}>
-                <Text style={[typography.bodyItalic, { textAlign: 'center', marginBottom: spacing.md }]}>
-                  Nog geen collecties.{'\n'}Maak er één via het + icoon.
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setCollectionsPickerVisible(false);
-                    router.push('/collections');
-                  }}
-                  style={styles.collectionsBtn}
-                  activeOpacity={0.8}
-                >
-                  <Text style={typography.buttonLabel}>beheer collecties</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              collections.map((col) => {
-                const inside = col.recipeIds.includes(recipe.id);
-                return (
-                  <TouchableOpacity
-                    key={col.id}
-                    style={styles.collectionRow}
-                    onPress={() => handleToggleCollection(col.id, inside)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={inside ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={22}
-                      color={inside ? colors.primary : colors.textFaint}
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.collectionName}>{col.name}</Text>
-                      {col.description ? (
-                        <Text style={styles.collectionDesc} numberOfLines={1}>
-                          {col.description}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text style={styles.collectionCount}>{col.recipeIds.length}</Text>
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
+        recipeId={recipe.id}
+        collections={collections}
+        onClose={() => setCollectionsPickerVisible(false)}
+        onToggle={handleToggleCollection}
+        onManage={() => {
+          setCollectionsPickerVisible(false);
+          router.push('/collections');
+        }}
+      />
     </SafeAreaView>
-  );
-}
-
-function Section({ title, count, suffix }: { title: string; count: number; suffix?: string }) {
-  return (
-    <View style={styles.sectionHeader}>
-      <Text style={typography.folioBold}>{title}</Text>
-      <View style={styles.rule} />
-      <Text style={typography.folio}>
-        {count} {suffix ?? ''}
-      </Text>
-    </View>
-  );
-}
-
-interface CookOverlayProps {
-  stepIndex: number;
-  totalSteps: number;
-  stepBody: string;
-  recipeTitle: string;
-  activeTimers: { id: string; seconds: number; label: string }[];
-  onClose: () => void;
-  onPrev: () => void;
-  onNext: () => void;
-  onStartTimer: (seconds: number, label: string) => void;
-  onDismissTimer: (id: string) => void;
-}
-
-function CookOverlay({
-  stepIndex,
-  totalSteps,
-  stepBody,
-  recipeTitle,
-  activeTimers,
-  onClose,
-  onPrev,
-  onNext,
-  onStartTimer,
-  onDismissTimer,
-}: CookOverlayProps) {
-  // Hands-on cooking: keep the screen awake while this overlay is mounted so
-  // the user doesn't have to wake the phone with greasy hands.
-  useKeepAwake('cook-mode');
-  const matches = useMemo(() => findTimesInStep(stepBody), [stepBody]);
-  const isLast = stepIndex >= totalSteps - 1;
-  const stepNumStr = String(stepIndex + 1).padStart(2, '0');
-  const totalNumStr = String(totalSteps).padStart(2, '0');
-  return (
-    <View style={styles.cookOverlay}>
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        {/* Top bar: scherm-wakker indicator · recipe title · close */}
-        <View style={styles.cookTopBar}>
-          <View style={styles.cookAwakeDot}>
-            <View style={styles.cookAwakeBullet} />
-            <Text style={[typography.folio, { color: colors.green }]}>scherm wakker</Text>
-          </View>
-          <Text
-            style={[typography.folio, { color: colors.textFaint }]}
-            numberOfLines={1}
-          >
-            {recipeTitle.toLowerCase()}
-          </Text>
-          <TouchableOpacity onPress={onClose} hitSlop={10}>
-            <Ionicons name="close" size={22} color={colors.textDark} />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          contentContainerStyle={styles.cookScroll}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Step indicator + progress bars */}
-          <View style={styles.cookStepRow}>
-            <Text style={styles.cookStepLabel}>
-              · stap {stepNumStr} van {totalNumStr} ·
-            </Text>
-            <View style={styles.cookProgress}>
-              {Array.from({ length: totalSteps }).map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.cookProgressPill,
-                    i <= stepIndex && styles.cookProgressPillOn,
-                  ]}
-                />
-              ))}
-            </View>
-          </View>
-
-          {/* Drop-cap step number */}
-          <Text style={styles.cookDropCap}>{stepNumStr}</Text>
-
-          {/* Step body */}
-          <Text style={styles.cookStepText}>{stepBody}</Text>
-
-          {matches.length > 0 && (
-            <View style={styles.timerChipsRow}>
-              {matches.map((m) => (
-                <TouchableOpacity
-                  key={`${m.start}-${m.end}`}
-                  onPress={() => onStartTimer(m.seconds, `${m.text} timer`)}
-                  style={styles.timerChip}
-                  activeOpacity={0.75}
-                >
-                  <Ionicons name="timer-outline" size={12} color={colors.primary} />
-                  <Text style={styles.timerChipText}>
-                    {m.text}{' · '}<Text style={styles.timerChipDuration}>start</Text>
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {activeTimers.length > 0 && (
-            <View style={styles.timerStack}>
-              {activeTimers.map((t) => (
-                <CookTimer
-                  key={t.id}
-                  durationSeconds={t.seconds}
-                  label={t.label}
-                  onDismiss={() => onDismissTimer(t.id)}
-                />
-              ))}
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Page-turn footer: ‹ stap 02 · 03 / 05 · stap 04 › */}
-        <View style={styles.cookFooter}>
-          <TouchableOpacity
-            onPress={onPrev}
-            disabled={stepIndex === 0}
-            hitSlop={10}
-          >
-            <Text
-              style={[
-                styles.cookFooterLabel,
-                stepIndex === 0 && { color: colors.borderColor },
-              ]}
-            >
-              ‹  stap {String(stepIndex).padStart(2, '0')}
-            </Text>
-          </TouchableOpacity>
-          <Text style={[typography.folio, { color: colors.textFaint }]}>
-            · {stepNumStr} / {totalNumStr} ·
-          </Text>
-          <TouchableOpacity onPress={isLast ? onClose : onNext} hitSlop={10}>
-            <Text style={[styles.cookFooterLabel, { color: colors.primary }]}>
-              {isLast
-                ? 'klaar!  ›'
-                : `stap ${String(stepIndex + 2).padStart(2, '0')}  ›`}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    </View>
   );
 }
 
@@ -992,28 +581,11 @@ const styles = StyleSheet.create({
   },
   headerActions: { flexDirection: 'row', gap: 14, alignItems: 'center' },
   hero: { width: '100%', height: 240 },
-  metaStrip: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
-  },
-  rule: { flex: 1, height: 1, backgroundColor: colors.borderColor },
-  ingRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    paddingVertical: 7,
-  },
+  metaStrip: { marginHorizontal: spacing.lg, marginTop: spacing.lg },
+  ingRow: { flexDirection: 'row', alignItems: 'baseline', paddingVertical: 7 },
   ingRowDivider: {
     borderBottomWidth: 0.5,
     borderBottomColor: colors.borderColor,
-    // Dotted reads well on iOS; Android falls back to solid hairline which is fine.
     borderStyle: 'dotted',
   },
   ingNum: {
@@ -1039,44 +611,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   ingCart: { width: 16, marginLeft: 4 },
-  addIngBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: spacing.sm,
-  },
-  addIngBtnText: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: 'italic',
-    fontSize: 13,
-    color: colors.primary,
-  },
-  addIngForm: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: spacing.sm,
-    borderTopWidth: 0.5,
-    borderTopColor: colors.borderSoft,
-  },
-  addIngInput: {
-    fontFamily: fonts.display,
-    fontSize: 14,
-    color: colors.textDark,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderColor,
-    paddingVertical: 4,
-    paddingHorizontal: 2,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingVertical: 10,
-  },
-  stepRowDivider: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.borderSoft,
-  },
+  stepRow: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
+  stepRowDivider: { borderBottomWidth: 0.5, borderBottomColor: colors.borderSoft },
   stepNum: {
     fontFamily: fonts.monoMedium,
     fontSize: 11,
@@ -1123,124 +659,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cookOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: PAPER,
-    zIndex: 100,
-  },
-  cookTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: 12,
-  },
-  cookAwakeDot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  cookAwakeBullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.green,
-  },
-  cookScroll: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
-  },
-  cookStepRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cookStepLabel: {
-    fontFamily: fonts.mono,
-    fontSize: 11,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    color: colors.primary,
-  },
-  cookProgress: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  cookProgressPill: {
-    width: 18,
-    height: 2,
-    backgroundColor: colors.borderColor,
-  },
-  cookProgressPillOn: {
-    backgroundColor: colors.primary,
-  },
-  cookDropCap: {
-    fontFamily: fonts.display,
-    fontWeight: '300',
-    fontSize: 92,
-    lineHeight: 92,
-    letterSpacing: -3,
-    color: colors.textDark,
-    marginTop: spacing.lg,
-  },
-  cookStepText: {
-    fontFamily: fonts.display,
-    fontSize: 22,
-    lineHeight: 30,
-    color: colors.textMedium,
-    marginTop: spacing.lg,
-  },
-  timerChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: spacing.lg,
-  },
-  timerChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 0.5,
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(194,73,42,0.06)',
-  },
-  timerChipText: {
-    fontFamily: fonts.mono,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: colors.primary,
-  },
-  timerChipDuration: {
-    fontFamily: fonts.monoMedium,
-    color: colors.primary,
-  },
-  timerStack: {
-    marginTop: spacing.md,
-    gap: spacing.md,
-  },
-  cookFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 0.5,
-    borderTopColor: colors.borderColor,
-  },
-  cookFooterLabel: {
-    fontFamily: fonts.mono,
-    fontSize: 10,
-    letterSpacing: 1.6,
-    textTransform: 'uppercase',
-    color: colors.textDark,
-  },
   allergenRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1257,17 +675,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(194,73,42,0.05)',
     gap: 6,
   },
-  allergyWarningRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  allergyDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 4,
-  },
+  allergyWarningRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  allergyDot: { width: 8, height: 8, borderRadius: 4, marginTop: 4 },
   allergyWarningText: {
     flex: 1,
     fontFamily: fonts.body,
@@ -1296,11 +705,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     textAlign: 'center',
   },
-  ratingSection: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    gap: spacing.md,
-  },
+  ratingSection: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, gap: spacing.md },
   notesSection: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
@@ -1358,134 +763,5 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: colors.background,
     fontWeight: '600',
-  },
-  // Modal
-  modal: { flex: 1, backgroundColor: PAPER },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.borderColor,
-  },
-  modalTitle: {
-    fontFamily: fonts.display,
-    fontSize: 18,
-    color: colors.textDark,
-  },
-  selectAllText: {
-    fontFamily: fonts.mono,
-    fontSize: 9,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    color: colors.primary,
-  },
-  ingCheckRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    gap: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.borderSoft,
-  },
-  ingCheckNum: {
-    fontFamily: fonts.monoMedium,
-    fontSize: 11,
-    color: colors.primary,
-    width: 34,
-    textAlign: 'right',
-  },
-  ingCheckUnit: {
-    fontFamily: fonts.mono,
-    fontSize: 9,
-    color: colors.textLight,
-    textTransform: 'uppercase',
-    width: 50,
-  },
-  ingCheckName: {
-    flex: 1,
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.textDark,
-  },
-  modalFooter: {
-    padding: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderColor,
-  },
-  modalCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.textDark,
-    paddingVertical: 14,
-    borderRadius: 999,
-  },
-  exportBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'flex-end',
-  },
-  exportSheet: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  exportRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.borderSoft,
-  },
-  exportRowTitle: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    color: colors.textDark,
-  },
-  exportRowDesc: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: 'italic',
-    fontSize: 12,
-    color: colors.textLight,
-    marginTop: 2,
-  },
-  collectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.borderSoft,
-  },
-  collectionName: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    color: colors.textDark,
-  },
-  collectionDesc: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: 'italic',
-    fontSize: 12,
-    color: colors.textLight,
-    marginTop: 2,
-  },
-  collectionCount: {
-    fontFamily: fonts.mono,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    color: colors.textFaint,
-  },
-  collectionsBtn: {
-    backgroundColor: colors.textDark,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    borderRadius: 999,
   },
 });

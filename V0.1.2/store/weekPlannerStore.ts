@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { useEffect } from 'react';
 import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
+import { enqueue, flushQueue } from '../services/sync/queue';
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner';
 
@@ -178,7 +179,27 @@ export function useHydrateWeekPlanner(): void {
       writePref(db, PREF_KEY, JSON.stringify(state.weeks)).catch((err) =>
         console.warn('[weekplanner] persist failed:', err),
       );
+      // Queue per gewijzigde week — pullAll fan-out (setWeeks) is bulk, dus
+      // diff per key i.p.v. één grote payload.
+      const changed = changedWeekKeys(prev.weeks, state.weeks);
+      for (const key of changed) {
+        const plan = state.weeks[key];
+        if (!plan) continue;
+        enqueue(db, 'upsert', 'weekplan', key, { weekKey: key, plan }).catch((err) =>
+          console.warn('[weekplanner] enqueue failed:', err),
+        );
+      }
+      if (changed.length > 0) void flushQueue(db);
     });
     return unsub;
   }, [db, hydrated]);
+}
+
+function changedWeekKeys(prev: WeeksMap, next: WeeksMap): string[] {
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+  const out: string[] = [];
+  for (const k of keys) {
+    if (prev[k] !== next[k]) out.push(k);
+  }
+  return out;
 }

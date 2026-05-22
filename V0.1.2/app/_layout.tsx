@@ -17,6 +17,7 @@ import { useHydrateTheme, useResolvedScheme, useThemeColors } from '../theme';
 import { useFamilyStore, useHydrateFamily } from '../store/familyStore';
 import { useHydrateShops } from '../store/shopsStore';
 import { useHydrateWeekPlanner } from '../store/weekPlannerStore';
+import { useSupabaseSync } from '../services/sync/lifecycle';
 
 export default function RootLayout() {
   const fontsLoaded = useEditorialFonts();
@@ -59,6 +60,7 @@ function ThemedRoot() {
   useHydrateFamily();
   useHydrateShops();
   useHydrateWeekPlanner();
+  useSupabaseSync();
   const themeColors = useThemeColors();
   const scheme = useResolvedScheme();
 

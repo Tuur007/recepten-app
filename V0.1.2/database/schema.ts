@@ -93,6 +93,21 @@ export const CREATE_PREFS_TABLE = `
   );
 `;
 
+// Outbox voor remote sync — writes worden hier eerst neergezet en pas verwijderd
+// als de upload naar Supabase slaagt. Zo verdwijnt geen enkele offline mutatie.
+export const CREATE_SYNC_QUEUE_TABLE = `
+  CREATE TABLE IF NOT EXISTS sync_queue (
+    id         TEXT PRIMARY KEY NOT NULL,
+    op         TEXT NOT NULL,
+    entity     TEXT NOT NULL,
+    entity_id  TEXT NOT NULL,
+    payload    TEXT,
+    created_at TEXT NOT NULL,
+    attempts   INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT
+  );
+`;
+
 export const DEFAULT_RECIPE_CATEGORIES = [
   'Pasta', 'Soep', 'Vis', 'Vlees', 'Snel',
   'Vegetarisch', 'Dessert', 'Ontbijt', 'Lunch',
@@ -172,5 +187,16 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (collection_id, recipe_id),
     FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
     FOREIGN KEY (recipe_id)     REFERENCES recipes(id)     ON DELETE CASCADE
+  )`,
+  // v27: outbox voor remote sync (Supabase) — survived offline writes
+  `CREATE TABLE IF NOT EXISTS sync_queue (
+    id         TEXT PRIMARY KEY NOT NULL,
+    op         TEXT NOT NULL,
+    entity     TEXT NOT NULL,
+    entity_id  TEXT NOT NULL,
+    payload    TEXT,
+    created_at TEXT NOT NULL,
+    attempts   INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT
   )`,
 ];

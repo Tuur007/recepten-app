@@ -12,34 +12,6 @@ import type { GroceryItem } from '../../types/grocery';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function recipeToRow(recipe: Recipe, familyId: string) {
-  return {
-    id: recipe.id,
-    family_id: familyId,
-    title: recipe.title,
-    ingredients: recipe.ingredients,
-    steps: recipe.steps,
-    source_url: recipe.sourceUrl ?? null,
-    duration: recipe.duration ?? null,
-    category: recipe.category,
-    is_favorite: recipe.isFavorite,
-    image_uri: recipe.imageUri ?? null,
-    allergens: recipe.allergens,
-    difficulty: recipe.difficulty ?? null,
-    preparation_time: recipe.preparationTime ?? null,
-    cooking_time: recipe.cookingTime ?? null,
-    servings: recipe.servings ?? null,
-    rating: recipe.rating ?? null,
-    times_cooked: recipe.timesCooked ?? 0,
-    last_cooked: recipe.lastCooked ?? null,
-    notes: recipe.notes ?? null,
-    equipment: recipe.equipment ?? null,
-    nutrition: recipe.nutrition ?? null,
-    created_at: recipe.createdAt,
-    updated_at: recipe.updatedAt,
-  };
-}
-
 function rowToRecipe(row: Record<string, unknown>): Recipe {
   return {
     id: row.id as string,
@@ -69,23 +41,6 @@ function rowToRecipe(row: Record<string, unknown>): Recipe {
   };
 }
 
-function groceryToRow(item: GroceryItem, familyId: string) {
-  return {
-    id: item.id,
-    family_id: familyId,
-    name: item.name,
-    unit: item.unit,
-    sources: item.sources,
-    total_quantity: item.totalQuantity,
-    checked: item.checked,
-    category: item.category ?? '',
-    aisle: item.aisle ?? null,
-    price: item.price ?? null,
-    store_id: item.storeId ?? null,
-    created_at: item.createdAt,
-  };
-}
-
 function rowToGrocery(row: Record<string, unknown>): GroceryItem {
   return {
     id: row.id as string,
@@ -102,54 +57,8 @@ function rowToGrocery(row: Record<string, unknown>): GroceryItem {
   };
 }
 
-// ─── Push (lokaal → Supabase) ─────────────────────────────────────────────────
-
-export async function pushRecipe(recipe: Recipe): Promise<void> {
-  if (!defaultSupabase) return;
-  const familyId = useAuthStore.getState().familyId;
-  if (!familyId) return;
-  await defaultSupabase.from('recipes').upsert(recipeToRow(recipe, familyId));
-}
-
-export async function deleteRecipeRemote(id: string): Promise<void> {
-  if (!defaultSupabase) return;
-  await defaultSupabase
-    .from('recipes')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id);
-}
-
-export async function pushGroceryItem(item: GroceryItem): Promise<void> {
-  if (!defaultSupabase) return;
-  const familyId = useAuthStore.getState().familyId;
-  if (!familyId) return;
-  await defaultSupabase.from('grocery_items').upsert(groceryToRow(item, familyId));
-}
-
-export async function deleteGroceryItemRemote(id: string): Promise<void> {
-  if (!defaultSupabase) return;
-  await defaultSupabase
-    .from('grocery_items')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id);
-}
-
-export async function pushWeekPlan(weekKey: string, plan: MealPlan): Promise<void> {
-  if (!defaultSupabase) return;
-  const familyId = useAuthStore.getState().familyId;
-  if (!familyId) return;
-  await defaultSupabase
-    .from('week_plans')
-    .upsert(
-      {
-        family_id: familyId,
-        week_key: weekKey,
-        plan_data: plan,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'family_id,week_key' },
-    );
-}
+// Push gebeurt via de outbox-queue (services/sync/queue.ts) zodat offline writes
+// niet verloren gaan. Deze module zorgt enkel voor pull + realtime.
 
 // ─── Pull (Supabase → lokaal) ─────────────────────────────────────────────────
 

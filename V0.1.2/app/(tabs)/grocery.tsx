@@ -440,11 +440,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
   },
-  actionBtns: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingBottom: 4 },
+  actionBtns: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    flexWrap: 'wrap',
+  },
   ghostBtn: {
     width: 34,
     height: 34,

@@ -277,6 +277,7 @@ export default function GroceryScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              style={styles.filterScroll}
               contentContainerStyle={styles.filterRow}
             >
               <TouchableOpacity
@@ -543,13 +544,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  filterScroll: { flexGrow: 0, flexShrink: 0 },
   filterRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
   filterChip: {
+    alignSelf: 'center',
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 999,

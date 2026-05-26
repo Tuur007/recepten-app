@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Sentry from '@sentry/react-native';
 import { colors, fonts, spacing, typography } from '../constants/Designsystem';
 
 interface ErrorBoundaryProps {
@@ -28,6 +29,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[ErrorBoundary] Caught:', error, info.componentStack);
+    // No-op als Sentry niet geïnitialiseerd is (geen DSN gezet).
+    Sentry.captureException(error);
   }
 
   private handleReset = () => {

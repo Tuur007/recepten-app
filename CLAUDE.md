@@ -44,12 +44,11 @@ Hard rules:
   services/openFoodFacts.ts, NutritionPanel)
 - Barcode scanner voor grocery (app/grocery/scanner.tsx,
   CameraView.onBarcodeScanned)
-- Colruyt integratie (services/colruyt.ts, app/grocery/colruyt.tsx,
-  store/shopsStore.ts)
+- Shops store met statische lijst (winkel-toggle in settings, geen externe
+  integratie) (store/shopsStore.ts)
 - Recipe collections (features/collections/, store/collectionsStore.ts,
   app/collections/, CollectionsPickerModal)
 - PDF / print export (services/exports/pdf.ts, ExportMenuModal)
-- Cooklang export (services/exports/cooklang.ts, utils/cooklang.ts)
 - Family members als cloud-resource (family_members tabel met display_name,
   color, allergies, active). Eigen profiel via updateMyProfile
   (services/familyMembers.ts), realtime sync tussen toestellen. Lokale
@@ -63,8 +62,10 @@ Hard rules:
 - app/recipes/[id].tsx opgesplitst (1491 → 767 regels, sub-componenten in
   features/recipes/components/detail/)
 
-## Nog op de roadmap
-1. Dark mode (palette werkt mooi geïnverteerd)
+## Distributie
+TestFlight (iOS) + Play Internal Testing (Android). Geen openbare App Store
+listing. Testers worden per e-mail toegevoegd in App Store Connect resp.
+Google Play Console. De app heeft geen interne toegangscode meer.
 
 ## Testing
 Test runner: tsx (zie package.json scripts.test).

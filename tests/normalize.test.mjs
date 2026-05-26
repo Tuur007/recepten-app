@@ -1,6 +1,6 @@
 /**
  * normalize.test.mjs — unit tests voor normalizeUrl en inferCategoryFromName
- * in V0.1.2/utils/normalize.ts.
+ * in V0.1.2/utils/normalize.ts, plus randomToken in V0.1.2/utils/id.ts.
  */
 
 import { strict as assert } from 'node:assert';
@@ -8,6 +8,7 @@ import { strict as assert } from 'node:assert';
 const { normalizeUrl, inferCategoryFromName } = await import(
   '../V0.1.2/utils/normalize.ts'
 );
+const { randomToken, TOKEN_ALPHABET } = await import('../V0.1.2/utils/id.ts');
 
 const PASS = (s) => console.log(`\x1b[32m✅ ${s}\x1b[0m`);
 const FAIL = (s) => console.log(`\x1b[31m❌ ${s}\x1b[0m`);
@@ -120,6 +121,39 @@ test('"chips" → Snacks', () => {
 
 test('onbekend item → lege string (eerlijk, geen valse "Overig")', () => {
   assert.equal(inferCategoryFromName('xyz quux abracadabra'), '');
+});
+
+console.log('\n══════════════════════════════════════════════');
+console.log(' randomToken (crypto-veilig)');
+console.log('══════════════════════════════════════════════\n');
+
+test('lengte klopt', () => {
+  assert.equal(randomToken(4).length, 4);
+  assert.equal(randomToken(16).length, 16);
+  assert.equal(randomToken(0).length, 0);
+});
+
+test('alle tekens komen uit het alfabet', () => {
+  const allowed = new Set(TOKEN_ALPHABET.split(''));
+  for (let i = 0; i < 50; i++) {
+    for (const ch of randomToken(12)) {
+      assert.ok(allowed.has(ch), `onverwacht teken "${ch}" buiten alfabet`);
+    }
+  }
+});
+
+test('respecteert een custom alfabet', () => {
+  const token = randomToken(20, 'AB');
+  assert.ok(/^[AB]+$/.test(token));
+  assert.equal(token.length, 20);
+});
+
+test('geen voorspelbaar patroon over 1000 opeenvolgende calls', () => {
+  const seen = new Set();
+  for (let i = 0; i < 1000; i++) seen.add(randomToken(12));
+  // Met 32^12 mogelijke tokens zijn 1000 unieke waarden quasi-zeker; een
+  // teller of vaste seed zou hier collisions of een patroon geven.
+  assert.ok(seen.size >= 999, `verwachtte ~1000 unieke tokens, kreeg ${seen.size}`);
 });
 
 console.log('\n══════════════════════════════════════════════');

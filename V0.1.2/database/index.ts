@@ -43,32 +43,16 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
 
   if (currentVersion === 0) {
     // Verse installatie: gebruik het volledige schema direct, sla de losse
-    // ALTER-migraties over zodat we niet 22 onnodige stappen doen op een lege db.
+    // ALTER-migraties over zodat we niet 27 onnodige stappen doen op een lege db.
     await db.execAsync(CREATE_RECIPES_TABLE_FULL);
+    await db.execAsync(`PRAGMA user_version = ${MIGRATIONS.length}`);
     console.log('[DB] Fresh install — applied CREATE_RECIPES_TABLE_FULL');
   } else {
     // Bestaande installatie: zorg eerst dat de basis-tabel bestaat, dan rollen
-    // we door alle migraties heen (idempotent dankzij IF NOT EXISTS + dup-skip).
+    // we door alle nog-niet-toegepaste migraties heen.
     await db.execAsync(CREATE_RECIPES_TABLE);
-
-    for (let i = currentVersion; i < MIGRATIONS.length; i++) {
-      try {
-        await db.execAsync(MIGRATIONS[i]);
-        console.log(`[DB] Migration v${i + 1} applied`);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        // SQLite throws when a column/table already exists — safe to skip.
-        if (msg.includes('duplicate column') || msg.includes('already exists')) {
-          console.log(`[DB] Migration v${i + 1} already applied, skipping`);
-        } else {
-          console.error(`[DB] Migration v${i + 1} FAILED:`, msg);
-          throw err;
-        }
-      }
-    }
+    await applyPendingMigrations(db, currentVersion);
   }
-
-  await db.execAsync(`PRAGMA user_version = ${MIGRATIONS.length}`);
 
   // Seed default categories if table is empty
   const catCount = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM categories');
@@ -85,6 +69,35 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
         'INSERT OR IGNORE INTO categories (id, name, type, created_at) VALUES (?, ?, ?, ?)',
         [generateId(), name, 'grocery', now],
       );
+    }
+  }
+}
+
+/**
+ * Past elke nog-niet-toegepaste migratie atomair toe: per stap een eigen
+ * transactie die zowel de SQL als de bijbehorende `user_version`-bump bevat.
+ * Faalt een stap, dan rollt SQLite de transactie (inclusief de versie-bump)
+ * terug en gooien we de error door — `user_version` blijft op de laatste
+ * geslaagde migratie staan zodat een volgende run vanaf daar hervat.
+ *
+ * Bewust géén "duplicate column"-catch meer: die maskeerde echte fouten.
+ */
+export async function applyPendingMigrations(
+  db: SQLiteDatabase,
+  fromVersion: number,
+  migrations: string[] = MIGRATIONS,
+): Promise<void> {
+  for (let i = fromVersion; i < migrations.length; i++) {
+    try {
+      await db.execAsync(
+        `BEGIN; ${migrations[i]}; PRAGMA user_version = ${i + 1}; COMMIT;`,
+      );
+      console.log(`[DB] Migration v${i + 1} applied`);
+    } catch (err) {
+      await db.execAsync('ROLLBACK;').catch(() => {});
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[DB] Migration v${i + 1} FAILED:`, msg);
+      throw err;
     }
   }
 }

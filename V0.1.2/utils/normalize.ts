@@ -12,6 +12,7 @@ export function normalizeUnit(unit: string): string {
   const unitAliases: Record<string, string> = {
     gram: 'g',
     grams: 'g',
+    gr: 'g',
     kilogram: 'kg',
     kilograms: 'kg',
     milligram: 'mg',
@@ -101,17 +102,13 @@ export function inferCategoryFromName(name: string): string {
   return '';
 }
 
+/**
+ * Twee units mogen alleen samengevoegd worden als ze, genormaliseerd, exact
+ * gelijk zijn. Bewust GEEN cross-unit "compatibiliteit" (g↔kg, ml↔l,
+ * tsp↔tbsp): computeTotalQuantity in types/grocery.ts somt enkel getallen
+ * zonder conversie, dus "200 g" + "1 kg" als compatibel zien zou "201 g"
+ * opleveren. Verschillende units → aparte grocery-rijen.
+ */
 export function areUnitsCompatible(unit1: string, unit2: string): boolean {
-  const norm1 = normalizeUnit(unit1);
-  const norm2 = normalizeUnit(unit2);
-
-  if (norm1 === norm2) return true;
-
-  const volumeUnits = new Set(['ml', 'l', 'cup', 'tbsp', 'tsp']);
-  const weightUnits = new Set(['g', 'kg', 'mg', 'lb', 'oz']);
-
-  return (
-    (volumeUnits.has(norm1) && volumeUnits.has(norm2)) ||
-    (weightUnits.has(norm1) && weightUnits.has(norm2))
-  );
+  return normalizeUnit(unit1) === normalizeUnit(unit2);
 }

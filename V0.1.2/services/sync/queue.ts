@@ -19,7 +19,13 @@ interface QueueRow {
   created_at: string;
   attempts: number;
   last_error: string | null;
+  dead: number;
+  next_retry_at: string | null;
 }
+
+// Na zoveel mislukte pogingen markeren we een rij als dead-letter zodat één
+// corrupte payload de queue niet eeuwig blokkeert.
+const MAX_ATTEMPTS = 5;
 
 export interface WeekPlanPayload {
   weekKey: string;
@@ -56,6 +62,16 @@ export async function getQueueDepth(db: SQLiteDatabase): Promise<number> {
     'SELECT COUNT(*) as count FROM sync_queue',
   );
   return row?.count ?? 0;
+}
+
+/**
+ * Geeft de dead-letter rijen terug (attempts >= MAX_ATTEMPTS). Bedoeld voor de
+ * dev-overlay zodat een ontwikkelaar kan zien wat er vastloopt.
+ */
+export async function getDeadRows(db: SQLiteDatabase): Promise<QueueRow[]> {
+  return db.getAllAsync<QueueRow>(
+    'SELECT * FROM sync_queue WHERE dead = 1 ORDER BY created_at ASC',
+  );
 }
 
 function recipeToRow(recipe: Recipe, familyId: string) {
@@ -167,9 +183,11 @@ export interface FlushResult {
 }
 
 /**
- * Drain de queue van oud → nieuw. Stopt bij de eerste fout zodat een
- * netwerk-hiccup niet alle volgende writes op `attempts++` zet. De next
- * flush (door NetInfo-listener of nieuwe write) pakt 'm weer op.
+ * Drain de queue van oud → nieuw. Een falende rij blokkeert de rest niet meer:
+ * ze krijgt `attempts++`, een exponential-backoff `next_retry_at` en wordt voor
+ * de rest van deze flush overgeslagen (de WHERE-filter sluit toekomstige
+ * retries uit). Na MAX_ATTEMPTS gaat de rij naar de dead-letter (`dead = 1`)
+ * zodat één corrupte payload de queue niet voor altijd vasthoudt.
  *
  * Reentrant-safe: een tweede call terwijl er nog één loopt no-ops.
  */
@@ -190,7 +208,9 @@ export async function flushQueue(
   try {
     while (true) {
       const row = await db.getFirstAsync<QueueRow>(
-        'SELECT * FROM sync_queue ORDER BY created_at ASC, id ASC LIMIT 1',
+        `SELECT * FROM sync_queue
+         WHERE dead = 0 AND (next_retry_at IS NULL OR next_retry_at < datetime('now'))
+         ORDER BY created_at ASC LIMIT 1`,
       );
       if (!row) break;
 
@@ -200,12 +220,30 @@ export async function flushQueue(
         processed++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        const attempts = row.attempts + 1;
+        const dead = attempts >= MAX_ATTEMPTS ? 1 : 0;
+        const backoffSeconds = Math.min(2 ** attempts, 300);
         await db.runAsync(
-          'UPDATE sync_queue SET attempts = attempts + 1, last_error = ? WHERE id = ?',
-          [msg, row.id],
+          `UPDATE sync_queue
+           SET attempts = ?, last_error = ?, dead = ?, next_retry_at = datetime('now', ?)
+           WHERE id = ?`,
+          [attempts, msg, dead, `+${backoffSeconds} seconds`, row.id],
         );
+        if (dead) {
+          // In cluster 4 wordt dit een Sentry breadcrumb; voorlopig console.warn.
+          console.warn('[sync] dead row', {
+            id: row.id,
+            entity: row.entity,
+            op: row.op,
+            entity_id: row.entity_id,
+            attempts,
+            last_error: msg,
+            payload: row.payload,
+          });
+        }
         failedAt = { id: row.id, error: msg };
-        break;
+        // Niet breaken: de gefaalde rij is nu uitgesloten via next_retry_at,
+        // de volgende eligible rij krijgt nog een kans in deze flush.
       }
     }
   } finally {

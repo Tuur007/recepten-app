@@ -17,7 +17,7 @@ export function useGrocery() {
     setLoading,
     setLoaded,
     addItem,
-    updateItemInStore,
+    applyLocalEdit,
     deleteItem,
     clearChecked: clearCheckedInStore,
   } = useGroceryStore();
@@ -121,18 +121,18 @@ export function useGrocery() {
         }
       } else {
         // Optimistic: update immediately
-        updateItemInStore(item.id, { sources: filteredSources, totalQuantity });
+        applyLocalEdit(item.id, { sources: filteredSources, totalQuantity });
         try {
           await GroceryRepository.update(db, item.id, { sources: filteredSources });
         } catch (err) {
           console.error('[removeSingleSource] Update error:', err);
           // Rollback: restore old value
-          updateItemInStore(item.id, { sources: item.sources, totalQuantity: item.totalQuantity });
+          applyLocalEdit(item.id, { sources: item.sources, totalQuantity: item.totalQuantity });
           throw err;
         }
       }
     },
-    [db, items, deleteItem, updateItemInStore, addItem],
+    [db, items, deleteItem, applyLocalEdit, addItem],
   );
 
   const toggleChecked = useCallback(
@@ -141,19 +141,19 @@ export function useGrocery() {
       if (!item) return;
       const checked = !item.checked;
       // Optimistic: update UI immediately, fire haptic, then persist.
-      updateItemInStore(id, { checked });
+      applyLocalEdit(id, { checked });
       haptics.light();
       try {
         await GroceryRepository.update(db, id, { checked });
       } catch (err) {
         console.error('[useGrocery.toggleChecked] Failed:', err);
         // Rollback
-        updateItemInStore(id, { checked: !checked });
+        applyLocalEdit(id, { checked: !checked });
         toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.');
         throw err;
       }
     },
-    [db, items, updateItemInStore],
+    [db, items, applyLocalEdit],
   );
 
   const remove = useCallback(
@@ -194,18 +194,18 @@ export function useGrocery() {
     async (id: string, changes: GroceryItemUpdate): Promise<void> => {
       const item = items.find((i) => i.id === id);
       if (!item) return;
-      updateItemInStore(id, changes as Partial<GroceryItem>);
+      applyLocalEdit(id, changes as Partial<GroceryItem>);
       try {
         await GroceryRepository.update(db, id, changes);
         haptics.light();
       } catch (err) {
         console.error('[useGrocery.updateItem] Failed:', err);
-        updateItemInStore(id, item);
+        applyLocalEdit(id, item);
         toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.');
         throw err;
       }
     },
-    [db, items, updateItemInStore],
+    [db, items, applyLocalEdit],
   );
 
   const removeMany = useCallback(async (ids: string[]): Promise<void> => {

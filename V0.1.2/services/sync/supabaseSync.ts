@@ -156,7 +156,7 @@ export function subscribeToFamily(
           RecipeRepository.upsertMany(db, [recipe]).catch(console.error);
         } else if (payload.eventType === 'UPDATE' && newRow) {
           const recipe = rowToRecipe(newRow);
-          store.updateRecipeInStore(recipe.id, recipe);
+          store.replaceFromRemote(recipe.id, recipe);
           RecipeRepository.upsertMany(db, [recipe]).catch(console.error);
         }
       },
@@ -182,7 +182,7 @@ export function subscribeToFamily(
           GroceryRepository.upsertMany(db, [item]).catch(console.error);
         } else if (payload.eventType === 'UPDATE' && newRow) {
           const item = rowToGrocery(newRow);
-          store.updateItemInStore(item.id, item);
+          store.replaceFromRemote(item.id, item);
           GroceryRepository.upsertMany(db, [item]).catch(console.error);
         }
       },

@@ -40,15 +40,27 @@ Hard rules:
   add-from-recipe modal, unit conversion
 - Cook timer, cooking time display, recipe share card (view-shot)
 - Sync service (services/sync/), notifications, onboarding flow
+- Nutritie per recept via Open Food Facts (services/nutrition.ts +
+  services/openFoodFacts.ts, NutritionPanel)
+- Barcode scanner voor grocery (app/grocery/scanner.tsx,
+  CameraView.onBarcodeScanned)
+- Colruyt integratie (services/colruyt.ts, app/grocery/colruyt.tsx,
+  store/shopsStore.ts)
+- Recipe collections (features/collections/, store/collectionsStore.ts,
+  app/collections/, CollectionsPickerModal)
+- PDF / print export (services/exports/pdf.ts, ExportMenuModal)
+- Cooklang export (services/exports/cooklang.ts, utils/cooklang.ts)
 
-## Nog op de roadmap (prioriteit)
-1. Nutritie-data per recept (Open Food Facts of Edamam)
-2. Barcode scanner voor grocery items (expo-camera CameraView.onBarcodeScanned)
-3. Colruyt integratie afmaken (zie debug-colruyt.mjs in vorige sprint)
-4. Dark mode (palette werkt mooi geïnverteerd)
-5. Recipe collections (custom groups: "BBQ", "snel doordeweeks", ...)
-6. PDF / print export van recepten + boodschappenlijst
-7. Cooklang als export-formaat
+## Sanering (parallelle branch — chore/sanering-fase-0-triage)
+- Triage + docs/SANITY.md als referentie voor codebase-status
+- Supabase secrets uit broncode → V0.1.2/.env.example, geen hardcoded keys
+- Outbox queue voor sync (services/sync/queue.ts + lifecycle.ts wire-up)
+- 12 dode bestanden verwijderd
+- app/recipes/[id].tsx opgesplitst (1491 → 767 regels, sub-componenten in
+  features/recipes/components/detail/)
+
+## Nog op de roadmap
+1. Dark mode (palette werkt mooi geïnverteerd)
 
 ## Testing
 Test runner: tsx (zie package.json scripts.test).

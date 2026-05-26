@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 
@@ -69,6 +70,18 @@ export default function RegisterScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={[styles.closeBtn, { borderColor: themeColors.borderColor }]}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+            activeOpacity={0.75}
+            hitSlop={8}
+            accessibilityLabel="Sluiten"
+          >
+            <Ionicons name="close" size={18} color={themeColors.textDark} />
+          </TouchableOpacity>
+        </View>
+
         <FolioStrip left="recepten" right="registreren" />
 
         <View style={styles.titleBlock}>
@@ -145,7 +158,21 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingBottom: spacing.xxl },
-  titleBlock: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  closeBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    borderWidth: 0.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleBlock: { paddingHorizontal: spacing.lg, marginTop: spacing.sm },
   intro: {
     fontFamily: fonts.displayItalic,
     fontSize: 13,

@@ -40,7 +40,6 @@ import {
   FAMILY_COLORS,
   useFamilyActions,
   useFamilyStore,
-  type FamilyMember,
 } from '../../store/familyStore';
 import { useShopsStore, useShopsActions } from '../../store/shopsStore';
 import { ALLERGENS } from '../../types/recipe';
@@ -64,9 +63,8 @@ import {
 import { requestNotificationPermission } from '../../services/notifications';
 import { useAuthStore } from '../../store/authStore';
 import { createInviteCode, listInviteCodes } from '../../services/inviteService';
-import { supabase } from '../../services/supabase';
 
-type ExpandKey = 'recipe' | 'grocery' | 'theme' | 'family' | 'backup' | 'shops' | 'invites' | 'cloudFamily' | null;
+type ExpandKey = 'recipe' | 'grocery' | 'theme' | 'family' | 'backup' | 'shops' | 'invites' | null;
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'system', label: 'Systeem' },
@@ -97,16 +95,7 @@ export default function SettingsScreen() {
   const members = useFamilyStore((s) => s.members);
   const familyName = useFamilyStore((s) => s.familyName);
   const appVersion = Constants.expoConfig?.version ?? '–';
-  const {
-    addMember,
-    removeMember,
-    toggleActive,
-    updateName,
-    updateColor,
-    updateAllergies,
-    replaceMembers,
-    setFamilyName: setFamilyNamePersisted,
-  } = useFamilyActions();
+  const { updateMyProfile, setActive } = useFamilyActions();
 
   const shops = useShopsStore((s) => s.shops);
   const { addShop, removeShop } = useShopsActions();
@@ -133,23 +122,12 @@ export default function SettingsScreen() {
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [creatingCode, setCreatingCode] = useState(false);
 
-  // Cloud family members
-  const [cloudMembers, setCloudMembers] = useState<Array<{ id: string; user_id: string; role: string }>>([]);
   const { familyId, user } = useAuthStore();
 
   const loadInviteCodes = useCallback(async () => {
     const codes = await listInviteCodes().catch(() => []);
     setInviteCodes(codes as typeof inviteCodes);
   }, []);
-
-  const loadCloudMembers = useCallback(async () => {
-    if (!familyId || !supabase) return;
-    const { data } = await supabase
-      .from('family_members')
-      .select('id, user_id, role')
-      .eq('family_id', familyId);
-    setCloudMembers((data ?? []) as typeof cloudMembers);
-  }, [familyId]);
 
   useEffect(() => {
     loadLastExportAt(db).then(setLastExportAt).catch(() => {});
@@ -212,38 +190,40 @@ export default function SettingsScreen() {
     setMode(next.value);
   };
 
+  // Alleen het eigen profiel is bewerkbaar (RLS + UI). Andere leden read-only.
   const handleNameDraftChange = (id: string, value: string) => {
     setFamilyMemberDraft((prev) => ({ ...prev, [id]: value }));
   };
   const commitNameDraft = (id: string) => {
     const draft = familyMemberDraft[id];
     if (draft === undefined) return;
-    updateName(id, draft.trim());
+    updateMyProfile({ displayName: draft.trim() }).catch(() =>
+      toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.'),
+    );
     setFamilyMemberDraft((prev) => {
       const next = { ...prev };
       delete next[id];
       return next;
     });
   };
-  const handleAddMember = () => {
-    addMember();
-    haptics.light();
+  const handlePickColor = (color: string) => {
+    updateMyProfile({ color }).catch(() =>
+      toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.'),
+    );
+    haptics.selection();
   };
-  const confirmRemoveMember = (member: FamilyMember) => {
-    Alert.alert(
-      'Verwijderen',
-      `${member.name.trim() || 'Dit gezinslid'} verwijderen?`,
-      [
-        { text: 'Annuleren', style: 'cancel' },
-        {
-          text: 'Verwijderen',
-          style: 'destructive',
-          onPress: () => {
-            removeMember(member.id);
-            haptics.success();
-          },
-        },
-      ],
+  const handleToggleAllergy = (current: string[], allergen: string) => {
+    const next = current.includes(allergen)
+      ? current.filter((a) => a !== allergen)
+      : [...current, allergen];
+    updateMyProfile({ allergies: next }).catch(() =>
+      toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.'),
+    );
+    haptics.selection();
+  };
+  const handleToggleActive = (active: boolean) => {
+    setActive(active).catch(() =>
+      toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.'),
     );
   };
 
@@ -329,8 +309,8 @@ export default function SettingsScreen() {
   const runImport = async (data: AppExport) => {
     try {
       const result = await importAppData(db, data);
-      if (data.familyName) setFamilyNamePersisted(data.familyName);
-      if (Array.isArray(data.familyMembers)) replaceMembers(data.familyMembers);
+      // Family is sinds cluster 2 een cloud-resource; een back-up herstelt
+      // enkel recepten, boodschappen en de weekplanner.
       haptics.success();
       toast.success(
         'Import voltooid',
@@ -372,119 +352,138 @@ export default function SettingsScreen() {
           <View style={styles.sectionBody}>
             {members.length === 0 ? (
               <Text style={styles.emptyHint}>
-                Nog geen gezinsleden. Voeg toe wie er mee aan tafel zit.
+                Nog geen gezinsleden. Log in en maak of join een gezin via een
+                uitnodigingscode.
               </Text>
             ) : (
               members.map((member) => {
+                const isMe = !!user && member.userId === user.id;
                 const draft = familyMemberDraft[member.id];
-                const value = draft ?? member.name;
+                const value = draft ?? member.displayName;
+                const allergyCount = member.allergies.length;
                 return (
                   <View key={member.id} style={styles.memberBlock}>
                     <View style={styles.memberRow}>
                       <FamilyDot member={member} size={32} />
-                      <TextInput
-                        style={[
-                          styles.memberInput,
-                          !member.active && { color: colors.textFaint },
-                        ]}
-                        value={value}
-                        onChangeText={(v) => handleNameDraftChange(member.id, v)}
-                        onBlur={() => commitNameDraft(member.id)}
-                        onSubmitEditing={() => commitNameDraft(member.id)}
-                        placeholder="naam"
-                        placeholderTextColor={colors.textFaint}
-                        returnKeyType="done"
-                      />
-                      <TouchableOpacity
-                        onPress={() => toggleActive(member.id)}
-                        hitSlop={8}
-                        style={styles.iconBtn}
-                      >
+                      {isMe ? (
+                        <TextInput
+                          style={[
+                            styles.memberInput,
+                            !member.active && { color: colors.textFaint },
+                          ]}
+                          value={value}
+                          onChangeText={(v) => handleNameDraftChange(member.id, v)}
+                          onBlur={() => commitNameDraft(member.id)}
+                          onSubmitEditing={() => commitNameDraft(member.id)}
+                          placeholder="jouw naam"
+                          placeholderTextColor={colors.textFaint}
+                          returnKeyType="done"
+                        />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.memberReadonlyName,
+                            !member.active && { color: colors.textFaint },
+                          ]}
+                        >
+                          {member.displayName.trim() || '—'}
+                        </Text>
+                      )}
+                      {isMe && <Text style={styles.meBadge}>JIJ</Text>}
+                      {member.role === 'owner' && <Text style={styles.ownerBadge}>EIGENAAR</Text>}
+                      {isMe ? (
+                        <TouchableOpacity
+                          onPress={() => handleToggleActive(!member.active)}
+                          hitSlop={8}
+                          style={styles.iconBtn}
+                        >
+                          <Ionicons
+                            name={member.active ? 'eye-outline' : 'eye-off-outline'}
+                            size={16}
+                            color={member.active ? colors.primary : colors.textFaint}
+                          />
+                        </TouchableOpacity>
+                      ) : (
                         <Ionicons
                           name={member.active ? 'eye-outline' : 'eye-off-outline'}
                           size={16}
-                          color={member.active ? colors.primary : colors.textFaint}
+                          color={colors.textFaint}
+                          style={styles.iconBtn}
                         />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => confirmRemoveMember(member)}
-                        hitSlop={8}
-                        style={styles.iconBtn}
-                      >
-                        <Ionicons name="trash-outline" size={14} color={colors.textFaint} />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.swatchRow}>
-                      {FAMILY_COLORS.map((c) => {
-                        const active = c === member.color;
-                        return (
-                          <TouchableOpacity
-                            key={c}
-                            onPress={() => {
-                              updateColor(member.id, c);
-                              haptics.selection();
-                            }}
-                            hitSlop={4}
-                            style={[
-                              styles.swatch,
-                              { backgroundColor: c },
-                              active && styles.swatchActive,
-                            ]}
-                          />
-                        );
-                      })}
+                      )}
                     </View>
 
-                    {/* Allergieën */}
-                    <TouchableOpacity
-                      onPress={() => setAllergyExpandedId((prev) => (prev === member.id ? null : member.id))}
-                      activeOpacity={0.7}
-                      style={styles.allergyToggle}
-                    >
-                      <Text style={styles.allergyToggleLabel}>
-                        {(member.allergies?.length ?? 0) > 0
-                          ? `${member.allergies!.length} allergie${member.allergies!.length === 1 ? '' : 'ën'}`
-                          : 'allergieën'}
-                      </Text>
-                      <Ionicons
-                        name={allergyExpandedId === member.id ? 'chevron-down' : 'chevron-forward'}
-                        size={12}
-                        color={colors.textFaint}
-                      />
-                    </TouchableOpacity>
-                    {allergyExpandedId === member.id && (
-                      <View style={styles.allergyGrid}>
-                        {ALLERGENS.map((allergen) => {
-                          const active = member.allergies?.includes(allergen) ?? false;
+                    {isMe && (
+                      <View style={styles.swatchRow}>
+                        {FAMILY_COLORS.map((c) => {
+                          const active = c === member.color;
                           return (
                             <TouchableOpacity
-                              key={allergen}
-                              onPress={() => {
-                                const current = member.allergies ?? [];
-                                const next = active
-                                  ? current.filter((a) => a !== allergen)
-                                  : [...current, allergen];
-                                updateAllergies(member.id, next);
-                                haptics.selection();
-                              }}
-                              style={[styles.allergyChip, active && styles.allergyChipActive]}
-                            >
-                              <Text style={[styles.allergyChipText, active && styles.allergyChipTextActive]}>
-                                {allergen}
-                              </Text>
-                            </TouchableOpacity>
+                              key={c}
+                              onPress={() => handlePickColor(c)}
+                              hitSlop={4}
+                              style={[
+                                styles.swatch,
+                                { backgroundColor: c },
+                                active && styles.swatchActive,
+                              ]}
+                            />
                           );
                         })}
                       </View>
+                    )}
+
+                    {/* Allergieën */}
+                    {isMe ? (
+                      <>
+                        <TouchableOpacity
+                          onPress={() => setAllergyExpandedId((prev) => (prev === member.id ? null : member.id))}
+                          activeOpacity={0.7}
+                          style={styles.allergyToggle}
+                        >
+                          <Text style={styles.allergyToggleLabel}>
+                            {allergyCount > 0
+                              ? `${allergyCount} allergie${allergyCount === 1 ? '' : 'ën'}`
+                              : 'allergieën'}
+                          </Text>
+                          <Ionicons
+                            name={allergyExpandedId === member.id ? 'chevron-down' : 'chevron-forward'}
+                            size={12}
+                            color={colors.textFaint}
+                          />
+                        </TouchableOpacity>
+                        {allergyExpandedId === member.id && (
+                          <View style={styles.allergyGrid}>
+                            {ALLERGENS.map((allergen) => {
+                              const active = member.allergies.includes(allergen);
+                              return (
+                                <TouchableOpacity
+                                  key={allergen}
+                                  onPress={() => handleToggleAllergy(member.allergies, allergen)}
+                                  style={[styles.allergyChip, active && styles.allergyChipActive]}
+                                >
+                                  <Text style={[styles.allergyChipText, active && styles.allergyChipTextActive]}>
+                                    {allergen}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        )}
+                      </>
+                    ) : (
+                      allergyCount > 0 && (
+                        <View style={styles.allergyToggle}>
+                          <Text style={styles.allergyToggleLabel}>
+                            {`${allergyCount} allergie${allergyCount === 1 ? '' : 'ën'}`}
+                          </Text>
+                        </View>
+                      )
                     )}
                   </View>
                 );
               })
             )}
-            <TouchableOpacity onPress={handleAddMember} style={styles.addBtn} activeOpacity={0.7}>
-              <Ionicons name="add-circle-outline" size={14} color={colors.primary} />
-              <Text style={styles.addBtnLabel}>voeg gezinslid toe</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -566,37 +565,6 @@ export default function SettingsScreen() {
             )}
           </View>
         </View>
-
-        {/* ─── gezinsleden (cloud) ─── */}
-        {familyId && (
-          <View style={styles.section}>
-            <RuleWithLabel label="gezinsleden" bold />
-            <View style={styles.sectionBody}>
-              <Row
-                label="leden"
-                value={cloudMembers.length ? `${cloudMembers.length} ${cloudMembers.length === 1 ? 'lid' : 'leden'}` : '–'}
-                expanded={expanded === 'cloudFamily'}
-                onPress={() => {
-                  if (expanded !== 'cloudFamily') loadCloudMembers();
-                  toggle('cloudFamily');
-                }}
-                last
-              />
-              {expanded === 'cloudFamily' && (
-                <View style={styles.subList}>
-                  {cloudMembers.map((m) => (
-                    <View key={m.id} style={styles.catRow}>
-                      <Text style={styles.catName}>{m.user_id.slice(0, 8)}…</Text>
-                      {m.role === 'owner' && (
-                        <Text style={styles.ownerBadge}>EIGENAAR</Text>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          </View>
-        )}
 
         {/* ─── onze recepten ─── */}
         <View style={styles.section}>
@@ -1024,6 +992,25 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSoft,
+  },
+  memberReadonlyName: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.textDark,
+    paddingVertical: 4,
+  },
+  meBadge: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: colors.background,
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    overflow: 'hidden',
   },
   swatchRow: {
     flexDirection: 'row',

@@ -35,7 +35,8 @@ import {
   getISOWeek,
   type MealType,
 } from '../../store/weekPlannerStore';
-import { useFamilyStore, type FamilyMember } from '../../store/familyStore';
+import { useFamilyStore } from '../../store/familyStore';
+import type { CloudFamilyMember } from '../../types/family';
 import {
   cancelDinnerNotification,
   scheduleDinnerNotification,
@@ -549,7 +550,7 @@ function MealRow({
 }: {
   recipe: Recipe | null;
   mealType: MealType;
-  members: FamilyMember[];
+  members: CloudFamilyMember[];
   onChange: () => void;
   onRemove: () => void;
   onOpen: (id: string) => void;

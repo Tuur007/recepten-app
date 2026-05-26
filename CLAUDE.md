@@ -50,6 +50,10 @@ Hard rules:
   app/collections/, CollectionsPickerModal)
 - PDF / print export (services/exports/pdf.ts, ExportMenuModal)
 - Cooklang export (services/exports/cooklang.ts, utils/cooklang.ts)
+- Family members als cloud-resource (family_members tabel met display_name,
+  color, allergies, active). Eigen profiel via updateMyProfile
+  (services/familyMembers.ts), realtime sync tussen toestellen. Lokale
+  familyStore is enkel nog in-memory spiegel + offline cache.
 
 ## Sanering (parallelle branch — chore/sanering-fase-0-triage)
 - Triage + docs/SANITY.md als referentie voor codebase-status

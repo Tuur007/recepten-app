@@ -243,11 +243,11 @@ export default function RecipeDetailScreen() {
 
   const allergyWarnings = recipe.allergens?.length
     ? familyMembers
-        .filter((m) => m.active && m.allergies?.some((a) => recipe.allergens.includes(a)))
+        .filter((m) => m.active && m.allergies.some((a) => recipe.allergens.includes(a)))
         .map((m) => ({
-          name: m.name.trim() || 'Gezinslid',
+          name: m.displayName.trim() || 'Gezinslid',
           color: m.color,
-          allergens: m.allergies!.filter((a) => recipe.allergens.includes(a)),
+          allergens: m.allergies.filter((a) => recipe.allergens.includes(a)),
         }))
     : [];
 

@@ -47,7 +47,7 @@ export default function RegisterScreen() {
       if (!user) throw new Error('Registratie mislukt. Probeer opnieuw.');
 
       if (inviteCode.trim()) {
-        const familyId = await redeemInviteCode(inviteCode.trim(), user.id);
+        const familyId = await redeemInviteCode(inviteCode.trim());
         useAuthStore.getState().setFamilyId(familyId);
       } else {
         // Geen code → gezin aanmaken als eigenaar

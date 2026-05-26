@@ -97,14 +97,16 @@ export const CREATE_PREFS_TABLE = `
 // als de upload naar Supabase slaagt. Zo verdwijnt geen enkele offline mutatie.
 export const CREATE_SYNC_QUEUE_TABLE = `
   CREATE TABLE IF NOT EXISTS sync_queue (
-    id         TEXT PRIMARY KEY NOT NULL,
-    op         TEXT NOT NULL,
-    entity     TEXT NOT NULL,
-    entity_id  TEXT NOT NULL,
-    payload    TEXT,
-    created_at TEXT NOT NULL,
-    attempts   INTEGER NOT NULL DEFAULT 0,
-    last_error TEXT
+    id            TEXT PRIMARY KEY NOT NULL,
+    op            TEXT NOT NULL,
+    entity        TEXT NOT NULL,
+    entity_id     TEXT NOT NULL,
+    payload       TEXT,
+    created_at    TEXT NOT NULL,
+    attempts      INTEGER NOT NULL DEFAULT 0,
+    last_error    TEXT,
+    dead          INTEGER NOT NULL DEFAULT 0,
+    next_retry_at TEXT
   );
 `;
 
@@ -199,4 +201,8 @@ export const MIGRATIONS: string[] = [
     attempts   INTEGER NOT NULL DEFAULT 0,
     last_error TEXT
   )`,
+  // v28: dead-letter + backoff voor de sync-queue. Eén corrupte rij mag de
+  // hele queue niet meer blokkeren (zie services/sync/queue.ts).
+  `ALTER TABLE sync_queue ADD COLUMN dead INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE sync_queue ADD COLUMN next_retry_at TEXT`,
 ];

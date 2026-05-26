@@ -12,7 +12,8 @@ interface GroceryState {
   setLoaded: (loaded: boolean) => void;
   addItem: (item: GroceryItem) => void;
   addItems: (items: GroceryItem[]) => void;
-  updateItemInStore: (id: string, updates: Partial<GroceryItem>) => void;
+  applyLocalEdit: (id: string, updates: Partial<GroceryItem>) => void;
+  replaceFromRemote: (id: string, item: GroceryItem) => void;
   deleteItem: (id: string) => void;
   clearChecked: () => void;
   selectAll: (checked: boolean) => void;
@@ -39,10 +40,18 @@ export const useGroceryStore = create<GroceryState>()(
     addItems: (newItems) =>
       set((s) => { s.items.push(...newItems); }),
 
-    updateItemInStore: (id, updates) =>
+    // Lokale optimistische edit.
+    applyLocalEdit: (id, updates) =>
       set((s) => {
         const item = s.items.find((i) => i.id === id);
         if (item) Object.assign(item, updates);
+      }),
+
+    // Remote update (Supabase realtime): neem de binnenkomende rij over.
+    replaceFromRemote: (id, item) =>
+      set((s) => {
+        const existing = s.items.find((i) => i.id === id);
+        if (existing) Object.assign(existing, item);
       }),
 
     deleteItem: (id) =>

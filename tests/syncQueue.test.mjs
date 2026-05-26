@@ -42,20 +42,36 @@ async function test(name, fn) {
 
 /**
  * In-memory SQLite-shim die alleen de calls ondersteunt die queue.ts doet:
- * INSERT/SELECT/UPDATE/DELETE op sync_queue. Voor andere tabellen is dit
- * niet bedoeld — die zitten in de andere test-suites.
+ * INSERT/SELECT/UPDATE/DELETE op sync_queue, inclusief de dead-letter +
+ * backoff kolommen (dead, next_retry_at). datetime('now', '+N seconds') wordt
+ * gesimuleerd met JS-tijd zodat de backoff-window deterministisch is.
  */
 function makeInMemoryDb() {
   const rows = new Map();
+  const parseSeconds = (modifier) => {
+    const m = /^\+(\d+)\s*seconds?$/.exec(String(modifier).trim());
+    return m ? Number(m[1]) : 0;
+  };
+  const isEligible = (row) => {
+    if (row.dead !== 0) return false;
+    if (row.next_retry_at == null) return true;
+    return new Date(row.next_retry_at).getTime() < Date.now();
+  };
+  const byCreatedAt = (a, b) => {
+    if (a.created_at < b.created_at) return -1;
+    if (a.created_at > b.created_at) return 1;
+    return a.id < b.id ? -1 : 1;
+  };
   return {
     rows,
     async runAsync(sql, params = []) {
-      const s = String(sql).trim();
+      const s = String(sql).trim().replace(/\s+/g, ' ');
       if (/^INSERT INTO sync_queue/i.test(s)) {
         const [id, op, entity, entity_id, payload, created_at] = params;
         rows.set(id, {
           id, op, entity, entity_id, payload,
           created_at, attempts: 0, last_error: null,
+          dead: 0, next_retry_at: null,
         });
         return { changes: 1 };
       }
@@ -63,30 +79,37 @@ function makeInMemoryDb() {
         rows.delete(params[0]);
         return { changes: 1 };
       }
-      if (/^UPDATE sync_queue SET attempts/i.test(s)) {
-        const [err, id] = params;
+      if (/^UPDATE sync_queue SET attempts = \?, last_error = \?, dead = \?, next_retry_at = datetime/i.test(s)) {
+        const [attempts, lastError, dead, modifier, id] = params;
         const row = rows.get(id);
-        if (row) { row.attempts += 1; row.last_error = err; }
+        if (row) {
+          row.attempts = attempts;
+          row.last_error = lastError;
+          row.dead = dead;
+          row.next_retry_at = new Date(Date.now() + parseSeconds(modifier) * 1000).toISOString();
+        }
         return { changes: 1 };
       }
       throw new Error(`mock-db runAsync unmatched: ${s}`);
     },
     async getFirstAsync(sql) {
-      const s = String(sql).trim();
+      const s = String(sql).trim().replace(/\s+/g, ' ');
       if (/SELECT COUNT/i.test(s)) {
         return { count: rows.size };
       }
-      if (/SELECT \* FROM sync_queue ORDER BY created_at/i.test(s)) {
-        const sorted = [...rows.values()].sort((a, b) => {
-          if (a.created_at < b.created_at) return -1;
-          if (a.created_at > b.created_at) return 1;
-          return a.id < b.id ? -1 : 1;
-        });
-        return sorted[0] ?? null;
+      if (/SELECT \* FROM sync_queue WHERE dead = 0/i.test(s)) {
+        const eligible = [...rows.values()].filter(isEligible).sort(byCreatedAt);
+        return eligible[0] ?? null;
       }
       return null;
     },
-    async getAllAsync() { return []; },
+    async getAllAsync(sql) {
+      const s = String(sql).trim().replace(/\s+/g, ' ');
+      if (/SELECT \* FROM sync_queue WHERE dead = 1/i.test(s)) {
+        return [...rows.values()].filter((r) => r.dead === 1).sort(byCreatedAt);
+      }
+      return [];
+    },
     async execAsync() {},
   };
 }
@@ -214,10 +237,10 @@ await test('flushQueue houdt rij + verhoogt attempts bij netwerkfout', async () 
   assert.equal(result.failedAt?.id, row.id);
 });
 
-await test('flushQueue stopt bij eerste fout (FIFO behouden)', async () => {
+await test('flushQueue laat een gefaalde rij de andere niet blokkeren', async () => {
   useAuthStore.setState({ familyId: 'fam-1' });
   const db = makeInMemoryDb();
-  // Schrijf twee items met onderscheidende timestamps zodat ORDER BY werkt
+  // Twee items met onderscheidende timestamps: r1 vóór r2.
   const orig = Date.prototype.toISOString;
   let n = 0;
   Date.prototype.toISOString = function() { return `2026-05-01T00:00:${String(n++).padStart(2, '0')}.000Z`; };
@@ -225,14 +248,103 @@ await test('flushQueue stopt bij eerste fout (FIFO behouden)', async () => {
   await queue.enqueue(db, 'upsert', 'recipe', 'r2', { id: 'r2', title: 'B' });
   Date.prototype.toISOString = orig;
 
-  let calls = 0;
-  const client = makeClient(() => {
-    calls++;
-    return { error: new Error('boom') };
+  // r1 faalt altijd, r2 slaagt.
+  const client = makeClient((table, op, payloadOrId) => {
+    const id = op === 'upsert' ? payloadOrId.id : payloadOrId;
+    return id === 'r1' ? { error: new Error('boom') } : { error: null };
   });
+
+  const result = await queue.flushQueue(db, client);
+  assert.equal(result.processed, 1, 'r2 wordt verwerkt ondanks falende r1');
+  assert.equal(db.rows.size, 1, 'enkel r1 blijft in de queue');
+  const remaining = [...db.rows.values()][0];
+  assert.equal(remaining.entity_id, 'r1');
+  assert.equal(remaining.attempts, 1);
+  assert.ok(remaining.next_retry_at, 'r1 krijgt een backoff next_retry_at');
+});
+
+await test('flushQueue houdt rij + zet next_retry_at + dead=0 bij netwerkfout', async () => {
+  useAuthStore.setState({ familyId: 'fam-1' });
+  const db = makeInMemoryDb();
+  await queue.enqueue(db, 'upsert', 'recipe', 'r1', { id: 'r1', title: 'X' });
+  const client = makeClient(() => ({ error: new Error('NetworkError') }));
   await queue.flushQueue(db, client);
-  assert.equal(calls, 1, 'tweede rij wordt niet geprobeerd na eerste fout');
-  assert.equal(db.rows.size, 2, 'beide rijen blijven staan');
+  const row = [...db.rows.values()][0];
+  assert.equal(row.attempts, 1);
+  assert.equal(row.dead, 0);
+  assert.equal(row.last_error, 'NetworkError');
+  assert.ok(row.next_retry_at, 'next_retry_at gezet voor backoff');
+});
+
+await test('rij die 5 keer faalt → dead = 1', async () => {
+  useAuthStore.setState({ familyId: 'fam-1' });
+  const db = makeInMemoryDb();
+  await queue.enqueue(db, 'upsert', 'recipe', 'r1', { id: 'r1', title: 'X' });
+  const client = makeClient(() => ({ error: new Error('boom') }));
+
+  for (let i = 0; i < 5; i++) {
+    await queue.flushQueue(db, client);
+    // Simuleer dat de backoff-window verstreken is voor de volgende poging.
+    const row = [...db.rows.values()][0];
+    if (row) row.next_retry_at = null;
+  }
+
+  const row = [...db.rows.values()][0];
+  assert.equal(row.attempts, 5);
+  assert.equal(row.dead, 1, 'na MAX_ATTEMPTS is de rij dead-letter');
+});
+
+await test('dead rij wordt overgeslagen, andere rijen flushen door', async () => {
+  useAuthStore.setState({ familyId: 'fam-1' });
+  const db = makeInMemoryDb();
+  const orig = Date.prototype.toISOString;
+  let n = 0;
+  Date.prototype.toISOString = function() { return `2026-05-01T00:00:${String(n++).padStart(2, '0')}.000Z`; };
+  await queue.enqueue(db, 'upsert', 'recipe', 'r1', { id: 'r1', title: 'A' });
+  await queue.enqueue(db, 'upsert', 'recipe', 'r2', { id: 'r2', title: 'B' });
+  Date.prototype.toISOString = orig;
+
+  // Markeer r1 als dead-letter.
+  [...db.rows.values()].find((r) => r.entity_id === 'r1').dead = 1;
+
+  let calls = 0;
+  const client = makeClient(() => { calls++; return { error: null }; });
+  const result = await queue.flushQueue(db, client);
+
+  assert.equal(calls, 1, 'enkel de levende rij wordt geprobeerd');
+  assert.equal(result.processed, 1);
+  assert.equal(db.rows.size, 1, 'de dode rij blijft staan');
+  assert.equal([...db.rows.values()][0].entity_id, 'r1');
+});
+
+await test('backoff: net gefaalde rij wordt niet binnen de window opnieuw geprobeerd', async () => {
+  useAuthStore.setState({ familyId: 'fam-1' });
+  const db = makeInMemoryDb();
+  await queue.enqueue(db, 'upsert', 'recipe', 'r1', { id: 'r1', title: 'X' });
+  let calls = 0;
+  const client = makeClient(() => { calls++; return { error: new Error('NetworkError') }; });
+
+  await queue.flushQueue(db, client);
+  assert.equal(calls, 1);
+  assert.equal([...db.rows.values()][0].attempts, 1);
+
+  // Tweede flush meteen: next_retry_at ligt in de toekomst → overslaan.
+  const result = await queue.flushQueue(db, client);
+  assert.equal(calls, 1, 'rij niet opnieuw geprobeerd binnen backoff-window');
+  assert.equal(result.processed, 0);
+  assert.equal([...db.rows.values()][0].attempts, 1);
+});
+
+await test('getDeadRows geeft enkel de dode rijen terug', async () => {
+  useAuthStore.setState({ familyId: 'fam-1' });
+  const db = makeInMemoryDb();
+  await queue.enqueue(db, 'upsert', 'recipe', 'r1', { id: 'r1', title: 'A' });
+  await queue.enqueue(db, 'upsert', 'recipe', 'r2', { id: 'r2', title: 'B' });
+  [...db.rows.values()].find((r) => r.entity_id === 'r1').dead = 1;
+
+  const dead = await queue.getDeadRows(db);
+  assert.equal(dead.length, 1);
+  assert.equal(dead[0].entity_id, 'r1');
 });
 
 await test('flushQueue is re-entrancy safe', async () => {

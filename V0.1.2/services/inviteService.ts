@@ -1,12 +1,9 @@
 import { supabase } from './supabase';
 import { useAuthStore } from '../store/authStore';
+import { randomToken } from '../utils/id';
 
 function generateCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const parts = [4, 4, 4].map(() =>
-    Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-  );
-  return parts.join('-');
+  return [randomToken(4), randomToken(4), randomToken(4)].join('-');
 }
 
 export async function createInviteCode(): Promise<string> {
@@ -25,32 +22,30 @@ export async function createInviteCode(): Promise<string> {
   return code;
 }
 
-export async function redeemInviteCode(code: string, userId: string): Promise<string> {
+export async function redeemInviteCode(code: string): Promise<string> {
   if (!supabase) throw new Error('Supabase niet geconfigureerd.');
-  const { data: invite, error } = await supabase
-    .from('invite_codes')
-    .select('*')
-    .eq('code', code.toUpperCase().trim())
-    .is('used_by', null)
-    .gt('expires_at', new Date().toISOString())
-    .single();
 
-  if (error || !invite) throw new Error('Ongeldige of verlopen uitnodigingscode.');
-
-  const { error: memberError } = await supabase.from('family_members').insert({
-    family_id: invite.family_id,
-    user_id: userId,
-    role: 'member',
+  // Server-side atomic claim (zie supabase/migrations/redeem_invite_atomic.sql):
+  // SELECT + INSERT + UPDATE in één transactie voorkomt dat twee toestellen
+  // dezelfde code tegelijk inwisselen.
+  const { data, error } = await supabase.rpc('redeem_invite_code', {
+    p_code: code.toUpperCase().trim(),
   });
 
-  if (memberError) throw memberError;
+  if (error) {
+    const msg = error.message ?? '';
+    if (msg.includes('not authenticated')) {
+      throw new Error('Je bent niet ingelogd. Log opnieuw in en probeer het nogmaals.');
+    }
+    if (msg.includes('invalid or already used')) {
+      throw new Error('Ongeldige of verlopen uitnodigingscode.');
+    }
+    throw new Error('Kon de uitnodigingscode niet inwisselen. Probeer het later opnieuw.');
+  }
 
-  await supabase
-    .from('invite_codes')
-    .update({ used_by: userId, used_at: new Date().toISOString() })
-    .eq('id', invite.id);
+  if (!data) throw new Error('Ongeldige of verlopen uitnodigingscode.');
 
-  return invite.family_id as string;
+  return data as string;
 }
 
 export async function listInviteCodes() {

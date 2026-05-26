@@ -15,7 +15,8 @@ interface RecipeState {
   setLoading: (loading: boolean) => void;
   setLoaded: (loaded: boolean) => void;
   addRecipe: (recipe: Recipe) => void;
-  updateRecipeInStore: (id: string, updates: Partial<Recipe>) => void;
+  applyLocalEdit: (id: string, updates: Partial<Recipe>) => void;
+  replaceFromRemote: (id: string, recipe: Recipe) => void;
   removeRecipe: (id: string) => void;
   setSortBy: (sort: SortOption) => void;
   recipeExists: (title: string, sourceUrl?: string) => boolean;
@@ -39,10 +40,19 @@ export const useRecipeStore = create<RecipeState>()(
     addRecipe: (recipe) =>
       set((s) => { s.recipes.unshift(recipe); }),
 
-    updateRecipeInStore: (id, updates) =>
+    // Lokale edit: wij zijn de bron, dus updatedAt = now() voor LWW.
+    applyLocalEdit: (id, updates) =>
       set((s) => {
         const r = s.recipes.find((r) => r.id === id);
         if (r) Object.assign(r, updates, { updatedAt: new Date().toISOString() });
+      }),
+
+    // Remote update (Supabase realtime): behoud updatedAt zoals binnenkomt,
+    // anders gaat de LWW-volgorde verloren.
+    replaceFromRemote: (id, recipe) =>
+      set((s) => {
+        const r = s.recipes.find((r) => r.id === id);
+        if (r) Object.assign(r, recipe);
       }),
 
     removeRecipe: (id) =>

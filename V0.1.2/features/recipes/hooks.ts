@@ -15,7 +15,7 @@ export function useRecipes() {
     setLoading,
     setLoaded,
     addRecipe,
-    updateRecipeInStore,
+    applyLocalEdit,
     removeRecipe,
   } = useRecipeStore();
 
@@ -57,14 +57,14 @@ export function useRecipes() {
     async (id: string, changes: RecipeUpdate): Promise<void> => {
       try {
         await RecipeRepository.update(db, id, changes);
-        updateRecipeInStore(id, changes);
+        applyLocalEdit(id, changes);
       } catch (err) {
         console.error('[useRecipes.update] Failed:', err);
         toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.');
         throw err;
       }
     },
-    [db, updateRecipeInStore],
+    [db, applyLocalEdit],
   );
 
   const remove = useCallback(

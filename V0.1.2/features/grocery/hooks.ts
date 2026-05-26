@@ -208,6 +208,27 @@ export function useGrocery() {
     [db, items, updateItemInStore],
   );
 
+  const removeMany = useCallback(async (ids: string[]): Promise<void> => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    const removed = items.filter((i) => idSet.has(i.id));
+    if (removed.length === 0) return;
+    try {
+      await db.withTransactionAsync(async () => {
+        for (const id of ids) {
+          await GroceryRepository.delete(db, id);
+        }
+      });
+      setItems(items.filter((i) => !idSet.has(i.id)));
+      haptics.success();
+      toast.success(`${removed.length} ${removed.length === 1 ? 'item' : 'items'} opgeruimd`);
+    } catch (err) {
+      console.error('[useGrocery.removeMany] Failed:', err);
+      toast.error('Niet opgeruimd', 'Probeer opnieuw.');
+      throw err;
+    }
+  }, [db, items, setItems]);
+
   const clearAll = useCallback(async (): Promise<void> => {
     if (items.length === 0) return;
     try {
@@ -239,6 +260,7 @@ export function useGrocery() {
     toggleChecked,
     updateItem,
     remove,
+    removeMany,
     clearChecked,
     clearAll,
   };

@@ -31,6 +31,7 @@ import { useRouter } from 'expo-router';
 import { useGrocery } from '../../features/grocery/hooks';
 import { useBulkActions } from '../../features/grocery/hooks/useBulkActions';
 import { useGroceryStore } from '../../store/groceryStore';
+import { useShopsStore } from '../../store/shopsStore';
 import { exportGroceryListAsPdf } from '../../services/exports/pdf';
 import { haptics, toast } from '../../utils/feedback';
 import { useRecipes } from '../../features/recipes/hooks';
@@ -62,17 +63,45 @@ export default function GroceryScreen() {
     toggleChecked,
     updateItem,
     remove,
+    removeMany,
     clearAll,
   } = useGrocery();
   const { selectAll, clearChecked, share } = useBulkActions();
   const { recipes } = useRecipes();
   const { groceryCategories } = useCategories();
+  const shops = useShopsStore((s) => s.shops);
   const themeColors = useThemeColors();
   const router = useRouter();
 
-  const checkedCount = useGroceryStore((s) => s.getCheckedCount());
-  const uncheckedCount = useGroceryStore((s) => s.getUncheckedCount());
-  const total = useGroceryStore((s) => s.getTotal());
+  const [storeFilter, setStoreFilter] = useState<string | null>(null);
+
+  // Winkels die effectief aan items hangen — enkel die tonen we als filter-chip.
+  const shopIdsWithItems = useMemo(
+    () => new Set(items.map((i) => i.storeId).filter(Boolean) as string[]),
+    [items],
+  );
+  const shopsInList = useMemo(
+    () => shops.filter((s) => shopIdsWithItems.has(s.id)),
+    [shops, shopIdsWithItems],
+  );
+  // Een filter dat naar een winkel zonder items wijst, valt terug op "Alle".
+  const effectiveFilter = storeFilter && shopIdsWithItems.has(storeFilter) ? storeFilter : null;
+
+  // Items zonder winkel tonen we altijd, ook bij een actieve winkel-filter.
+  const visibleItems = useMemo(
+    () =>
+      effectiveFilter
+        ? items.filter((i) => i.storeId === effectiveFilter || i.storeId == null)
+        : items,
+    [items, effectiveFilter],
+  );
+
+  const checkedCount = visibleItems.filter((i) => i.checked).length;
+  const uncheckedCount = visibleItems.length - checkedCount;
+  const total = visibleItems.reduce(
+    (sum, i) => (i.price == null ? sum : sum + i.price * i.totalQuantity),
+    0,
+  );
 
   const [recipeModalVisible, setRecipeModalVisible] = useState(false);
   const [manualModalVisible, setManualModalVisible] = useState(false);
@@ -94,14 +123,41 @@ export default function GroceryScreen() {
   const handleManualAislePick = (a: string) => { setManualAisle(a); setManualAisleTouched(true); };
 
   const listData = useMemo<ListRow[]>(() => {
-    const grouped = groupItems(items);
+    const grouped = groupItems(visibleItems);
     const rows: ListRow[] = [];
     grouped.forEach((aisleItems, aisle) => {
       rows.push({ type: 'header', aisle, count: aisleItems.length });
       aisleItems.forEach((item) => rows.push({ type: 'item', data: item }));
     });
     return rows;
-  }, [items]);
+  }, [visibleItems]);
+
+  // Bulk-acties respecteren de actieve winkel-filter: zonder filter werken ze
+  // op de volledige lijst (snelle paden), met filter enkel op wat zichtbaar is.
+  const isFiltered = effectiveFilter != null;
+  const handleSelectAll = () => {
+    if (isFiltered) {
+      const ids = visibleItems.filter((i) => !i.checked).map((i) => i.id);
+      useGroceryStore.getState().setCheckedByIds(ids, true);
+    } else {
+      selectAll();
+    }
+  };
+  const handleClearChecked = async () => {
+    if (isFiltered) {
+      await removeMany(visibleItems.filter((i) => i.checked).map((i) => i.id));
+    } else {
+      await clearChecked();
+    }
+  };
+  const handleClearAllAction = async () => {
+    if (isFiltered) {
+      await removeMany(visibleItems.map((i) => i.id));
+    } else {
+      await clearAll();
+    }
+  };
+  const handleShareAction = () => (isFiltered ? share(visibleItems) : share());
 
   if (isLoading) return <LoadingScreen />;
 
@@ -162,7 +218,7 @@ export default function GroceryScreen() {
     );
   };
 
-  const totalItems = items.length;
+  const totalItems = visibleItems.length;
   const pct = totalItems ? Math.round((checkedCount / totalItems) * 100) : 0;
 
   return (
@@ -194,13 +250,6 @@ export default function GroceryScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.ghostBtn}
-                onPress={() => router.push('/grocery/colruyt')}
-                activeOpacity={0.75}
-              >
-                <Ionicons name="storefront-outline" size={15} color={colors.textDark} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.ghostBtn}
                 onPress={() => setRecipeModalVisible(true)}
                 activeOpacity={0.75}
               >
@@ -222,6 +271,42 @@ export default function GroceryScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Winkel-filter — kies in welke winkel je bent */}
+          {shopsInList.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+            >
+              <TouchableOpacity
+                style={[styles.filterChip, !effectiveFilter && styles.filterChipActive]}
+                onPress={() => { setStoreFilter(null); haptics.selection(); }}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.filterChipText, !effectiveFilter && styles.filterChipTextActive]}>
+                  Alle
+                </Text>
+              </TouchableOpacity>
+              {shopsInList.map((shop) => (
+                <TouchableOpacity
+                  key={shop.id}
+                  style={[styles.filterChip, effectiveFilter === shop.id && styles.filterChipActive]}
+                  onPress={() => { setStoreFilter(shop.id); haptics.selection(); }}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      effectiveFilter === shop.id && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {shop.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
           {/* Progress ribbon */}
           {totalItems > 0 && (
@@ -266,10 +351,10 @@ export default function GroceryScreen() {
             totalCount={totalItems}
             uncheckedCount={uncheckedCount}
             checkedCount={checkedCount}
-            onSelectAllUnchecked={selectAll}
-            onClearChecked={clearChecked}
-            onClearAll={clearAll}
-            onShare={share}
+            onSelectAllUnchecked={handleSelectAll}
+            onClearChecked={handleClearChecked}
+            onClearAll={handleClearAllAction}
+            onShare={handleShareAction}
           />
         </View>
       </KeyboardAvoidingView>
@@ -457,6 +542,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
+    backgroundColor: colors.background,
+  },
+  filterChipActive: { backgroundColor: colors.textDark, borderColor: colors.textDark },
+  filterChipText: {
+    fontFamily: fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.textLight,
+  },
+  filterChipTextActive: { color: colors.background },
 
   progressRow: {
     marginHorizontal: spacing.lg,

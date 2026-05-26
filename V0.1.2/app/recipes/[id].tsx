@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,7 @@ import {
   Image,
   Alert,
   TextInput,
+  Share,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,12 +25,9 @@ import { ServingsSelector } from '../../components/ui/ServingsSelector';
 import { StarRating } from '../../components/ui/StarRating';
 import { MetaStrip } from '../../components/ui/EditorialBits';
 import { NutritionPanel } from '../../components/ui/NutritionPanel';
-import { RecipeShareCard } from '../../components/ui/RecipeShareCard';
-import { shareRecipeCard } from '../../utils/shareRecipe';
 import { shareRecipeViaWhatsApp } from '../../services/recipeShareService';
 import { computeRecipeNutrition } from '../../services/nutrition';
 import { exportRecipeAsPdf } from '../../services/exports/pdf';
-import { exportRecipeAsCooklang } from '../../services/exports/cooklang';
 import { useCollections } from '../../store/collectionsStore';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
@@ -39,7 +37,7 @@ import { useFamilyStore } from '../../store/familyStore';
 
 import { CookOverlay, type ActiveTimer } from '../../features/recipes/components/detail/CookOverlay';
 import { GroceryPickerModal } from '../../features/recipes/components/detail/GroceryPickerModal';
-import { ExportMenuModal } from '../../features/recipes/components/detail/ExportMenuModal';
+import { ShareMenuModal } from '../../features/recipes/components/detail/ShareMenuModal';
 import { CollectionsPickerModal } from '../../features/recipes/components/detail/CollectionsPickerModal';
 import { AddIngredientForm } from '../../features/recipes/components/detail/AddIngredientForm';
 import { Section } from '../../features/recipes/components/detail/Section';
@@ -64,12 +62,10 @@ export default function RecipeDetailScreen() {
   const [selectedIngIds, setSelectedIngIds] = useState<Set<string>>(new Set());
   const [notesEdit, setNotesEdit] = useState(false);
   const [notesTxt, setNotesTxt] = useState(() => recipe?.notes ?? '');
-  const [sharing, setSharing] = useState(false);
   const [sharingLink, setSharingLink] = useState(false);
   const [computingNutrition, setComputingNutrition] = useState(false);
-  const [exportMenuVisible, setExportMenuVisible] = useState(false);
+  const [shareMenuVisible, setShareMenuVisible] = useState(false);
   const [collectionsPickerVisible, setCollectionsPickerVisible] = useState(false);
-  const shareCardRef = useRef<View>(null);
   const { collections, addRecipe: addToCollection, removeRecipe: removeFromCollection } = useCollections();
 
   const baseServings = recipe?.servings ?? 4;
@@ -124,22 +120,27 @@ export default function RecipeDetailScreen() {
     );
   };
 
-  const handleShareRecipe = async () => {
-    if (sharing) return;
-    setSharing(true);
+  const handleShareText = async () => {
+    setShareMenuVisible(false);
     haptics.light();
-    // Wacht een tick zodat de off-screen RecipeShareCard zeker gerenderd is.
-    await new Promise((r) => setTimeout(r, 100));
+    const lines: string[] = [recipe.title, ''];
+    if (recipe.ingredients?.length) {
+      lines.push('Ingrediënten:');
+      recipe.ingredients.forEach((ing) => {
+        const qty = ing.quantity ? `${ing.quantity} ` : '';
+        const unit = ing.unit ? `${ing.unit} ` : '';
+        lines.push(`- ${qty}${unit}${ing.name}`.trim());
+      });
+      lines.push('');
+    }
+    if (steps.length) {
+      lines.push('Bereiding:');
+      steps.forEach((s, i) => lines.push(`${i + 1}. ${stepText(s)}`));
+    }
     try {
-      await shareRecipeCard(
-        shareCardRef,
-        `recept-${recipe.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`,
-      );
+      await Share.share({ message: lines.join('\n'), title: recipe.title });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.error('Delen mislukt', msg);
-    } finally {
-      setSharing(false);
+      toast.error('Delen mislukt', err instanceof Error ? err.message : undefined);
     }
   };
 
@@ -208,22 +209,12 @@ export default function RecipeDetailScreen() {
   };
 
   const handleExportPdf = async () => {
-    setExportMenuVisible(false);
+    setShareMenuVisible(false);
     haptics.light();
     try {
       await exportRecipeAsPdf(recipe);
     } catch (err) {
       toast.error('PDF-export mislukt', err instanceof Error ? err.message : undefined);
-    }
-  };
-
-  const handleExportCooklang = async () => {
-    setExportMenuVisible(false);
-    haptics.light();
-    try {
-      await exportRecipeAsCooklang(recipe);
-    } catch (err) {
-      toast.error('Export mislukt', err instanceof Error ? err.message : undefined);
     }
   };
 
@@ -262,11 +253,6 @@ export default function RecipeDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      {/* Off-screen render van de deelkaart zodat captureRef altijd iets vindt. */}
-      <View ref={shareCardRef} collapsable={false} style={styles.offscreen} pointerEvents="none">
-        <RecipeShareCard recipe={recipe} />
-      </View>
-
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={colors.textDark} />
@@ -281,12 +267,8 @@ export default function RecipeDetailScreen() {
             onPress={() => update(recipe.id, { isFavorite: !recipe.isFavorite })}
             size={22}
           />
-          <TouchableOpacity onPress={handleShareRecipe} hitSlop={8} disabled={sharing}>
-            <Ionicons
-              name="share-social-outline"
-              size={20}
-              color={sharing ? colors.textFaint : colors.textDark}
-            />
+          <TouchableOpacity onPress={() => setShareMenuVisible(true)} hitSlop={8}>
+            <Ionicons name="share-social-outline" size={20} color={colors.textDark} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleShareLink} hitSlop={8} disabled={sharingLink}>
             <Ionicons
@@ -297,9 +279,6 @@ export default function RecipeDetailScreen() {
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setCollectionsPickerVisible(true)} hitSlop={8}>
             <Ionicons name="albums-outline" size={20} color={colors.textDark} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setExportMenuVisible(true)} hitSlop={8}>
-            <Ionicons name="download-outline" size={20} color={colors.textDark} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleDeleteRecipe} hitSlop={8}>
             <Ionicons name="trash-outline" size={20} color={colors.textLight} />
@@ -547,11 +526,11 @@ export default function RecipeDetailScreen() {
         onConfirm={handleAddToGrocery}
       />
 
-      <ExportMenuModal
-        visible={exportMenuVisible}
-        onClose={() => setExportMenuVisible(false)}
-        onExportPdf={handleExportPdf}
-        onExportCooklang={handleExportCooklang}
+      <ShareMenuModal
+        visible={shareMenuVisible}
+        onClose={() => setShareMenuVisible(false)}
+        onSharePdf={handleExportPdf}
+        onShareText={handleShareText}
       />
 
       <CollectionsPickerModal
@@ -571,7 +550,6 @@ export default function RecipeDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: PAPER },
-  offscreen: { position: 'absolute', left: -9999, top: -9999 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

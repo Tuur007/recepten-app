@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { Share } from 'react-native';
 import { useGroceryStore } from '../../../store/groceryStore';
 import { useGrocery } from '../hooks';
+import type { GroceryItem } from '../../../types/grocery';
 
 /**
  * Encapsulates the three bulk-action operations on the grocery list:
@@ -21,8 +22,9 @@ export function useBulkActions() {
     await clearChecked();
   }, [clearChecked]);
 
-  const handleShare = useCallback(async () => {
-    const text = items
+  const handleShare = useCallback(async (itemsToShare?: GroceryItem[]) => {
+    const list = itemsToShare ?? items;
+    const text = list
       .map(
         (item) =>
           `${item.checked ? '✓' : '○'} ${item.name}` +

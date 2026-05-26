@@ -16,6 +16,7 @@ interface GroceryState {
   deleteItem: (id: string) => void;
   clearChecked: () => void;
   selectAll: (checked: boolean) => void;
+  setCheckedByIds: (ids: string[], checked: boolean) => void;
   updateQuantity: (id: string, quantity: number) => void;
   getCheckedCount: () => number;
   getUncheckedCount: () => number;
@@ -52,6 +53,12 @@ export const useGroceryStore = create<GroceryState>()(
 
     selectAll: (checked) =>
       set((s) => { s.items.forEach((i) => { i.checked = checked; }); }),
+
+    setCheckedByIds: (ids, checked) =>
+      set((s) => {
+        const idSet = new Set(ids);
+        s.items.forEach((i) => { if (idSet.has(i.id)) i.checked = checked; });
+      }),
 
     updateQuantity: (id, quantity) =>
       set((s) => {

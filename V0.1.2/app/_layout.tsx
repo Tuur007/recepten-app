@@ -16,6 +16,7 @@ import { toastConfig } from '../components/ui/ToastConfig';
 import { useHydrateTheme, useResolvedScheme, useThemeColors } from '../theme';
 import { useFamilyStore, useHydrateFamily } from '../store/familyStore';
 import { useHydrateShops } from '../store/shopsStore';
+import { LOCK_ENABLED, useHydrateLock, useLockStore } from '../store/lockStore';
 import { useHydrateWeekPlanner } from '../store/weekPlannerStore';
 import { useSupabaseSync } from '../services/sync/lifecycle';
 
@@ -60,6 +61,7 @@ function ThemedRoot() {
   useHydrateFamily();
   useHydrateShops();
   useHydrateWeekPlanner();
+  useHydrateLock();
   useSupabaseSync();
   const themeColors = useThemeColors();
   const scheme = useResolvedScheme();
@@ -69,16 +71,31 @@ function ThemedRoot() {
   const firstSegment = segments[0];
   const familyHydrated = useFamilyStore((s) => s.hydrated);
   const onboardingComplete = useFamilyStore((s) => s.onboardingComplete);
+  const lockHydrated = useLockStore((s) => s.hydrated);
+  const unlocked = useLockStore((s) => s.unlocked);
 
   useEffect(() => {
-    if (!familyHydrated) return;
+    if (!familyHydrated || !lockHydrated) return;
+    const onLock = firstSegment === 'lock';
     const onOnboarding = firstSegment === 'onboarding';
+
+    // 1. Toegangsslot — alleen relevant als er een code is ingesteld.
+    if (LOCK_ENABLED && !unlocked) {
+      if (!onLock) router.replace('/lock');
+      return;
+    }
+    // Ontgrendeld maar nog op het slot-scherm → door naar de app.
+    if (onLock) {
+      router.replace(onboardingComplete ? '/(tabs)/home' : '/onboarding');
+      return;
+    }
+    // 2. Onboarding-gate.
     if (!onboardingComplete && !onOnboarding) {
       router.replace('/onboarding');
     } else if (onboardingComplete && onOnboarding) {
       router.replace('/(tabs)/home');
     }
-  }, [familyHydrated, onboardingComplete, firstSegment, router]);
+  }, [familyHydrated, lockHydrated, unlocked, onboardingComplete, firstSegment, router]);
 
   return (
     <>
@@ -94,6 +111,10 @@ function ThemedRoot() {
         }}
       >
         <Stack.Screen
+          name="lock"
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
+        <Stack.Screen
           name="onboarding"
           options={{ headerShown: false, gestureEnabled: false }}
         />
@@ -107,7 +128,6 @@ function ThemedRoot() {
         <Stack.Screen name="collections/index" options={{ headerShown: false }} />
         <Stack.Screen name="collections/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="grocery/scanner" options={{ headerShown: false }} />
-        <Stack.Screen name="grocery/colruyt" options={{ headerShown: false }} />
       </Stack>
     </>
   );

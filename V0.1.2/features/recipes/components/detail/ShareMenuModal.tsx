@@ -7,17 +7,17 @@ import { colors, fonts, spacing, typography } from '../../../../constants/Design
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onExportPdf: () => void;
-  onExportCooklang: () => void;
+  onSharePdf: () => void;
+  onShareText: () => void;
 }
 
-export function ExportMenuModal({ visible, onClose, onExportPdf, onExportCooklang }: Props) {
+export function ShareMenuModal({ visible, onClose, onSharePdf, onShareText }: Props) {
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose}>
         <View style={styles.sheet}>
-          <Text style={[typography.folioBold, { marginBottom: spacing.sm }]}>exporteer</Text>
-          <TouchableOpacity style={styles.row} onPress={onExportPdf} activeOpacity={0.7}>
+          <Text style={[typography.folioBold, { marginBottom: spacing.sm }]}>deel</Text>
+          <TouchableOpacity style={styles.row} onPress={onSharePdf} activeOpacity={0.7}>
             <Ionicons name="document-text-outline" size={18} color={colors.textDark} />
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>als PDF</Text>
@@ -25,11 +25,11 @@ export function ExportMenuModal({ visible, onClose, onExportPdf, onExportCooklan
             </View>
             <Ionicons name="chevron-forward" size={14} color={colors.textFaint} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.row} onPress={onExportCooklang} activeOpacity={0.7}>
-            <Ionicons name="code-slash-outline" size={18} color={colors.textDark} />
+          <TouchableOpacity style={styles.row} onPress={onShareText} activeOpacity={0.7}>
+            <Ionicons name="chatbox-ellipses-outline" size={18} color={colors.textDark} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.title}>als .cook (Cooklang)</Text>
-              <Text style={styles.desc}>Plain-text formaat voor andere Cooklang-apps.</Text>
+              <Text style={styles.title}>als tekst</Text>
+              <Text style={styles.desc}>kopieer-klaar voor berichten of notities.</Text>
             </View>
             <Ionicons name="chevron-forward" size={14} color={colors.textFaint} />
           </TouchableOpacity>

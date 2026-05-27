@@ -32,6 +32,7 @@ weer online is (`NetInfo` listener in `services/sync/lifecycle.ts`).
    - `supabase/migrations/redeem_invite_atomic.sql`
    - `supabase/migrations/family_member_profiles.sql`
    - `supabase/migrations/create_recipe_images_bucket.sql`
+   - `supabase/migrations/release_hardening.sql`
 
    Voor een bestaand project: alleen de `fix_*` migrations als die nog niet
    draaiden. Ze zijn idempotent (DROP IF EXISTS / CREATE OR REPLACE).
@@ -80,10 +81,17 @@ om te verifiëren dat de queue leeg blijft tussen acties.
 
 - **Geen conflict resolution.** Last-write-wins op `updated_at`. Bij parallelle
   edits op twee offline toestellen wint degene die als laatste flushed.
-  Acceptabel voor een familie-app met laag concurrent-write volume.
-- **Retry is geen exponential backoff.** De queue retried bij elke nieuwe write
-  én bij NetInfo reconnect. `attempts` kolom is informatief (geen cap, geen
-  dead-letter). Voldoende voor de typische "WiFi viel even weg" use case.
-- **Images zijn lokaal.** `imageUri` is een `file://` pad — Supabase ziet het,
-  maar toestel B kan het niet openen. Image-sync via Supabase Storage is een
-  aparte sprint.
+  Acceptabel voor een familie-app met laag concurrent-write volume. Sinds
+  sprint-37 logt `replaceFromRemote` (recipe + grocery) naar Sentry wanneer een
+  remote write een nieuwere lokale edit overschrijft, zodat dataverlies
+  zichtbaar wordt.
+- **Exponential backoff + dead-letter aanwezig.** De queue retried met
+  exponential backoff (`next_retry_at`) en markeert een rij na `MAX_ATTEMPTS`
+  als dead-letter (`dead = 1`). Eén corrupte payload blokkeert de rest niet
+  meer. Vastgelopen rijen zijn zichtbaar en herstelbaar via Settings →
+  synchronisatie (`SyncSection`).
+- **Image-sync via Storage werkt.** Receptfoto's gaan naar de bucket
+  `recipe-images`; na een succesvolle upload wordt de recipe-rij opnieuw
+  ge-enqueued met de cloud-URL zodat andere toestellen de foto zien. Lukt de
+  upload niet, dan blijft het `file://` pad staan en probeert een volgende
+  edit/backfill opnieuw.

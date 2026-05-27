@@ -122,3 +122,26 @@ worden door `app.json` verwacht. Maak ze aan (geen placeholders gegenereerd):
 - `V0.1.2/assets/splash.png` — ≥ 1242×2436, achtergrond paper #F6F1E7
 - `V0.1.2/assets/notification-icon.png` — reeds verwacht door de
   expo-notifications plugin (pre-existing, niet nieuw in deze sprint)
+
+## Sprint 37 — release hardening
+- Babel naar `react-native-worklets/plugin` (Reanimated 4).
+- app.json: `icon`, `splash` (paper #F6F1E7), `android.adaptiveIcon.foregroundImage`
+  en `expo-build-properties` met iOS privacy manifest (NSPrivacyAccessedAPITypes).
+- RLS gehardend (`supabase/migrations/release_hardening.sql`): invite_codes
+  SELECT-leak dicht (verzilveren enkel nog via `redeem_invite_code` RPC), owner
+  beschermd tegen kicken door andere leden.
+- Auth: home-banner bij `familyId === null` (+ supabase geconfigureerd),
+  `queue.enqueue` skipt zonder supabase/familyId (geen queue-bloat), one-shot
+  initial backfill bij eerste login (`services/sync/initialBackfill.ts`).
+- Sync: image-sync re-enqueue na upload (geverifieerd in create/update/backfill),
+  LWW logt overschrijvingen van nieuwere lokale data naar Sentry,
+  Settings → `SyncSection` voor wachtrij-diepte + dead-letter recovery.
+- Auth UX: `authStore.waitForUser()` i.p.v. een vaste setTimeout, wachtwoord ≥ 8.
+
+### Nog te doen vóór publish (handmatig)
+- `eas.json`: vervang de `VERVANG_MET_*` placeholders door je Apple ID /
+  Team ID / ASC App ID.
+- Assets toevoegen indien ontbrekend (paden in app.json, afmetingen zoals
+  gelogd onder "## Nog te doen vóór publish" hierboven).
+- Supabase dashboard → Authentication → password min length op 8.
+- `supabase/migrations/release_hardening.sql` op het Supabase project uitvoeren.

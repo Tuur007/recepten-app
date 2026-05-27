@@ -96,3 +96,4 @@ Sanering rond. Volgende sprint kan zich op de roadmap richten — `services/reci
 - ✅ **FASE 2** — 12 dode files verwijderd, typecheck + tests groen
 - ✅ **FASE 3** — outbox queue + lifecycle wire-up + RLS checklist (`docs/SUPABASE.md`)
 - ✅ **FASE 4** — `[id].tsx` 1491 → 767 regels, opgesplitst in 7 detail-componenten
+- ✅ FASE 5 — release hardening (sprint-37)

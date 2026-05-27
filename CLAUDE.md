@@ -109,3 +109,16 @@ Typecheck via: cd V0.1.2 && npm run typecheck
 
 ## Builds
 EAS via eas.json. Preview + production profiles voor iOS en Android.
+
+## Nog te doen vóór publish
+
+### Assets (ontbreken in V0.1.2/assets/)
+`V0.1.2/assets/` bevat enkel `ASSETS.md` — de PNG's hieronder ontbreken maar
+worden door `app.json` verwacht. Maak ze aan (geen placeholders gegenereerd):
+
+- `V0.1.2/assets/icon.png` — 1024×1024, opaque (app-icoon iOS + Android)
+- `V0.1.2/assets/adaptive-icon.png` — 1024×1024, transparante voorgrond
+  (Android adaptive icon, achtergrond #C2492A staat al in app.json)
+- `V0.1.2/assets/splash.png` — ≥ 1242×2436, achtergrond paper #F6F1E7
+- `V0.1.2/assets/notification-icon.png` — reeds verwacht door de
+  expo-notifications plugin (pre-existing, niet nieuw in deze sprint)

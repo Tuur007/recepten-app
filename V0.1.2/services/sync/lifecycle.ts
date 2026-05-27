@@ -4,6 +4,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useAuthStore } from '../../store/authStore';
 import { pullAll, subscribeToFamily } from './supabaseSync';
 import { flushQueue } from './queue';
+import { runBackfill } from './imageBackfill';
 import { supabase } from '../supabase';
 
 /**
@@ -69,11 +70,26 @@ export function useSyncQueueProcessor(): void {
   }, [db, familyId]);
 }
 
+/**
+ * Eenmalige backfill van bestaande lokale file:// foto's naar Supabase Storage,
+ * zodra supabase + familyId klaar zijn. Achtergrondtaak, geen UI-feedback.
+ */
+export function useImageBackfill(): void {
+  const db = useSQLiteContext();
+  const familyId = useAuthStore((s) => s.familyId);
+
+  useEffect(() => {
+    if (!supabase || !familyId) return;
+    runBackfill(db).catch((err) => console.warn('[sync] image backfill failed:', err));
+  }, [db, familyId]);
+}
+
 /** Convenience hook: mount alle sync-lifecycle in één call. */
 export function useSupabaseSync(): void {
   useAuthBootstrap();
   useFamilySync();
   useSyncQueueProcessor();
+  useImageBackfill();
 }
 
 /** Test-helper: trigger één flush nu, los van NetInfo. */

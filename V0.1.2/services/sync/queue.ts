@@ -85,7 +85,11 @@ function recipeToRow(recipe: Recipe, familyId: string) {
     duration: recipe.duration ?? null,
     category: recipe.category,
     is_favorite: recipe.isFavorite,
-    image_uri: recipe.imageUri ?? null,
+    // Nooit een lokaal file:// pad naar de cloud pushen — andere toestellen
+    // kunnen dat niet openen. Lukte de upload nog niet, dan sturen we null en
+    // probeert een volgende edit/backfill opnieuw te uploaden.
+    image_uri:
+      recipe.imageUri && !recipe.imageUri.startsWith('file://') ? recipe.imageUri : null,
     allergens: recipe.allergens,
     difficulty: recipe.difficulty ?? null,
     preparation_time: recipe.preparationTime ?? null,

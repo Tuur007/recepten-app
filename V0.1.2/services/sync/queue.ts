@@ -44,6 +44,11 @@ export async function enqueue(
   entityId: string,
   payload: unknown | null,
 ): Promise<void> {
+  // Zonder cloud-config of gekoppeld gezin kan deze rij nooit flushen
+  // (flushQueue bailt op net dezelfde voorwaarden). Niet queuen voorkomt dat de
+  // outbox onbeperkt groeit bij users die maandenlang puur lokaal draaien.
+  if (!defaultSupabase || !useAuthStore.getState().familyId) return;
+
   await db.runAsync(
     `INSERT INTO sync_queue (id, op, entity, entity_id, payload, created_at, attempts)
      VALUES (?, ?, ?, ?, ?, ?, 0)`,

@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { pullAll, subscribeToFamily } from './supabaseSync';
 import { flushQueue } from './queue';
 import { runBackfill } from './imageBackfill';
+import { runInitialBackfill } from './initialBackfill';
 import { supabase } from '../supabase';
 
 /**
@@ -35,6 +36,9 @@ export function useFamilySync(): void {
     pullAll(db).catch((err) => {
       if (!cancelled) warn('[sync] pullAll failed:', err);
     });
+    // One-shot: push bestaande lokale data omhoog bij de eerste koppeling van
+    // dit toestel. Leest uit SQLite, dus onafhankelijk van pullAll-volgorde.
+    runInitialBackfill(db).catch((err) => warn('[sync] initial backfill failed:', err));
     const unsubscribe = subscribeToFamily(familyId, db);
 
     return () => {

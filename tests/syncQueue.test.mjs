@@ -10,6 +10,12 @@
 
 import { strict as assert } from 'node:assert';
 
+// enqueue() skipt nu zonder geconfigureerde supabase OF zonder familyId. Zet de
+// env vars vóór de import zodat de supabase-client niet-null is; familyId
+// zetten we per test via useAuthStore.setState.
+process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+
 globalThis.window = {
   localStorage: {
     getItem: () => null,
@@ -149,6 +155,7 @@ console.log(' enqueue + flushQueue');
 console.log('══════════════════════════════════════════════\n');
 
 await test('enqueue zet een rij in sync_queue', async () => {
+  useAuthStore.setState({ familyId: 'fam-1' });
   const db = makeInMemoryDb();
   await queue.enqueue(db, 'upsert', 'recipe', 'r1', { id: 'r1', title: 'Soep' });
   assert.equal(db.rows.size, 1);
@@ -159,10 +166,19 @@ await test('enqueue zet een rij in sync_queue', async () => {
   assert.equal(JSON.parse(row.payload).title, 'Soep');
 });
 
-await test('flushQueue zonder familyId no-opt', async () => {
+await test('enqueue skipt de INSERT zonder familyId', async () => {
   useAuthStore.setState({ familyId: null });
   const db = makeInMemoryDb();
   await queue.enqueue(db, 'upsert', 'recipe', 'r1', { id: 'r1' });
+  assert.equal(db.rows.size, 0, 'geen rij gequeued zonder gekoppeld gezin');
+});
+
+await test('flushQueue zonder familyId no-opt', async () => {
+  // Eerst met familyId queuen zodat er een rij bestaat, dan familyId weghalen.
+  useAuthStore.setState({ familyId: 'fam-1' });
+  const db = makeInMemoryDb();
+  await queue.enqueue(db, 'upsert', 'recipe', 'r1', { id: 'r1' });
+  useAuthStore.setState({ familyId: null });
   const client = makeClient(() => ({ error: null }));
   const result = await queue.flushQueue(db, client);
   assert.equal(result.processed, 0);

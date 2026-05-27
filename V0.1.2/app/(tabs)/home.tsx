@@ -27,6 +27,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useMealPlan, getISOWeek } from '../../store/weekPlannerStore';
 import { useFamilyStore } from '../../store/familyStore';
+import { useAuthStore } from '../../store/authStore';
+import { isSupabaseConfigured } from '../../services/supabase';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import {
@@ -73,6 +75,8 @@ export default function HomeScreen() {
   const members = useFamilyStore((s) => s.members);
   const activeMembers = useMemo(() => members.filter((m) => m.active), [members]);
   const familyName = useFamilyStore((s) => s.familyName);
+  const familyId = useAuthStore((s) => s.familyId);
+  const showSyncBanner = familyId === null && isSupabaseConfigured();
   const themeColors = useThemeColors();
 
   const todayIdx = new Date().getDay();
@@ -128,6 +132,21 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* Sync-banner: enkel zichtbaar zonder gekoppeld gezin */}
+          {showSyncBanner && (
+            <TouchableOpacity
+              style={styles.syncBanner}
+              onPress={() => router.push('/auth/login')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Log in om met je gezin te delen"
+            >
+              <Text style={typography.folio}>synchronisatie · uit</Text>
+              <Text style={styles.syncBannerText}>Log in om met je gezin te delen</Text>
+              <Ionicons name="arrow-forward" size={14} color={colors.textFaint} />
+            </TouchableOpacity>
+          )}
+
           {/* Folio */}
           <FolioStrip left={dateLabel} right={familyName.trim() ? familyName : weekLabel} />
 
@@ -291,6 +310,23 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
+  },
+
+  syncBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 14,
+    borderTopWidth: 0.5,
+    borderBottomWidth: 0.5,
+    borderColor: colors.borderColor,
+  },
+  syncBannerText: {
+    flex: 1,
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.textMedium,
   },
 
   nrWrap: { alignItems: 'center', paddingVertical: 6 },

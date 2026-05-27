@@ -1,4 +1,5 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { warn } from '../utils/logger';
 import { supabase } from './supabase';
 import { useAuthStore } from '../store/authStore';
@@ -30,12 +31,14 @@ export function rowToCloudMember(row: Record<string, unknown>): CloudFamilyMembe
   };
 }
 
-export async function listFamilyMembers(): Promise<CloudFamilyMember[]> {
-  if (!supabase) return [];
+export async function listFamilyMembers(
+  client: SupabaseClient | null = supabase,
+): Promise<CloudFamilyMember[]> {
+  if (!client) return [];
   const familyId = useAuthStore.getState().familyId;
   if (!familyId) return [];
 
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from('family_members')
     .select('*')
     .eq('family_id', familyId)
@@ -46,8 +49,11 @@ export async function listFamilyMembers(): Promise<CloudFamilyMember[]> {
 }
 
 /** Werkt het profiel van de huidige user bij (RLS: enkel de eigen rij). */
-export async function updateMyProfile(updates: ProfileUpdate): Promise<void> {
-  if (!supabase) throw new Error('Supabase niet geconfigureerd.');
+export async function updateMyProfile(
+  updates: ProfileUpdate,
+  client: SupabaseClient | null = supabase,
+): Promise<void> {
+  if (!client) throw new Error('Supabase niet geconfigureerd.');
   const userId = useAuthStore.getState().user?.id;
   if (!userId) throw new Error('Niet ingelogd.');
 
@@ -58,7 +64,7 @@ export async function updateMyProfile(updates: ProfileUpdate): Promise<void> {
   if (updates.active !== undefined) patch.active = updates.active;
   if (Object.keys(patch).length === 0) return;
 
-  const { error } = await supabase.from('family_members').update(patch).eq('user_id', userId);
+  const { error } = await client.from('family_members').update(patch).eq('user_id', userId);
   if (error) throw error;
 }
 

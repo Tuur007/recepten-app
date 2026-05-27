@@ -8,7 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "tsx ../tests/extractor.test.mjs && tsx ../tests/parseTimeFromStep.test.mjs && tsx ../tests/marleyspoon.test.mjs && tsx ../tests/groceryStore.test.mjs && tsx ../tests/normalize.test.mjs && tsx ../tests/recipeStore.test.mjs && tsx ../tests/merge.test.mjs && tsx --tsconfig ../tests/tsconfig.test.json ../tests/sync.test.mjs && tsx --tsconfig ../tests/tsconfig.test.json ../tests/syncQueue.test.mjs && tsx --tsconfig ../tests/tsconfig.test.json ../tests/migrations.test.mjs && tsx --tsconfig ../tests/tsconfig.test.json ../tests/familyMembers.test.mjs",
+    "test": "tsx ../tests/extractor.test.mjs && tsx ../tests/parseTimeFromStep.test.mjs && tsx ../tests/marleyspoon.test.mjs && tsx ../tests/groceryStore.test.mjs && tsx ../tests/normalize.test.mjs && tsx ../tests/recipeStore.test.mjs && tsx ../tests/merge.test.mjs && tsx ../tests/randomToken.test.mjs && tsx --tsconfig ../tests/tsconfig.test.json ../tests/sync.test.mjs && tsx --tsconfig ../tests/tsconfig.test.json ../tests/syncQueue.test.mjs && tsx --tsconfig ../tests/tsconfig.test.json ../tests/migrations.test.mjs && tsx --tsconfig ../tests/tsconfig.test.json ../tests/familyMembers.test.mjs && tsx --tsconfig ../tests/tsconfig.test.json ../tests/imageUpload.test.mjs",
     "build:android:preview": "eas build --platform android --profile preview",
     "build:android:prod": "eas build --platform android --profile production",
     "build:ios:preview": "eas build --platform ios --profile preview",

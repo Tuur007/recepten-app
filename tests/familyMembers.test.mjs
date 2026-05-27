@@ -12,8 +12,11 @@ globalThis.window = {
   localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
 };
 
-const { rowToCloudMember } = await import('../V0.1.2/services/familyMembers.ts');
+const { rowToCloudMember, listFamilyMembers, updateMyProfile } = await import(
+  '../V0.1.2/services/familyMembers.ts'
+);
 const { FAMILY_COLORS } = await import('../V0.1.2/types/family.ts');
+const { useAuthStore } = await import('../V0.1.2/store/authStore.ts');
 
 const PASS = (s) => console.log(`\x1b[32m✅ ${s}\x1b[0m`);
 const FAIL = (s) => console.log(`\x1b[31m❌ ${s}\x1b[0m`);
@@ -21,9 +24,9 @@ const FAIL = (s) => console.log(`\x1b[31m❌ ${s}\x1b[0m`);
 let passed = 0;
 let failed = 0;
 
-function test(name, fn) {
+async function test(name, fn) {
   try {
-    fn();
+    await fn();
     PASS(name);
     passed++;
   } catch (e) {
@@ -31,6 +34,36 @@ function test(name, fn) {
     if (e?.stack) console.log('   ' + e.stack.split('\n').slice(1, 4).join('\n   '));
     failed++;
   }
+}
+
+// Mock client voor listFamilyMembers: .from().select().eq().order() → {data,error}
+function makeListClient(response) {
+  const chain = {
+    select() { return chain; },
+    eq() { return chain; },
+    order() { return Promise.resolve(response); },
+  };
+  return { from() { return chain; } };
+}
+
+// Mock client voor updateMyProfile: legt de patch + eq-args vast.
+function makeUpdateClient() {
+  const calls = [];
+  return {
+    calls,
+    from() {
+      return {
+        update(patch) {
+          return {
+            eq(col, val) {
+              calls.push({ patch, col, val });
+              return Promise.resolve({ error: null });
+            },
+          };
+        },
+      };
+    },
+  };
 }
 
 console.log('\n══════════════════════════════════════════════');
@@ -83,6 +116,63 @@ test('onbekende role wordt member', () => {
 test('niet-array allergies wordt lege array', () => {
   const m = rowToCloudMember({ id: 'm6', user_id: 'u6', allergies: 'Gluten' });
   assert.deepEqual(m.allergies, []);
+});
+
+console.log('\n══════════════════════════════════════════════');
+console.log(' listFamilyMembers');
+console.log('══════════════════════════════════════════════\n');
+
+await test('happy path → gemapte leden', async () => {
+  useAuthStore.setState({ familyId: 'fam-1' });
+  const client = makeListClient({
+    data: [
+      { id: 'm1', user_id: 'u1', display_name: 'Tuur', color: '#111', allergies: ['Gluten'], active: true, role: 'owner' },
+    ],
+    error: null,
+  });
+  const members = await listFamilyMembers(client);
+  assert.equal(members.length, 1);
+  assert.equal(members[0].displayName, 'Tuur');
+  assert.equal(members[0].role, 'owner');
+});
+
+await test('lege lijst → []', async () => {
+  useAuthStore.setState({ familyId: 'fam-1' });
+  const members = await listFamilyMembers(makeListClient({ data: [], error: null }));
+  assert.deepEqual(members, []);
+});
+
+await test('error → []', async () => {
+  useAuthStore.setState({ familyId: 'fam-1' });
+  const members = await listFamilyMembers(makeListClient({ data: null, error: { message: 'boom' } }));
+  assert.deepEqual(members, []);
+});
+
+await test('zonder familyId → [] (geen query)', async () => {
+  useAuthStore.setState({ familyId: null });
+  const members = await listFamilyMembers(makeListClient({ data: [{ id: 'x', user_id: 'y' }], error: null }));
+  assert.deepEqual(members, []);
+});
+
+console.log('\n══════════════════════════════════════════════');
+console.log(' updateMyProfile');
+console.log('══════════════════════════════════════════════\n');
+
+await test('stuurt de juiste patch op de eigen rij', async () => {
+  useAuthStore.setState({ user: { id: 'u1' } });
+  const client = makeUpdateClient();
+  await updateMyProfile({ displayName: 'Nieuw', active: false }, client);
+  assert.equal(client.calls.length, 1);
+  assert.deepEqual(client.calls[0].patch, { display_name: 'Nieuw', active: false });
+  assert.equal(client.calls[0].col, 'user_id');
+  assert.equal(client.calls[0].val, 'u1');
+});
+
+await test('lege update → geen call', async () => {
+  useAuthStore.setState({ user: { id: 'u1' } });
+  const client = makeUpdateClient();
+  await updateMyProfile({}, client);
+  assert.equal(client.calls.length, 0);
 });
 
 console.log('\n══════════════════════════════════════════════');

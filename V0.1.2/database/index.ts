@@ -1,4 +1,5 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
+import { log, warn } from '../utils/logger';
 import {
   CREATE_GROCERY_ITEMS_TABLE,
   CREATE_RECIPES_TABLE,
@@ -35,7 +36,7 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
   const currentVersion = result?.user_version ?? 0;
 
   if (currentVersion > MIGRATIONS.length) {
-    console.warn(
+    warn(
       `[DB] user_version=${currentVersion} is hoger dan het aantal migraties (${MIGRATIONS.length}). ` +
         'Mogelijk een downgrade — de app gebruikt een ouder schema dan de database.',
     );
@@ -46,7 +47,7 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
     // ALTER-migraties over zodat we niet 27 onnodige stappen doen op een lege db.
     await db.execAsync(CREATE_RECIPES_TABLE_FULL);
     await db.execAsync(`PRAGMA user_version = ${MIGRATIONS.length}`);
-    console.log('[DB] Fresh install — applied CREATE_RECIPES_TABLE_FULL');
+    log('[DB] Fresh install — applied CREATE_RECIPES_TABLE_FULL');
   } else {
     // Bestaande installatie: zorg eerst dat de basis-tabel bestaat, dan rollen
     // we door alle nog-niet-toegepaste migraties heen.
@@ -92,7 +93,7 @@ export async function applyPendingMigrations(
       await db.execAsync(
         `BEGIN; ${migrations[i]}; PRAGMA user_version = ${i + 1}; COMMIT;`,
       );
-      console.log(`[DB] Migration v${i + 1} applied`);
+      log(`[DB] Migration v${i + 1} applied`);
     } catch (err) {
       await db.execAsync('ROLLBACK;').catch(() => {});
       const msg = err instanceof Error ? err.message : String(err);
@@ -122,5 +123,5 @@ export async function seedStarterRecipes(db: SQLiteDatabase): Promise<void> {
       console.error(`[db] seed "${recipe.title}" failed:`, err);
     }
   }
-  console.log(`[db] seeded ${inserted} starter recipes`);
+  log(`[db] seeded ${inserted} starter recipes`);
 }

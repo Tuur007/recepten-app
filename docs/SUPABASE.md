@@ -30,6 +30,8 @@ weer online is (`NetInfo` listener in `services/sync/lifecycle.ts`).
    - `supabase/migrations/fix_rls_policies.sql`
    - `supabase/migrations/fix_shared_recipes_rls.sql`
    - `supabase/migrations/redeem_invite_atomic.sql`
+   - `supabase/migrations/family_member_profiles.sql`
+   - `supabase/migrations/create_recipe_images_bucket.sql`
 
    Voor een bestaand project: alleen de `fix_*` migrations als die nog niet
    draaiden. Ze zijn idempotent (DROP IF EXISTS / CREATE OR REPLACE).

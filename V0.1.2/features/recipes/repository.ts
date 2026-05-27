@@ -1,7 +1,13 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
+import { log } from '../../utils/logger';
 import { Recipe, RecipeInput, RecipeUpdate } from '../../types/recipe';
 import { generateId } from '../../utils/id';
 import { deleteRecipeImage } from '../../utils/imageStorage';
+import {
+  uploadRecipeImage,
+  isLocalImageUri,
+  deleteRecipeImage as deleteRecipeImageFromStorage,
+} from '../../services/imageUpload';
 import { enqueue, flushQueue } from '../../services/sync/queue';
 
 interface RecipeRow {
@@ -147,7 +153,7 @@ export const RecipeRepository = {
   async create(db: SQLiteDatabase, input: RecipeInput): Promise<Recipe> {
     const id = generateId();
     const now = new Date().toISOString();
-    console.log(`[RecipeRepository.create] Storing imageUri: ${input.imageUri ?? 'null'}`);
+    log(`[RecipeRepository.create] Storing imageUri: ${input.imageUri ?? 'null'}`);
     await db.runAsync(
       `INSERT INTO recipes (id, title, ingredients, steps, source_url, duration, category, is_favorite, image_uri, allergens, created_at, updated_at, difficulty, preparation_time, cooking_time, servings, rating, times_cooked, last_cooked, notes, equipment, nutrition)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -186,6 +192,18 @@ export const RecipeRepository = {
       createdAt: now,
       updatedAt: now,
     };
+
+    // Lokale foto → Supabase Storage. Lukt het, dan vervangen we het pad door
+    // de cloud-URL (lokaal + in de queue-payload). Faalt het, dan blijft het
+    // file:// pad staan en probeert een volgende edit/backfill opnieuw.
+    if (recipe.imageUri && isLocalImageUri(recipe.imageUri)) {
+      const cloudUrl = await uploadRecipeImage(recipe.imageUri, id);
+      if (cloudUrl) {
+        await db.runAsync('UPDATE recipes SET image_uri = ? WHERE id = ?', [cloudUrl, id]);
+        recipe.imageUri = cloudUrl;
+      }
+    }
+
     await enqueue(db, 'upsert', 'recipe', recipe.id, recipe);
     void flushQueue(db);
     return recipe;
@@ -234,7 +252,18 @@ export const RecipeRepository = {
         id,
       ],
     );
-    await enqueue(db, 'upsert', 'recipe', id, { ...merged, updatedAt: now });
+
+    // Nieuwe lokale foto → upload naar Storage (zelfde patroon als create()).
+    let finalImageUri = merged.imageUri;
+    if ('imageUri' in changes && merged.imageUri && isLocalImageUri(merged.imageUri)) {
+      const cloudUrl = await uploadRecipeImage(merged.imageUri, id);
+      if (cloudUrl) {
+        await db.runAsync('UPDATE recipes SET image_uri = ? WHERE id = ?', [cloudUrl, id]);
+        finalImageUri = cloudUrl;
+      }
+    }
+
+    await enqueue(db, 'upsert', 'recipe', id, { ...merged, imageUri: finalImageUri, updatedAt: now });
     void flushQueue(db);
   },
 
@@ -243,6 +272,8 @@ export const RecipeRepository = {
     if (recipe?.imageUri) {
       await deleteRecipeImage(recipe.imageUri);
     }
+    // Ook de cloud-kopie opruimen — faalt stil als het niet lukt.
+    await deleteRecipeImageFromStorage(id);
     await db.runAsync('DELETE FROM recipes WHERE id = ?', [id]);
     await enqueue(db, 'delete', 'recipe', id, null);
     void flushQueue(db);

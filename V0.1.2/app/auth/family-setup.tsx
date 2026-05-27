@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { warn } from '../../utils/logger';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSQLiteContext } from 'expo-sqlite';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 
@@ -11,12 +13,16 @@ import { Button } from '../../components/ui/Button';
 import { AppTextInput } from '../../components/ui/AppTextInput';
 import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store/authStore';
+import { useFamilyStore } from '../../store/familyStore';
+import { applyPendingProfile } from '../../services/familyMembers';
 
 export default function FamilySetupScreen() {
   const themeColors = useThemeColors();
+  const db = useSQLiteContext();
   const { user, setFamilyId } = useAuthStore();
 
-  const [familyName, setFamilyName] = useState('');
+  // Voorvullen met de naam uit onboarding (lokaal), indien aanwezig.
+  const [familyName, setFamilyName] = useState(useFamilyStore.getState().familyName);
   const [nameError, setNameError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -50,6 +56,11 @@ export default function FamilySetupScreen() {
         .insert({ family_id: family.id, user_id: user.id, role: 'owner' });
 
       if (memberError) throw memberError;
+
+      // Pas een in onboarding bewaard profiel toe op de zojuist aangemaakte rij.
+      await applyPendingProfile(db).catch((e) =>
+        warn('[family-setup] applyPendingProfile failed:', e),
+      );
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setFamilyId(family.id);

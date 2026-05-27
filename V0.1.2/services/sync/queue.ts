@@ -1,4 +1,5 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
+import { warn } from '../../utils/logger';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase as defaultSupabase } from '../supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -85,7 +86,11 @@ function recipeToRow(recipe: Recipe, familyId: string) {
     duration: recipe.duration ?? null,
     category: recipe.category,
     is_favorite: recipe.isFavorite,
-    image_uri: recipe.imageUri ?? null,
+    // Nooit een lokaal file:// pad naar de cloud pushen — andere toestellen
+    // kunnen dat niet openen. Lukte de upload nog niet, dan sturen we null en
+    // probeert een volgende edit/backfill opnieuw te uploaden.
+    image_uri:
+      recipe.imageUri && !recipe.imageUri.startsWith('file://') ? recipe.imageUri : null,
     allergens: recipe.allergens,
     difficulty: recipe.difficulty ?? null,
     preparation_time: recipe.preparationTime ?? null,
@@ -230,8 +235,8 @@ export async function flushQueue(
           [attempts, msg, dead, `+${backoffSeconds} seconds`, row.id],
         );
         if (dead) {
-          // In cluster 4 wordt dit een Sentry breadcrumb; voorlopig console.warn.
-          console.warn('[sync] dead row', {
+          // Dead-letter: Sentry pikt dit op via de console.error-bridge.
+          warn('[sync] dead row', {
             id: row.id,
             entity: row.entity,
             op: row.op,

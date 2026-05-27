@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { warn } from '../utils/logger';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -10,73 +11,76 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSQLiteContext } from 'expo-sqlite';
 import { Ionicons } from '@expo/vector-icons';
 
 import {
   EditorialTitle,
-  FamilyDot,
   FolioStrip,
   RuleWithLabel,
 } from '../components/ui/EditorialBits';
 import { colors, fonts, spacing, typography } from '../constants/Designsystem';
-import {
-  FAMILY_COLORS,
-  useFamilyActions,
-  useFamilyStore,
-  type FamilyMember,
-} from '../store/familyStore';
+import { FAMILY_COLORS, useFamilyActions, useFamilyStore } from '../store/familyStore';
+import { savePendingProfile } from '../services/familyMembers';
+import { useAuthStore } from '../store/authStore';
+import { ALLERGENS } from '../types/recipe';
 import { haptics } from '../utils/feedback';
 import { requestNotificationPermission } from '../services/notifications';
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const db = useSQLiteContext();
   const familyName = useFamilyStore((s) => s.familyName);
-  const members = useFamilyStore((s) => s.members);
-  const {
-    addMember,
-    removeMember,
-    updateName,
-    updateColor,
-    setFamilyName,
-    completeOnboarding,
-  } = useFamilyActions();
+  const familyId = useAuthStore((s) => s.familyId);
+  const { setFamilyName, completeOnboarding, updateMyProfile } = useFamilyActions();
 
   const [step, setStep] = useState(1);
   const [nameInput, setNameInput] = useState(familyName);
-  const [memberDraft, setMemberDraft] = useState<Record<string, string>>({});
 
-  const trimmedName = nameInput.trim();
-  const canContinueFromStep1 = trimmedName.length > 0;
-  const canFinish = members.length > 0 && members.every((m) => m.name.trim().length > 0);
+  // Profiel van de huidige gebruiker.
+  const [myName, setMyName] = useState('');
+  const [myColor, setMyColor] = useState(FAMILY_COLORS[0]);
+  const [myAllergies, setMyAllergies] = useState<string[]>([]);
+
+  const trimmedFamilyName = nameInput.trim();
+  const canContinueFromStep1 = trimmedFamilyName.length > 0;
+  const canFinish = myName.trim().length > 0;
 
   const handleContinue = () => {
-    setFamilyName(trimmedName);
+    setFamilyName(trimmedFamilyName);
     haptics.light();
     setStep(2);
   };
 
-  const handleAddMember = () => {
-    if (members.length >= 6) return;
-    addMember();
-    haptics.light();
+  const toggleAllergy = (allergen: string) => {
+    setMyAllergies((prev) =>
+      prev.includes(allergen) ? prev.filter((a) => a !== allergen) : [...prev, allergen],
+    );
+    haptics.selection();
   };
 
-  const commitName = (id: string) => {
-    const draft = memberDraft[id];
-    if (draft === undefined) return;
-    updateName(id, draft.trim());
-    setMemberDraft((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  };
+  const handleFinish = async () => {
+    const profile = {
+      displayName: myName.trim(),
+      color: myColor,
+      allergies: myAllergies,
+    };
 
-  const handleFinish = () => {
-    // Make sure any in-flight name drafts are committed before persisting.
-    Object.keys(memberDraft).forEach((id) => commitName(id));
     completeOnboarding();
     haptics.success();
+
+    // Heeft de gebruiker al een gezin (bv. via uitnodigingscode)? Dan meteen
+    // naar de cloud. Anders bewaren we het profiel tot na family-setup.
+    try {
+      if (familyId) {
+        await updateMyProfile(profile);
+      } else {
+        await savePendingProfile(db, profile);
+      }
+    } catch (err) {
+      warn('[onboarding] profiel bewaren mislukt:', err);
+    }
+
     // Vraag notificatiepermissie — niet-blokkerend.
     requestNotificationPermission().catch(() => {});
     router.replace('/(tabs)/home');
@@ -97,7 +101,7 @@ export default function OnboardingScreen() {
           {step === 1 ? (
             <EditorialTitle lead="Welkom" tail="thuis." size={42} />
           ) : (
-            <EditorialTitle lead="Wie eten" tail="er mee?" size={42} />
+            <EditorialTitle lead="Jouw" tail="profiel." size={42} />
           )}
         </View>
 
@@ -140,49 +144,66 @@ export default function OnboardingScreen() {
         ) : (
           <View style={styles.body}>
             <Text style={styles.intro}>
-              Voeg een tot zes gezinsleden toe. Je kunt dit later altijd aanpassen.
+              Stel je eigen kaartje in. Andere gezinsleden voeg je later toe met een
+              uitnodigingscode.
             </Text>
 
-            <View style={{ marginTop: spacing.md }}>
-              <RuleWithLabel label="aan tafel" />
+            <View style={{ marginTop: spacing.lg }}>
+              <Text style={styles.fieldLabel}>jouw naam</Text>
+              <TextInput
+                style={styles.nameInput}
+                value={myName}
+                onChangeText={setMyName}
+                placeholder="bv. Tuur"
+                placeholderTextColor={colors.textFaint}
+                returnKeyType="done"
+                autoFocus
+              />
             </View>
 
-            <View style={{ marginTop: spacing.sm }}>
-              {members.length === 0 ? (
-                <Text style={styles.emptyHint}>— nog niemand toegevoegd</Text>
-              ) : (
-                members.map((member) => (
-                  <MemberEditor
-                    key={member.id}
-                    member={member}
-                    draftValue={memberDraft[member.id] ?? member.name}
-                    onChangeDraft={(v) =>
-                      setMemberDraft((prev) => ({ ...prev, [member.id]: v }))
-                    }
-                    onCommit={() => commitName(member.id)}
-                    onPickColor={(c) => {
-                      updateColor(member.id, c);
-                      haptics.selection();
-                    }}
-                    onRemove={() => {
-                      removeMember(member.id);
-                      haptics.light();
-                    }}
-                  />
-                ))
-              )}
+            <View style={{ marginTop: spacing.lg }}>
+              <Text style={styles.fieldLabel}>jouw kleur</Text>
+              <View style={styles.swatchRow}>
+                {FAMILY_COLORS.map((c) => {
+                  const active = c === myColor;
+                  return (
+                    <TouchableOpacity
+                      key={c}
+                      onPress={() => {
+                        setMyColor(c);
+                        haptics.selection();
+                      }}
+                      hitSlop={4}
+                      style={[
+                        styles.swatch,
+                        { backgroundColor: c },
+                        active && styles.swatchActive,
+                      ]}
+                    />
+                  );
+                })}
+              </View>
             </View>
 
-            {members.length < 6 && (
-              <TouchableOpacity
-                onPress={handleAddMember}
-                style={styles.addRow}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
-                <Text style={styles.addLabel}>voeg gezinslid toe</Text>
-              </TouchableOpacity>
-            )}
+            <View style={{ marginTop: spacing.lg }}>
+              <RuleWithLabel label="allergieën" />
+              <View style={styles.allergyGrid}>
+                {ALLERGENS.map((allergen) => {
+                  const active = myAllergies.includes(allergen);
+                  return (
+                    <TouchableOpacity
+                      key={allergen}
+                      onPress={() => toggleAllergy(allergen)}
+                      style={[styles.allergyChip, active && styles.allergyChipActive]}
+                    >
+                      <Text style={[styles.allergyChipText, active && styles.allergyChipTextActive]}>
+                        {allergen}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
 
             <Text style={styles.notifHint}>
               · we herinneren je elke dag om 16u aan je diner ·
@@ -211,94 +232,6 @@ export default function OnboardingScreen() {
   );
 }
 
-function MemberEditor({
-  member,
-  draftValue,
-  onChangeDraft,
-  onCommit,
-  onPickColor,
-  onRemove,
-}: {
-  member: FamilyMember;
-  draftValue: string;
-  onChangeDraft: (v: string) => void;
-  onCommit: () => void;
-  onPickColor: (c: string) => void;
-  onRemove: () => void;
-}) {
-  return (
-    <View style={memberStyles.block}>
-      <View style={memberStyles.row}>
-        <FamilyDot member={member} size={32} />
-        <TextInput
-          style={memberStyles.input}
-          value={draftValue}
-          onChangeText={onChangeDraft}
-          onBlur={onCommit}
-          onSubmitEditing={onCommit}
-          placeholder="naam"
-          placeholderTextColor={colors.textFaint}
-          returnKeyType="done"
-        />
-        <TouchableOpacity onPress={onRemove} hitSlop={8} style={memberStyles.iconBtn}>
-          <Ionicons name="trash-outline" size={14} color={colors.textFaint} />
-        </TouchableOpacity>
-      </View>
-      <View style={memberStyles.swatchRow}>
-        {FAMILY_COLORS.map((c) => {
-          const active = c === member.color;
-          return (
-            <TouchableOpacity
-              key={c}
-              onPress={() => onPickColor(c)}
-              hitSlop={4}
-              style={[
-                memberStyles.swatch,
-                { backgroundColor: c },
-                active && memberStyles.swatchActive,
-              ]}
-            />
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-const memberStyles = StyleSheet.create({
-  block: {
-    paddingTop: spacing.sm,
-    paddingBottom: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.borderSoft,
-  },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  input: {
-    flex: 1,
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.textDark,
-    paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSoft,
-  },
-  iconBtn: { padding: 6 },
-  swatchRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-    paddingLeft: 44,
-  },
-  swatch: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-  },
-  swatchActive: { borderColor: colors.textDark },
-});
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.lg },
   titleBlock: { marginTop: spacing.md },
@@ -326,6 +259,44 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderColor,
     paddingVertical: 10,
   },
+  swatchRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  swatch: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  swatchActive: { borderColor: colors.textDark },
+  allergyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: spacing.sm,
+  },
+  allergyChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
+  },
+  allergyChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  allergyChipText: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 0.8,
+    color: colors.textLight,
+  },
+  allergyChipTextActive: {
+    color: colors.background,
+  },
   ctaWrap: { alignItems: 'center', marginTop: spacing.xl },
   cta: {
     flexDirection: 'row',
@@ -336,25 +307,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   ctaDisabled: { backgroundColor: colors.disabled },
-  emptyHint: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: 'italic',
-    fontSize: 13,
-    color: colors.textFaint,
-    paddingVertical: spacing.sm,
-  },
-  addRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: spacing.md,
-  },
-  addLabel: {
-    fontFamily: fonts.displayItalic,
-    fontStyle: 'italic',
-    fontSize: 14,
-    color: colors.primary,
-  },
   notifHint: {
     fontFamily: fonts.displayItalic,
     fontStyle: 'italic',

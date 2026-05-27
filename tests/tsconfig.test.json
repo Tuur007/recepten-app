@@ -9,6 +9,7 @@
       "@react-native-async-storage/async-storage": ["./empty-stub.mjs"],
       "expo-sqlite": ["./empty-stub.mjs"],
       "expo-sqlite/*": ["./empty-stub.mjs"],
+      "expo-image-manipulator": ["./empty-stub.mjs"],
       "expo-haptics": ["./empty-stub.mjs"],
       "react-native-toast-message": ["./empty-stub.mjs"],
       "expo-file-system": ["./empty-stub.mjs"],

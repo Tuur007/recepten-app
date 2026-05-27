@@ -11,6 +11,7 @@
 //     waren zodat de UI eerlijk kan tonen "x van y ingrediënten verwerkt".
 
 import type { Ingredient, NutritionInfo } from '../types/recipe';
+import { warn } from '../utils/logger';
 import { searchBestMatch, type OFFProduct } from './openFoodFacts';
 
 interface UnitConversion {
@@ -143,7 +144,7 @@ export async function computeRecipeNutrition(
     try {
       product = await searchBestMatch(ing.name);
     } catch (err) {
-      console.warn(`[nutrition] OFF search failed for "${ing.name}":`, err);
+      warn(`[nutrition] OFF search failed for "${ing.name}":`, err);
       continue;
     }
     if (!product || product.nutriments.energyKcal == null) continue;

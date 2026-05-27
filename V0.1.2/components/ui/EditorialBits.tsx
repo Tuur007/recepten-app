@@ -13,7 +13,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, type ViewStyle, type TextStyle } from 'react-native';
 import { colors, fonts, typography, spacing } from '../../constants/Designsystem';
-import type { FamilyMember } from '../../store/familyStore';
+import type { CloudFamilyMember } from '../../types/family';
 
 // ─── FolioStrip ──────────────────────────────────────────────────────────────
 export function FolioStrip({
@@ -84,11 +84,11 @@ export function FamilyDot({
   size = 18,
   ring = false,
 }: {
-  member: FamilyMember;
+  member: CloudFamilyMember;
   size?: number;
   ring?: boolean;
 }) {
-  const initial = (member.name.trim()[0] ?? '?').toUpperCase();
+  const initial = (member.displayName.trim()[0] ?? '?').toUpperCase();
   return (
     <View
       style={{
@@ -125,7 +125,7 @@ export function FamilyRow({
   overlap = 6,
   ring = true,
 }: {
-  members: FamilyMember[];
+  members: CloudFamilyMember[];
   size?: number;
   /** px overlap between adjacent dots */
   overlap?: number;

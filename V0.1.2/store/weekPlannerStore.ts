@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { warn } from '../utils/logger';
 import { immer } from 'zustand/middleware/immer';
 import { useEffect } from 'react';
 import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
@@ -152,7 +153,7 @@ export async function loadWeekPlannerPrefs(db: SQLiteDatabase): Promise<void> {
       }
     }
   } catch (err) {
-    console.warn('[weekplanner] load skipped:', err);
+    warn('[weekplanner] load skipped:', err);
   } finally {
     useWeekPlannerStore.getState().setHydrated();
   }
@@ -177,7 +178,7 @@ export function useHydrateWeekPlanner(): void {
     const unsub = useWeekPlannerStore.subscribe((state, prev) => {
       if (state.weeks === prev.weeks) return;
       writePref(db, PREF_KEY, JSON.stringify(state.weeks)).catch((err) =>
-        console.warn('[weekplanner] persist failed:', err),
+        warn('[weekplanner] persist failed:', err),
       );
       // Queue per gewijzigde week — pullAll fan-out (setWeeks) is bulk, dus
       // diff per key i.p.v. één grote payload.
@@ -186,7 +187,7 @@ export function useHydrateWeekPlanner(): void {
         const plan = state.weeks[key];
         if (!plan) continue;
         enqueue(db, 'upsert', 'weekplan', key, { weekKey: key, plan }).catch((err) =>
-          console.warn('[weekplanner] enqueue failed:', err),
+          warn('[weekplanner] enqueue failed:', err),
         );
       }
       if (changed.length > 0) void flushQueue(db);

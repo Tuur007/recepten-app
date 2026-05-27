@@ -14,7 +14,8 @@ import {
   type MealPlan,
   type WeeksMap,
 } from '../../store/weekPlannerStore';
-import { useFamilyStore, type FamilyMember } from '../../store/familyStore';
+import { useFamilyStore } from '../../store/familyStore';
+import type { LegacyFamilyMember } from '../../types/family';
 import { cancelAllNotifications } from '../notifications';
 import type { Recipe } from '../../types/recipe';
 import type { GroceryItem } from '../../types/grocery';
@@ -28,7 +29,9 @@ export interface AppExport {
   version: number;
   exportedAt: string;
   familyName: string;
-  familyMembers: FamilyMember[];
+  // Family is sinds cluster 2 een cloud-resource; in de back-up bewaren we nog
+  // een momentopname in het oude lokale formaat puur ter referentie/export.
+  familyMembers: LegacyFamilyMember[];
   recipes: Recipe[];
   groceryItems: GroceryItem[];
   /** Multi-week vanaf v2; in v1 was dit een enkele week (Record<DayKey, DayPlan>). */
@@ -124,11 +127,18 @@ export async function exportAppData(db: SQLiteDatabase): Promise<AppExport> {
   ]);
   const family = useFamilyStore.getState();
   const weekPlan = useWeekPlannerStore.getState().weeks;
+  const familyMembers: LegacyFamilyMember[] = family.members.map((m) => ({
+    id: m.id,
+    name: m.displayName,
+    color: m.color,
+    active: m.active,
+    allergies: m.allergies,
+  }));
   return {
     version: APP_EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
     familyName: family.familyName,
-    familyMembers: family.members,
+    familyMembers,
     recipes,
     groceryItems,
     weekPlan,

@@ -1,7 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SQLiteProvider } from 'expo-sqlite';
 import { Suspense, useEffect, useState } from 'react';
 import Toast from 'react-native-toast-message';
@@ -38,7 +38,7 @@ export default function RootLayout() {
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={styles.loadingFill}>
         <LoadingScreen />
       </View>
     );
@@ -127,3 +127,7 @@ function ThemedRoot() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingFill: { flex: 1, backgroundColor: colors.background },
+});

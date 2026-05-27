@@ -11,7 +11,7 @@ import type { MealPlan } from '../../store/weekPlannerStore';
 export type QueueOp = 'upsert' | 'delete';
 export type QueueEntity = 'recipe' | 'grocery' | 'weekplan';
 
-interface QueueRow {
+export interface QueueRow {
   id: string;
   op: QueueOp;
   entity: QueueEntity;
@@ -78,6 +78,21 @@ export async function getDeadRows(db: SQLiteDatabase): Promise<QueueRow[]> {
   return db.getAllAsync<QueueRow>(
     'SELECT * FROM sync_queue WHERE dead = 1 ORDER BY created_at ASC',
   );
+}
+
+/**
+ * Reset alle dead-letter rijen zodat ze bij de volgende flush opnieuw
+ * geprobeerd worden. Bedoeld voor de dead-letter recovery in Settings.
+ */
+export async function retryDeadRows(db: SQLiteDatabase): Promise<void> {
+  await db.runAsync(
+    'UPDATE sync_queue SET dead = 0, attempts = 0, next_retry_at = NULL WHERE dead = 1',
+  );
+}
+
+/** Verwijdert één rij uit de outbox (dead-letter recovery in Settings). */
+export async function deleteQueueRow(db: SQLiteDatabase, id: string): Promise<void> {
+  await db.runAsync('DELETE FROM sync_queue WHERE id = ?', [id]);
 }
 
 function recipeToRow(recipe: Recipe, familyId: string) {

@@ -48,11 +48,20 @@ export const useRecipeStore = create<RecipeState>()(
       }),
 
     // Remote update (Supabase realtime): behoud updatedAt zoals binnenkomt,
-    // anders gaat de LWW-volgorde verloren.
+    // anders gaat de LWW-volgorde verloren. Logt als een nieuwere lokale edit
+    // overschreven wordt — Sentry pikt dit op via de console.error-bridge.
     replaceFromRemote: (id, recipe) =>
       set((s) => {
         const r = s.recipes.find((r) => r.id === id);
-        if (r) Object.assign(r, recipe);
+        if (!r) return;
+        if (new Date(r.updatedAt).getTime() > new Date(recipe.updatedAt).getTime()) {
+          console.error('[sync] LWW overwrote newer local edit', {
+            id,
+            localUpdatedAt: r.updatedAt,
+            remoteUpdatedAt: recipe.updatedAt,
+          });
+        }
+        Object.assign(r, recipe);
       }),
 
     removeRecipe: (id) =>

@@ -20,6 +20,7 @@ import { CategorySection } from './sections/CategorySection';
 import { ShopsSection } from './sections/ShopsSection';
 import { ThemeSection } from './sections/ThemeSection';
 import { BackupSection } from './sections/BackupSection';
+import { SyncSection } from './sections/SyncSection';
 
 export default function SettingsScreen() {
   const themeColors = useThemeColors();
@@ -54,6 +55,7 @@ export default function SettingsScreen() {
         <ShopsSection open={expanded === 'shops'} onToggle={() => toggle('shops')} />
         <ThemeSection open={expanded === 'theme'} onToggle={() => toggle('theme')} />
         <BackupSection />
+        <SyncSection />
 
         <View style={styles.section}>
           <RuleWithLabel label="over de app" bold />

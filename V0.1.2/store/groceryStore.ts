@@ -48,10 +48,20 @@ export const useGroceryStore = create<GroceryState>()(
       }),
 
     // Remote update (Supabase realtime): neem de binnenkomende rij over.
+    // GroceryItem heeft geen updatedAt; createdAt is de enige tijdstempel
+    // waarop we een LWW-overschrijving kunnen signaleren (Sentry via console).
     replaceFromRemote: (id, item) =>
       set((s) => {
         const existing = s.items.find((i) => i.id === id);
-        if (existing) Object.assign(existing, item);
+        if (!existing) return;
+        if (new Date(existing.createdAt).getTime() > new Date(item.createdAt).getTime()) {
+          console.error('[sync] LWW overwrote newer local edit', {
+            id,
+            localUpdatedAt: existing.createdAt,
+            remoteUpdatedAt: item.createdAt,
+          });
+        }
+        Object.assign(existing, item);
       }),
 
     deleteItem: (id) =>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { warn } from '../../utils/logger';
 import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
 import NetInfo from '@react-native-community/netinfo';
 import { useAuthStore } from '../../store/authStore';
@@ -32,7 +33,7 @@ export function useFamilySync(): void {
 
     let cancelled = false;
     pullAll(db).catch((err) => {
-      if (!cancelled) console.warn('[sync] pullAll failed:', err);
+      if (!cancelled) warn('[sync] pullAll failed:', err);
     });
     const unsubscribe = subscribeToFamily(familyId, db);
 
@@ -56,12 +57,12 @@ export function useSyncQueueProcessor(): void {
 
     // Initial drain — picks up writes that werden gequeued voor de laatste
     // app-restart of voor de family koppeling.
-    flushQueue(db).catch((err) => console.warn('[sync] initial flush failed:', err));
+    flushQueue(db).catch((err) => warn('[sync] initial flush failed:', err));
 
     const unsubscribe = NetInfo.addEventListener((state) => {
       if (state.isConnected) {
         flushQueue(db).catch((err) =>
-          console.warn('[sync] flush on reconnect failed:', err),
+          warn('[sync] flush on reconnect failed:', err),
         );
       }
     });
@@ -80,7 +81,7 @@ export function useImageBackfill(): void {
 
   useEffect(() => {
     if (!supabase || !familyId) return;
-    runBackfill(db).catch((err) => console.warn('[sync] image backfill failed:', err));
+    runBackfill(db).catch((err) => warn('[sync] image backfill failed:', err));
   }, [db, familyId]);
 }
 

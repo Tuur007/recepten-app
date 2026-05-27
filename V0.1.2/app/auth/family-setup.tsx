@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { warn } from '../../utils/logger';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -58,7 +59,7 @@ export default function FamilySetupScreen() {
 
       // Pas een in onboarding bewaard profiel toe op de zojuist aangemaakte rij.
       await applyPendingProfile(db).catch((e) =>
-        console.warn('[family-setup] applyPendingProfile failed:', e),
+        warn('[family-setup] applyPendingProfile failed:', e),
       );
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

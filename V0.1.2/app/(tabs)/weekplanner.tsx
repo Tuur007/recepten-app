@@ -12,6 +12,7 @@
 // Alle modal- en fill-gaps-logica blijft identiek aan de vorige versie.
 
 import React, { useMemo, useState, useCallback } from 'react';
+import { warn } from '../../utils/logger';
 import {
   StyleSheet,
   Text,
@@ -167,7 +168,7 @@ export default function WeekPlannerScreen() {
       const dateForDay = weekDays.find((d) => d.key === pickerTarget.day)?.dateObj;
       if (dateForDay && dateForDay.getTime() > Date.now()) {
         scheduleDinnerNotification(pickerTarget.day, recipe.title, dateForDay).catch((err) =>
-          console.warn('[notif] schedule failed:', err),
+          warn('[notif] schedule failed:', err),
         );
       }
     }
@@ -180,7 +181,7 @@ export default function WeekPlannerScreen() {
     removeMeal(weekKey, day, mealType);
     if (mealType === 'dinner') {
       cancelDinnerNotification(day).catch((err) =>
-        console.warn('[notif] cancel failed:', err),
+        warn('[notif] cancel failed:', err),
       );
     }
   }, [removeMeal, weekKey]);
@@ -220,7 +221,7 @@ export default function WeekPlannerScreen() {
         const dateForDay = weekDays.find((d) => d.key === slot.day)?.dateObj;
         if (dateForDay && dateForDay.getTime() > Date.now()) {
           scheduleDinnerNotification(slot.day, recipe.title, dateForDay).catch((err) =>
-            console.warn('[notif] schedule failed:', err),
+            warn('[notif] schedule failed:', err),
           );
         }
       }

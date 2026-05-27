@@ -1,4 +1,5 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
+import { warn } from '../../utils/logger';
 import { uploadRecipeImage } from '../imageUpload';
 import { enqueue, flushQueue } from './queue';
 
@@ -43,7 +44,7 @@ export async function runBackfill(db: SQLiteDatabase): Promise<void> {
         }
       }
     } catch (err) {
-      console.warn('[imageBackfill] row failed:', row.id, err);
+      warn('[imageBackfill] row failed:', row.id, err);
     }
     await sleep(THROTTLE_MS);
   }

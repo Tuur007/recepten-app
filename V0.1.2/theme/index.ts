@@ -1,4 +1,5 @@
 import { useColorScheme } from 'react-native';
+import { warn } from '../utils/logger';
 import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
 import { useEffect } from 'react';
 import { create } from 'zustand';
@@ -38,7 +39,7 @@ export async function loadThemePref(db: SQLiteDatabase): Promise<void> {
     }
   } catch (err) {
     // Table may not exist yet on first run; harmless — fall through to system default.
-    console.warn('[theme] loadThemePref skipped:', err);
+    warn('[theme] loadThemePref skipped:', err);
   } finally {
     useThemeStore.getState().setHydrated();
   }

@@ -1,4 +1,5 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
+import { warn } from '../utils/logger';
 import { supabase } from './supabase';
 import { useAuthStore } from '../store/authStore';
 import { FAMILY_COLORS, type CloudFamilyMember, type LegacyFamilyMember } from '../types/family';
@@ -78,7 +79,7 @@ export function subscribeToFamilyMembers(
       { event: '*', schema: 'public', table: 'family_members', filter: `family_id=eq.${familyId}` },
       () => {
         listFamilyMembers().then(onUpdate).catch((err) =>
-          console.warn('[family] realtime refresh failed:', err),
+          warn('[family] realtime refresh failed:', err),
         );
       },
     )
@@ -116,7 +117,7 @@ export async function applyPendingProfile(db: SQLiteDatabase): Promise<void> {
     const profile = JSON.parse(row.value) as ProfileUpdate;
     await updateMyProfile(profile);
   } catch (err) {
-    console.warn('[family] applyPendingProfile failed:', err);
+    warn('[family] applyPendingProfile failed:', err);
     return;
   }
   await db.runAsync('DELETE FROM app_prefs WHERE key = ?', [PREF_PENDING_PROFILE]);

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { warn } from '../utils/logger';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -77,7 +78,7 @@ export default function OnboardingScreen() {
         await savePendingProfile(db, profile);
       }
     } catch (err) {
-      console.warn('[onboarding] profiel bewaren mislukt:', err);
+      warn('[onboarding] profiel bewaren mislukt:', err);
     }
 
     // Vraag notificatiepermissie — niet-blokkerend.

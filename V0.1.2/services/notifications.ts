@@ -5,6 +5,7 @@
 // gebruiker een nieuwe maaltijd ingeeft of een bestaande wijzigt.
 
 import * as Notifications from 'expo-notifications';
+import { warn } from '../utils/logger';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import { openDatabaseSync } from 'expo-sqlite';
 
@@ -38,7 +39,7 @@ async function writeNotificationId(dayKey: string, id: string): Promise<void> {
       [`${PREF_PREFIX}${dayKey}`, id],
     );
   } catch (err) {
-    console.warn('[notif] write id failed:', err);
+    warn('[notif] write id failed:', err);
   }
 }
 
@@ -48,7 +49,7 @@ async function deleteNotificationId(dayKey: string): Promise<void> {
       `${PREF_PREFIX}${dayKey}`,
     ]);
   } catch (err) {
-    console.warn('[notif] delete id failed:', err);
+    warn('[notif] delete id failed:', err);
   }
 }
 
@@ -69,7 +70,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
     });
     return result.granted || result.status === 'granted';
   } catch (err) {
-    console.warn('[notif] requestNotificationPermission failed:', err);
+    warn('[notif] requestNotificationPermission failed:', err);
     return false;
   }
 }
@@ -111,7 +112,7 @@ export async function scheduleDinnerNotification(
     });
     await writeNotificationId(dayKey, id);
   } catch (err) {
-    console.warn('[notif] schedule failed:', err);
+    warn('[notif] schedule failed:', err);
   }
 }
 
@@ -124,7 +125,7 @@ export async function cancelDinnerNotification(dayKey: string): Promise<void> {
   try {
     await Notifications.cancelScheduledNotificationAsync(id);
   } catch (err) {
-    console.warn('[notif] cancel failed:', err);
+    warn('[notif] cancel failed:', err);
   }
   await deleteNotificationId(dayKey);
 }
@@ -137,11 +138,11 @@ export async function cancelAllNotifications(): Promise<void> {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (err) {
-    console.warn('[notif] cancelAll failed:', err);
+    warn('[notif] cancelAll failed:', err);
   }
   try {
     await db().runAsync('DELETE FROM app_prefs WHERE key LIKE ?', [`${PREF_PREFIX}%`]);
   } catch (err) {
-    console.warn('[notif] clear prefs failed:', err);
+    warn('[notif] clear prefs failed:', err);
   }
 }

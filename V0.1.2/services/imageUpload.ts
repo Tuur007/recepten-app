@@ -1,4 +1,5 @@
 import * as ImageManipulator from 'expo-image-manipulator';
+import { warn } from '../utils/logger';
 import { supabase } from './supabase';
 import { useAuthStore } from '../store/authStore';
 
@@ -68,6 +69,6 @@ export async function deleteRecipeImage(recipeId: string): Promise<void> {
   try {
     await supabase.storage.from(BUCKET).remove([storagePath(familyId, recipeId)]);
   } catch (err) {
-    console.warn('[imageUpload] delete failed:', err);
+    warn('[imageUpload] delete failed:', err);
   }
 }

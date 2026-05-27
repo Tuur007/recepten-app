@@ -1,3 +1,4 @@
+import { log as baseLog } from '../utils/logger';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * imageExtractor.ts
@@ -687,9 +688,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function log(...args: unknown[]): void {
-  if (typeof __DEV__ !== 'undefined' && __DEV__) {
-    console.log('[IE]', ...args);
-  }
+  baseLog('[IE]', ...args);
 }
 
 const UA =

@@ -1,4 +1,5 @@
 import { useSQLiteContext, type SQLiteDatabase } from 'expo-sqlite';
+import { warn } from '../utils/logger';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
@@ -98,7 +99,7 @@ async function hydrateLocal(db: SQLiteDatabase): Promise<void> {
       useFamilyStore.getState().setOnboardingCompleteInternal(true);
     }
   } catch (err) {
-    console.warn('[family] hydrateLocal skipped:', err);
+    warn('[family] hydrateLocal skipped:', err);
   } finally {
     useFamilyStore.getState().setHydrated();
   }
@@ -134,7 +135,7 @@ async function runMigrationIfNeeded(db: SQLiteDatabase): Promise<void> {
     }
     await migrateLocalFamilyToCloud(db, legacy);
   } catch (err) {
-    console.warn('[family] migration skipped:', err);
+    warn('[family] migration skipped:', err);
   }
 }
 
@@ -184,7 +185,7 @@ export function useHydrateFamily(): void {
         useFamilyStore.getState().setMembersInternal(next);
         cacheMembers(db, next);
       });
-    })().catch((err) => console.warn('[family] cloud hydrate failed:', err));
+    })().catch((err) => warn('[family] cloud hydrate failed:', err));
 
     return () => {
       cancelled = true;

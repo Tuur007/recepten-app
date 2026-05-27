@@ -1,3 +1,4 @@
+import { warn } from './logger';
 // Alfabet zonder I/O/0/1 om visuele verwarring te vermijden (32 tekens, dus
 // `byte % length` is hier bias-vrij omdat 256 deelbaar is door 32).
 export const TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -18,7 +19,7 @@ export function randomToken(length: number, alphabet: string = TOKEN_ALPHABET): 
       chars[i] = alphabet[bytes[i] % alphabet.length];
     }
   } else {
-    console.warn('[randomToken] crypto API niet beschikbaar — gebruikt onveilige terugval');
+    warn('[randomToken] crypto API niet beschikbaar — gebruikt onveilige terugval');
     for (let i = 0; i < length; i++) {
       chars[i] = alphabet[Math.floor(Math.random() * alphabet.length)];
     }
@@ -43,6 +44,6 @@ export function generateId(): string {
   }
 
   // Unsafe fallback — crypto API unavailable
-  console.warn('[generateId] crypto API niet beschikbaar — gebruikt onveilige terugval');
+  warn('[generateId] crypto API niet beschikbaar — gebruikt onveilige terugval');
   return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 11)}`;
 }

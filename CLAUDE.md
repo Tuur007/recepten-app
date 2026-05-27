@@ -30,6 +30,35 @@ Hard rules:
 - Geen `any` in nieuwe code, geen inline styles — gebruik StyleSheet.create()
 - Toast feedback via react-native-toast-message (zie ToastConfig)
 - Haptics via expo-haptics op alle confirmaties
+- Logging via utils/logger.ts: `log`/`warn` zijn no-ops in productie, `error`
+  blijft altijd actief (Sentry pikt het op). Geen rauwe console.log/warn in
+  productiecode, geen emoji's in log-strings.
+
+## Architectuur (hoe de app gebouwd is)
+- **Routing**: expo-router file-based in `app/`. Tabs in `app/(tabs)/`
+  (home, weekplanner, grocery, settings/), overige schermen als stack-routes
+  (recipes/, collections/, grocery/scanner, auth/, onboarding). Gating
+  (onboarding) in `app/_layout.tsx`.
+- **State**: Zustand stores in `store/` (Immer middleware), één per feature.
+- **Datalaag**: repository pattern — `features/<feature>/repository.ts` doet
+  alle SQLite I/O, `hooks.ts` is de read/write API voor components. Components
+  raken nooit direct SQLite.
+- **Local-first + cloud**: SQLite is de lokale source-of-truth. Supabase is een
+  outbox-mirror: elke write gaat via de queue (`services/sync/queue.ts`,
+  dead-letter + backoff) en wordt gepulld/realtime-gesynct in
+  `services/sync/supabaseSync.ts`. Lifecycle-hooks in
+  `services/sync/lifecycle.ts` (`useSupabaseSync`).
+- **Family-profielen**: cloud source-of-truth (`family_members`), zie
+  `services/familyMembers.ts` + `store/familyStore.ts`.
+- **Receptfoto's**: lokaal `file://` → Supabase Storage bucket `recipe-images`
+  (`services/imageUpload.ts`, pad `{familyId}/{recipeId}.jpg`); eenmalige
+  backfill in `services/sync/imageBackfill.ts`.
+- **Recept-import parser**: opgesplitst in `services/parsers/*` (fetch, jsonld,
+  marleyspoon, dagelijksekost, heuristic, ingredients, duration, html);
+  `services/recipeParser.ts` is een dunne re-export.
+- **Crash reporting**: Sentry (`@sentry/react-native` + Expo config-plugin),
+  init in `app/_layout.tsx` enkel als `EXPO_PUBLIC_SENTRY_DSN` gezet is. Zie
+  `docs/SENTRY.md`. Supabase-setup: `docs/SUPABASE.md`.
 
 ## Wat al af is (niet opnieuw bouwen)
 - Recepten CRUD, import vanuit URL (services/recipeParser.ts), image extractor
@@ -53,6 +82,11 @@ Hard rules:
   color, allergies, active). Eigen profiel via updateMyProfile
   (services/familyMembers.ts), realtime sync tussen toestellen. Lokale
   familyStore is enkel nog in-memory spiegel + offline cache.
+- Receptfoto's syncen via Supabase Storage (bucket recipe-images,
+  services/imageUpload.ts + services/sync/imageBackfill.ts)
+- Crash reporting via Sentry (@sentry/react-native, init in app/_layout.tsx,
+  docs/SENTRY.md)
+- Settings opgesplitst in app/(tabs)/settings/ (index + sections/*)
 
 ## Sanering (parallelle branch — chore/sanering-fase-0-triage)
 - Triage + docs/SANITY.md als referentie voor codebase-status

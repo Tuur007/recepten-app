@@ -15,10 +15,11 @@ interface AuthState {
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   setFamilyId: (id: string | null) => void;
+  waitForUser: (timeoutMs?: number) => Promise<User>;
 }
 
 export const useAuthStore = create<AuthState>()(
-  immer((set) => ({
+  immer((set, get, store) => ({
     session: null,
     user: null,
     familyId: null,
@@ -99,5 +100,25 @@ export const useAuthStore = create<AuthState>()(
     },
 
     setFamilyId: (familyId) => set({ familyId }),
+
+    // Resolvet zodra de auth-listener een user heeft gezet, of rejectet na de
+    // time-out. Vervangt de broze vaste setTimeout in de registratie-flow.
+    waitForUser: (timeoutMs = 5000): Promise<User> => {
+      const current = get().user;
+      if (current) return Promise.resolve(current);
+      return new Promise<User>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          unsubscribe();
+          reject(new Error('Registratie duurde te lang. Probeer opnieuw.'));
+        }, timeoutMs);
+        const unsubscribe = store.subscribe((state) => {
+          if (state.user) {
+            clearTimeout(timer);
+            unsubscribe();
+            resolve(state.user);
+          }
+        });
+      });
+    },
   })),
 );

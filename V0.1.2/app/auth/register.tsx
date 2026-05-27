@@ -33,18 +33,15 @@ export default function RegisterScreen() {
     setCodeError('');
 
     if (!email.trim()) { setEmailError('E-mailadres is verplicht.'); return; }
-    if (password.length < 6) { setPasswordError('Wachtwoord moet minstens 6 tekens zijn.'); return; }
+    if (password.length < 8) { setPasswordError('Wachtwoord moet minstens 8 tekens zijn.'); return; }
 
     setSubmitting(true);
     try {
       await signUp(email.trim(), password);
 
-      // After signUp the user is authenticated via onAuthStateChange.
-      // We need to wait briefly for the session to propagate.
-      await new Promise((r) => setTimeout(r, 800));
-
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Registratie mislukt. Probeer opnieuw.');
+      // Wacht tot onAuthStateChange de user heeft gezet i.p.v. een broze
+      // vaste setTimeout; waitForUser throwt met een Dutch melding na time-out.
+      await useAuthStore.getState().waitForUser();
 
       if (inviteCode.trim()) {
         const familyId = await redeemInviteCode(inviteCode.trim());

@@ -333,13 +333,13 @@ const styles = StyleSheet.create({
 
   heroWrap: { alignItems: 'center', marginTop: spacing.sm },
   heroMat: {
-    padding: 6,
-    backgroundColor: '#fff',
+    padding: 10,
+    backgroundColor: colors.backgroundCard,
     shadowColor: '#000',
-    shadowOpacity: 0.10,
-    shadowOffset: { width: 0, height: 14 },
-    shadowRadius: 22,
-    elevation: 4,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 16 },
+    shadowRadius: 26,
+    elevation: 5,
   },
   heroImage: {
     width: 280,

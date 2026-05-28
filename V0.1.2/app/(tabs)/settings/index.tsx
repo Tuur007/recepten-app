@@ -13,14 +13,14 @@ import { spacing } from '../../../constants/Designsystem';
 import { useThemeColors } from '../../../theme';
 import { FolioStrip, EditorialTitle, RuleWithLabel } from '../../../components/ui/EditorialBits';
 import { styles } from './styles';
-import { Row } from './sections/Row';
-import { FamilySection } from './sections/FamilySection';
-import { InvitesSection } from './sections/InvitesSection';
-import { CategorySection } from './sections/CategorySection';
-import { ShopsSection } from './sections/ShopsSection';
-import { ThemeSection } from './sections/ThemeSection';
-import { BackupSection } from './sections/BackupSection';
-import { SyncSection } from './sections/SyncSection';
+import { Row } from './_sections/Row';
+import { FamilySection } from './_sections/FamilySection';
+import { InvitesSection } from './_sections/InvitesSection';
+import { CategorySection } from './_sections/CategorySection';
+import { ShopsSection } from './_sections/ShopsSection';
+import { ThemeSection } from './_sections/ThemeSection';
+import { BackupSection } from './_sections/BackupSection';
+import { SyncSection } from './_sections/SyncSection';
 
 export default function SettingsScreen() {
   const themeColors = useThemeColors();

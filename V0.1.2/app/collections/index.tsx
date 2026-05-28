@@ -29,8 +29,9 @@ import { haptics, toast } from '../../utils/feedback';
 import {
   FolioStrip,
   EditorialTitle,
-  RuleWithLabel,
 } from '../../components/ui/EditorialBits';
+import { Bundle } from '../../components/ui/Bundle';
+import { toBundleData } from '../../features/collections/presenter';
 
 export default function CollectionsIndexScreen() {
   const router = useRouter();
@@ -86,66 +87,48 @@ export default function CollectionsIndexScreen() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         <FolioStrip
-          left={`collecties · ${collections.length}`}
+          left={`verzamelingen · ${collections.length}`}
           right={recipes.length ? `${recipes.length} recepten` : undefined}
         />
 
         <View style={styles.titleBlock}>
-          <EditorialTitle lead="De" tail="collecties." size={40} />
+          <EditorialTitle lead="De" tail="bibliotheek." size={40} />
         </View>
 
-        <Text style={styles.intro}>
-          Groepeer recepten in jouw eigen mappen — "BBQ", "snel doordeweeks",
-          "kerst", wat je maar wil.
-        </Text>
+        <Text style={styles.intro}>Recepten gebundeld, zoals jij wilt.</Text>
 
         <TouchableOpacity
           style={styles.newLine}
           activeOpacity={0.6}
           onPress={() => setCreating(true)}
         >
-          <Text style={styles.newLineText}>+ maak een nieuwe collectie</Text>
+          <Text style={styles.newLineText}>+ maak een nieuwe verzameling</Text>
           <Text style={[typography.folio, { color: colors.primary }]}>nieuw</Text>
         </TouchableOpacity>
 
         {collections.length === 0 ? (
           <View style={styles.empty}>
             <Text style={[typography.bodyItalic, { textAlign: 'center' }]}>
-              Nog geen collecties.{'\n'}Maak er één om snel terug te vinden.
+              Nog geen verzamelingen.{'\n'}Maak er één om recepten te bundelen.
             </Text>
           </View>
         ) : (
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md }}>
-            <RuleWithLabel label="alle collecties" bold />
-            {collections.map((col) => {
-              const count = col.recipeIds.length;
+          <View style={styles.gridWrap}>
+            {collections.map((col, idx) => {
+              const data = toBundleData(col, idx);
               return (
                 <TouchableOpacity
                   key={col.id}
-                  style={styles.row}
-                  activeOpacity={0.7}
+                  style={styles.gridCell}
+                  activeOpacity={0.8}
                   onPress={() => router.push(`/collections/${col.id}`)}
                   onLongPress={() => handleDelete(col.id, col.name)}
                 >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.rowTitle} numberOfLines={1}>
-                      {col.name}
-                    </Text>
-                    {col.description ? (
-                      <Text style={styles.rowDesc} numberOfLines={1}>
-                        {col.description}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.rowCount}>
-                    {count} {count === 1 ? 'recept' : 'recepten'}
+                  <Bundle data={data} w={130} h={180} />
+                  <Text style={styles.cellTitle} numberOfLines={2}>
+                    {col.name}
                   </Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={14}
-                    color={colors.textFaint}
-                    style={{ marginLeft: 6 }}
-                  />
+                  <Text style={styles.cellCount}>· {data.count} recepten ·</Text>
                 </TouchableOpacity>
               );
             })}
@@ -248,32 +231,34 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xxl,
     alignItems: 'center',
   },
-  row: {
+  gridWrap: {
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.lg,
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 24,
+  },
+  gridCell: {
+    width: '47%',
     alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.borderSoft,
-    gap: 8,
+    gap: 10,
   },
-  rowTitle: {
-    fontFamily: fonts.display,
-    fontSize: 18,
-    color: colors.textDark,
-  },
-  rowDesc: {
+  cellTitle: {
     fontFamily: fonts.displayItalic,
     fontStyle: 'italic',
-    fontSize: 12,
-    color: colors.textLight,
-    marginTop: 2,
+    fontSize: 17,
+    lineHeight: 19,
+    color: colors.textDark,
+    textAlign: 'center',
   },
-  rowCount: {
+  cellCount: {
     fontFamily: fonts.mono,
     fontSize: 9,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
     color: colors.textLight,
+    marginTop: 4,
   },
   modalContainer: { flex: 1, backgroundColor: colors.background },
   modalHeader: {

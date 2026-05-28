@@ -119,6 +119,7 @@ function ThemedRoot() {
         <Stack.Screen name="recipes/search" options={{ headerShown: false }} />
         <Stack.Screen name="recipes/new" options={{ headerShown: false }} />
         <Stack.Screen name="recipes/import" options={{ headerShown: false }} />
+        <Stack.Screen name="recipes/scan" options={{ headerShown: false }} />
         <Stack.Screen name="recipes/edit/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="collections/index" options={{ headerShown: false }} />
         <Stack.Screen name="collections/[id]" options={{ headerShown: false }} />

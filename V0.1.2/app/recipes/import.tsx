@@ -208,6 +208,18 @@ export default function ImportRecipeScreen() {
                 <Button label="Importeer" onPress={handleFetch} />
               )}
             </View>
+
+            <TouchableOpacity
+              style={styles.scanCard}
+              activeOpacity={0.75}
+              onPress={() => router.push('/recipes/scan')}
+            >
+              <Ionicons name="camera-outline" size={28} color={colors.textLight} style={styles.scanIcon} />
+              <Text style={styles.scanCardTitle}>Scan een kookboek</Text>
+              <Text style={styles.scanCardHint}>
+                Richt je camera op een receptpagina — Claude herkent de ingrediënten en stappen automatisch.
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -426,5 +438,27 @@ const styles = StyleSheet.create({
   },
   allergenChipTextActive: {
     color: colors.white,
+  },
+  scanCard: {
+    borderRadius: 16,
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
+    padding: 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  scanIcon: { marginBottom: 4 },
+  scanCardTitle: {
+    fontFamily: fonts.display,
+    fontSize: 16,
+    color: colors.textDark,
+  },
+  scanCardHint: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.textLight,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

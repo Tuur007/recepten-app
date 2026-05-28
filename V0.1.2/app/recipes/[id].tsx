@@ -481,7 +481,7 @@ export default function RecipeDetailScreen() {
           style={styles.ctaPrimary}
           onPress={() =>
             steps.length
-              ? setCookStep(0)
+              ? router.push(`/cook/${id}`)
               : Alert.alert('Geen stappen', 'Voeg stappen toe aan dit recept.')
           }
           activeOpacity={0.85}

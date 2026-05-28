@@ -27,9 +27,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRecipes } from '../../features/recipes/hooks';
 import { useCategories } from '../../store/categoriesStore';
 import { useFiltersStore } from '../../store/filtersStore';
+import { useCollections } from '../../store/collectionsStore';
 import { useFilteredRecipes } from '../../features/recipes/hooks/useFilteredRecipes';
 import { DifficultyBadge } from '../../components/ui/DifficultyBadge';
 import { LoadingScreen } from '../../components/LoadingScreen';
+import { Bundle } from '../../components/ui/Bundle';
+import { toBundleData } from '../../features/collections/presenter';
 import { getTotalCookingTime } from '../../utils/filterRecipes';
 import { colors, spacing, typography, fonts } from '../../constants/Designsystem';
 import { useThemeColors } from '../../theme';
@@ -38,6 +41,8 @@ import {
   EditorialTitle,
   RuleWithLabel,
 } from '../../components/ui/EditorialBits';
+
+const STRIP_LIMIT = 5;
 
 const { width } = Dimensions.get('window');
 const GRID_GAP = 18;
@@ -55,9 +60,15 @@ export default function RecipesScreen() {
   const router = useRouter();
   const { recipes, isLoading } = useRecipes();
   const { recipeCategories } = useCategories();
+  const { collections } = useCollections();
   const [activeCat, setActiveCat] = useState('Alles');
   const filters = useFiltersStore();
   const themeColors = useThemeColors();
+
+  const bundleStrip = useMemo(
+    () => collections.slice(0, STRIP_LIMIT).map((c, i) => toBundleData(c, i)),
+    [collections],
+  );
 
   const cats = useMemo(
     () => ['Alles', ...recipeCategories.map((c) => c.name)],
@@ -124,6 +135,45 @@ export default function RecipesScreen() {
               <Ionicons name="link-outline" size={15} color={colors.textDark} />
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Verzamelingen-strip */}
+        <View style={styles.stripWrap}>
+          <View style={styles.stripHead}>
+            <Text style={typography.folio}>verzamelingen</Text>
+            <Text style={[typography.folio, { color: colors.textFaint }]}>
+              · {collections.length}
+            </Text>
+            <View style={styles.stripRule} />
+            <TouchableOpacity onPress={() => router.push('/collections')} hitSlop={8}>
+              <Text style={[typography.folio, { color: colors.primary }]}>alles →</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.stripRow}
+          >
+            {bundleStrip.map((b) => (
+              <TouchableOpacity
+                key={b.id}
+                activeOpacity={0.8}
+                onPress={() => router.push(`/collections/${b.id}`)}
+                style={styles.bundleCell}
+              >
+                <Bundle data={b} w={84} h={118} />
+                <Text style={styles.bundleFolio}>vol. {b.vol}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => router.push('/collections')}
+              style={styles.bundleNew}
+            >
+              <Text style={styles.bundleNewPlus}>+</Text>
+              <Text style={[typography.folio, styles.bundleNewLabel]}>nieuwe</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
 
         {/* + Schrijf een nieuw recept (editorial line) */}
@@ -319,6 +369,51 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  stripWrap: { marginTop: spacing.lg },
+  stripHead: {
+    paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: spacing.sm,
+  },
+  stripRule: {
+    flex: 1,
+    height: 0.5,
+    backgroundColor: colors.borderColor,
+  },
+  stripRow: {
+    paddingHorizontal: spacing.lg,
+    gap: 14,
+  },
+  bundleCell: { alignItems: 'center', gap: 6 },
+  bundleFolio: {
+    fontFamily: fonts.mono,
+    fontSize: 8,
+    letterSpacing: 1.5,
+    color: colors.textFaint,
+  },
+  bundleNew: {
+    width: 84,
+    height: 118,
+    borderWidth: 0.5,
+    borderStyle: 'dashed',
+    borderColor: colors.borderColor,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  bundleNewPlus: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 26,
+    color: colors.primary,
+  },
+  bundleNewLabel: {
+    color: colors.primary,
+    fontSize: 8,
   },
 
   newRecipeLine: {

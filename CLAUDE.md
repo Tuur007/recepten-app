@@ -125,8 +125,11 @@ worden door `app.json` verwacht. Maak ze aan (geen placeholders gegenereerd):
 
 ## Sprint 37 — release hardening
 - Babel naar `react-native-worklets/plugin` (Reanimated 4).
-- app.json: `icon`, `splash` (paper #F6F1E7), `android.adaptiveIcon.foregroundImage`
-  en `expo-build-properties` met iOS privacy manifest (NSPrivacyAccessedAPITypes).
+- app.json: `icon`, `splash` (paper #F6F1E7), `android.adaptiveIcon.foregroundImage`.
+- iOS privacy manifest via `expo-build-properties` was geprobeerd maar weer
+  uitgehaald: Snack's package-mirror kon `expo-build-properties` niet laden
+  ongeacht de versie-range. Zie "Nog te doen vóór publish (handmatig)" voor de
+  alternatieve route vlak voor je App Store submit.
 - RLS gehardend (`supabase/migrations/release_hardening.sql`): invite_codes
   SELECT-leak dicht (verzilveren enkel nog via `redeem_invite_code` RPC), owner
   beschermd tegen kicken door andere leden.
@@ -145,3 +148,13 @@ worden door `app.json` verwacht. Maak ze aan (geen placeholders gegenereerd):
   gelogd onder "## Nog te doen vóór publish" hierboven).
 - Supabase dashboard → Authentication → password min length op 8.
 - `supabase/migrations/release_hardening.sql` op het Supabase project uitvoeren.
+- iOS privacy manifest (NSPrivacyAccessedAPITypes) vóór App Store submit:
+  Snack kan `expo-build-properties` niet laden, dus tijdelijk uit deze branch
+  gehaald. Vóór een EAS production build voeg je hem terug toe met
+  `npx expo install expo-build-properties` en zet je de plugin met de
+  `NSPrivacyAccessedAPICategoryUserDefaults` (CA92.1),
+  `NSPrivacyAccessedAPICategoryFileTimestamp` (C617.1),
+  `NSPrivacyAccessedAPICategoryDiskSpace` (E174.1) en
+  `NSPrivacyAccessedAPICategorySystemBootTime` (35F9.1) reasons in `app.json`.
+  Push die wijziging NIET terug naar `sprint-37` zolang Snack 'm niet kan
+  resolven — branch lokaal of in een EAS-only profile.

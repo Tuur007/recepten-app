@@ -28,7 +28,10 @@ import { useRecipes } from '../../features/recipes/hooks';
 import { useMealPlan, getISOWeek } from '../../store/weekPlannerStore';
 import { useFamilyStore } from '../../store/familyStore';
 import { useAuthStore } from '../../store/authStore';
+import { useCollections } from '../../store/collectionsStore';
 import { isSupabaseConfigured } from '../../services/supabase';
+import { Bundle } from '../../components/ui/Bundle';
+import { toBundleData } from '../../features/collections/presenter';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import {
@@ -76,8 +79,23 @@ export default function HomeScreen() {
   const activeMembers = useMemo(() => members.filter((m) => m.active), [members]);
   const familyName = useFamilyStore((s) => s.familyName);
   const familyId = useAuthStore((s) => s.familyId);
+  const { collections } = useCollections();
   const showSyncBanner = familyId === null && isSupabaseConfigured();
   const themeColors = useThemeColors();
+
+  // Verras-me: kies één willekeurig recept; herrandomiseer enkel als de
+  // recepten-set verandert zodat de knop niet bij elke render verandert.
+  const surpriseRecipe = useMemo(() => {
+    if (recipes.length === 0) return null;
+    return recipes[Math.floor(Math.random() * recipes.length)];
+  }, [recipes]);
+
+  // Eerste collectie (sortering = createdAt ASC vanuit repo) als surface op
+  // de empty home; presenter geeft spine-kleur + vol-nummer.
+  const featuredBundle = useMemo(() => {
+    if (collections.length === 0) return null;
+    return { collection: collections[0], data: toBundleData(collections[0], 0) };
+  }, [collections]);
 
   const todayIdx = new Date().getDay();
   const todayKey = DAY_KEYS[todayIdx];
@@ -153,7 +171,7 @@ export default function HomeScreen() {
           {/* Nr. centered */}
           <View style={styles.nrWrap}>
             <Text style={[typography.folio, { letterSpacing: 3, color: colors.textFaint }]}>
-              · nr. {String((tonight?.id ?? '047').toString().slice(-3))} ·
+              · nr. {tonight ? String(tonight.id.toString().slice(-3)) : '—'} ·
             </Text>
           </View>
 
@@ -255,47 +273,59 @@ export default function HomeScreen() {
               </View>
             </>
           ) : (
-            /* Empty state */
-            <View style={styles.emptyWrap}>
-              <View style={styles.heroMat}>
-                <View style={[styles.heroImage, styles.heroPlaceholder]}>
-                  <Ionicons name="moon-outline" size={36} color={colors.textFaint} />
-                </View>
-              </View>
-              <Text
-                style={[
-                  typography.folioBold,
-                  { color: colors.primary, textAlign: 'center', marginTop: spacing.lg },
-                ]}
-              >
-                · niets gepland ·
-              </Text>
+            /* Empty state — een leeg blad */
+            <View style={styles.blankWrap}>
+              <Text style={styles.blankKicker}>· een leeg blad ·</Text>
               <View style={styles.titleBlock}>
-                <EditorialTitle lead="Vanavond" tail="vrij." size={42} align="center" />
+                <EditorialTitle
+                  lead="Wat zullen we"
+                  tail="vanavond koken?"
+                  size={42}
+                  align="center"
+                />
               </View>
-              <Text
-                style={[
-                  typography.bodyItalic,
-                  { textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.lg },
-                ]}
-              >
-                Een avond zonder plan, kies wat uit de week of laat je verrassen.
+              <Text style={styles.blankIntro}>
+                De avond is nog van niemand.{'\n'}Blader of laat het toeval beslissen.
               </Text>
-              <View style={styles.ctaStack}>
+
+              <View style={styles.blankCtaRow}>
                 <TouchableOpacity
-                  style={styles.cta}
-                  onPress={() => router.push('/(tabs)/weekplanner')}
+                  style={styles.blankCtaGhost}
+                  onPress={() => router.push('/(tabs)/recipes')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.blankCtaGhostLabel}>blader</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.blankCtaPrimary}
+                  onPress={() =>
+                    surpriseRecipe ? router.push(`/recipes/${surpriseRecipe.id}`) : router.push('/(tabs)/recipes')
+                  }
                   activeOpacity={0.85}
                 >
-                  <Text style={typography.buttonLabel}>plan iets in</Text>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={14}
-                    color={colors.background}
-                    style={{ marginLeft: 10 }}
-                  />
+                  <Text style={styles.blankCtaPrimaryLabel}>verras me →</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Surfacing van een verzameling */}
+              {featuredBundle ? (
+                <TouchableOpacity
+                  style={styles.surface}
+                  onPress={() => router.push(`/collections/${featuredBundle.collection.id}`)}
+                  activeOpacity={0.7}
+                >
+                  <Bundle data={featuredBundle.data} w={36} h={50} />
+                  <View style={styles.surfaceBody}>
+                    <Text style={[typography.folio, { color: colors.textFaint }]}>
+                      uit jouw verzameling
+                    </Text>
+                    <Text style={styles.surfaceTitle} numberOfLines={1}>
+                      {featuredBundle.collection.name}
+                    </Text>
+                  </View>
+                  <Text style={[typography.folio, { color: colors.primary }]}>→</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           )}
         </ScrollView>
@@ -400,4 +430,77 @@ const styles = StyleSheet.create({
   },
 
   emptyWrap: { alignItems: 'center', marginTop: spacing.lg },
+
+  // Empty home — een leeg blad
+  blankWrap: {
+    alignItems: 'center',
+    paddingTop: spacing.xl,
+  },
+  blankKicker: {
+    fontFamily: fonts.monoMedium,
+    fontSize: 9,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    color: colors.primary,
+  },
+  blankIntro: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 15,
+    lineHeight: 23,
+    color: colors.textLight,
+    textAlign: 'center',
+    marginTop: spacing.xl,
+    maxWidth: 260,
+  },
+  blankCtaRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: spacing.xl,
+  },
+  blankCtaGhost: {
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 999,
+    borderWidth: 0.5,
+    borderColor: colors.borderColor,
+  },
+  blankCtaGhostLabel: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: colors.textDark,
+  },
+  blankCtaPrimary: {
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: colors.textDark,
+  },
+  blankCtaPrimaryLabel: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 11,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: colors.background,
+  },
+  surface: {
+    alignSelf: 'stretch',
+    marginTop: spacing.xl + spacing.sm,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderTopWidth: 0.5,
+    borderTopColor: colors.borderColor,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  surfaceBody: { flex: 1, gap: 2 },
+  surfaceTitle: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 15,
+    color: colors.textDark,
+  },
 });

@@ -25,10 +25,14 @@ import { colors, spacing, typography, fonts } from '../../constants/Designsystem
 import { useThemeColors } from '../../theme';
 import { haptics, toast } from '../../utils/feedback';
 import {
-  FolioStrip,
-  EditorialTitle,
   RuleWithLabel,
 } from '../../components/ui/EditorialBits';
+import { pickSpineColor } from '../../features/collections/presenter';
+
+const PAPER = '#FBF6EA';
+const SPINE_FOLIO = 'rgba(251,246,234,0.7)';
+const SPINE_FOLIO_DIM = 'rgba(251,246,234,0.55)';
+const SPINE_TAIL = '#F0C896';
 
 function splitTail(s: string) {
   const w = s.trim().split(' ');
@@ -107,34 +111,39 @@ export default function CollectionDetailScreen() {
   };
 
   const { lead, tail } = splitTail(collection.name);
+  const spineColor = pickSpineColor(collection.id);
+  const collectionIndex = collections.findIndex((c) => c.id === collection.id);
+  const vol = String(collectionIndex + 1).padStart(2, '0');
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-      edges={['top']}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color={colors.textDark} />
-        </TouchableOpacity>
-        <Text style={typography.folio}>collectie</Text>
-        <TouchableOpacity onPress={handleDelete} hitSlop={8}>
-          <Ionicons name="trash-outline" size={18} color={colors.textLight} />
-        </TouchableOpacity>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+      {/* SPINE-HEADER — boekrug-kleur loopt door tot onder de status bar */}
+      <View style={[styles.spine, { backgroundColor: spineColor }]}>
+        <SafeAreaView edges={['top']}>
+          <View style={styles.spineTop}>
+            <Text style={styles.spineFolio}>vol. {vol}</Text>
+            <View style={styles.spineActions}>
+              <TouchableOpacity onPress={handleDelete} hitSlop={8}>
+                <Ionicons name="trash-outline" size={16} color={SPINE_FOLIO} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
+                <Text style={styles.spineFolio}>← terug</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.spineTitleWrap}>
+            <Text style={styles.spineTitleLead}>{lead || collection.name}</Text>
+            {tail ? <Text style={styles.spineTitleTail}>{tail}</Text> : null}
+            <Text style={styles.spineCount}>
+              · {includedRecipes.length} {includedRecipes.length === 1 ? 'recept' : 'recepten'} ·
+            </Text>
+          </View>
+        </SafeAreaView>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
-        <FolioStrip
-          left={`${includedRecipes.length} ${includedRecipes.length === 1 ? 'recept' : 'recepten'}`}
-          right="collectie"
-        />
-
-        <View style={styles.titleBlock}>
-          <EditorialTitle lead={lead} tail={tail ? `${tail}.` : `${collection.name}.`} size={40} />
-        </View>
-
         {collection.description ? (
-          <Text style={styles.intro}>{collection.description}</Text>
+          <Text style={[styles.intro, { marginTop: spacing.lg }]}>{collection.description}</Text>
         ) : null}
 
         <TouchableOpacity
@@ -236,7 +245,7 @@ export default function CollectionDetailScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -249,10 +258,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
-  titleBlock: {
+  spine: {
     paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    marginBottom: 4,
+    paddingBottom: spacing.lg,
+  },
+  spineTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.sm,
+  },
+  spineActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  spineFolio: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: SPINE_FOLIO,
+  },
+  spineTitleWrap: {
+    marginTop: spacing.lg,
+  },
+  spineTitleLead: {
+    fontFamily: fonts.display,
+    fontWeight: '300',
+    fontSize: 40,
+    lineHeight: 42,
+    letterSpacing: -0.6,
+    color: PAPER,
+  },
+  spineTitleTail: {
+    fontFamily: fonts.displayItalic,
+    fontStyle: 'italic',
+    fontSize: 40,
+    lineHeight: 42,
+    letterSpacing: -0.6,
+    color: SPINE_TAIL,
+  },
+  spineCount: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: SPINE_FOLIO_DIM,
+    marginTop: spacing.sm,
   },
   intro: {
     fontFamily: fonts.displayItalic,

@@ -18,6 +18,7 @@
     "submit:ios": "eas submit --platform ios --profile production"
   },
   "dependencies": {
+    "@expo-google-fonts/cormorant-garamond": "^0.3.0",
     "@expo-google-fonts/fraunces": "^0.3.0",
     "@expo-google-fonts/inter": "^0.3.0",
     "@expo-google-fonts/jetbrains-mono": "^0.3.0",

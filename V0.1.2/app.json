@@ -6,13 +6,14 @@
     "orientation": "portrait",
     "scheme": "receptenapp",
     "userInterfaceStyle": "automatic",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/app-icon-1024.png",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/app-icon-1024.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F6F1E7"
+      "backgroundColor": "#EFE6D3"
     },
     "ios": {
+      "icon": "./assets/app-icon-1024.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.tuur007.recepten",
       "buildNumber": "2",
@@ -25,8 +26,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#C2492A"
+        "foregroundImage": "./assets/app-icon-1024.png",
+        "backgroundColor": "#EFE6D3"
       },
       "package": "com.tuur007.recepten",
       "versionCode": 2,

@@ -1,9 +1,9 @@
 import {
-  useFonts as useFraunces,
-  Fraunces_400Regular,
-  Fraunces_400Regular_Italic,
-  Fraunces_500Medium,
-} from '@expo-google-fonts/fraunces';
+  useFonts as useDisplay,
+  CormorantGaramond_500Medium,
+  CormorantGaramond_500Medium_Italic,
+  CormorantGaramond_600SemiBold,
+} from '@expo-google-fonts/cormorant-garamond';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -15,13 +15,13 @@ import {
 } from '@expo-google-fonts/jetbrains-mono';
 
 export function useEditorialFonts(): boolean {
-  const [loaded, error] = useFraunces({
-    Fraunces_400Regular,
-    // Register under the legacy alias used across the design system so existing
-    // `fontFamily: 'Fraunces_400Italic'` references keep working after v0.3.0
-    // renamed the export to Fraunces_400Regular_Italic.
-    Fraunces_400Italic: Fraunces_400Regular_Italic,
-    Fraunces_500Medium,
+  const [loaded, error] = useDisplay({
+    // Cormorant Garamond is geserveerd onder de bestaande Fraunces-aliassen
+    // zodat alle 'fontFamily: Fraunces_xxx' references in de codebase blijven
+    // werken zonder die te touchen.
+    Fraunces_400Regular: CormorantGaramond_500Medium,
+    Fraunces_400Italic: CormorantGaramond_500Medium_Italic,
+    Fraunces_500Medium: CormorantGaramond_600SemiBold,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,

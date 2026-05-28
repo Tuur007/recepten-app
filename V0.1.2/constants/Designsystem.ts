@@ -22,8 +22,8 @@ export const LIGHT_PALETTE = {
   tertiaryLight: '#E6B566',
 
   // Surfaces
-  background: '#F6F1E7',
-  backgroundCard: '#FFFFFF',
+  background: '#EFE6D3',
+  backgroundCard: '#FBF6EA',
   backgroundLight: '#EDE4D0',
 
   // Ink
@@ -33,8 +33,8 @@ export const LIGHT_PALETTE = {
   textFaint: 'rgba(25,22,19,0.35)',
 
   // Lines
-  borderColor: 'rgba(25,22,19,0.15)',
-  borderSoft: 'rgba(25,22,19,0.08)',
+  borderColor: 'rgba(25,22,19,0.12)',
+  borderSoft: 'rgba(25,22,19,0.07)',
   disabled: 'rgba(25,22,19,0.25)',
 
   // Semantic
@@ -51,9 +51,9 @@ export const LIGHT_PALETTE = {
   // Aliases
   text: '#191613',
   textSecondary: 'rgba(25,22,19,0.55)',
-  surface: '#F6F1E7',
+  surface: '#EFE6D3',
   surfaceAlt: '#EDE4D0',
-  border: 'rgba(25,22,19,0.15)',
+  border: 'rgba(25,22,19,0.12)',
   green: '#5A6B3A',
   danger: '#C2492A',
   dangerLight: 'rgba(194, 73, 42, 0.12)',
@@ -160,13 +160,13 @@ const FONT_MONO = 'JetBrainsMono_400Regular';
 const FONT_MONO_MEDIUM = 'JetBrainsMono_500Medium';
 
 export const typography = {
-  // HERO — grote serif titel (Fraunces light)
+  // HERO — grote serif titel (Cormorant Garamond via Fraunces-alias)
   hero32Bold: {
     fontFamily: FONT_DISPLAY,
     fontSize: 38,
     fontWeight: '300' as const,
-    lineHeight: 38 * 1.0,
-    letterSpacing: -0.8,
+    lineHeight: 38 * 1.02,
+    letterSpacing: -0.6,
     color: colors.textDark,
   },
 
@@ -175,8 +175,8 @@ export const typography = {
     fontFamily: FONT_DISPLAY_ITALIC,
     fontSize: 38,
     fontWeight: '300' as const,
-    lineHeight: 38 * 1.0,
-    letterSpacing: -0.8,
+    lineHeight: 38 * 1.02,
+    letterSpacing: -0.6,
     color: colors.primary,
     fontStyle: 'italic' as const,
   },
@@ -186,7 +186,7 @@ export const typography = {
     fontSize: 26,
     fontWeight: '400' as const,
     lineHeight: 26 * 1.1,
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
     color: colors.textDark,
   },
 

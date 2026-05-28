@@ -122,6 +122,10 @@ function ThemedRoot() {
         <Stack.Screen name="recipes/edit/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="collections/index" options={{ headerShown: false }} />
         <Stack.Screen name="collections/[id]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="cook/[recipeId]"
+          options={{ headerShown: false, presentation: 'fullScreenModal' }}
+        />
         <Stack.Screen name="grocery/scanner" options={{ headerShown: false }} />
       </Stack>
     </>

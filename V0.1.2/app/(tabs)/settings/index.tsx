@@ -12,15 +12,15 @@ import { useFamilyStore } from '../../../store/familyStore';
 import { spacing } from '../../../constants/Designsystem';
 import { useThemeColors } from '../../../theme';
 import { FolioStrip, EditorialTitle, RuleWithLabel } from '../../../components/ui/EditorialBits';
-import { styles } from './styles';
-import { Row } from './_sections/Row';
-import { FamilySection } from './_sections/FamilySection';
-import { InvitesSection } from './_sections/InvitesSection';
-import { CategorySection } from './_sections/CategorySection';
-import { ShopsSection } from './_sections/ShopsSection';
-import { ThemeSection } from './_sections/ThemeSection';
-import { BackupSection } from './_sections/BackupSection';
-import { SyncSection } from './_sections/SyncSection';
+import { styles } from '../../../features/settings/styles';
+import { Row } from '../../../features/settings/sections/Row';
+import { FamilySection } from '../../../features/settings/sections/FamilySection';
+import { InvitesSection } from '../../../features/settings/sections/InvitesSection';
+import { CategorySection } from '../../../features/settings/sections/CategorySection';
+import { ShopsSection } from '../../../features/settings/sections/ShopsSection';
+import { ThemeSection } from '../../../features/settings/sections/ThemeSection';
+import { BackupSection } from '../../../features/settings/sections/BackupSection';
+import { SyncSection } from '../../../features/settings/sections/SyncSection';
 
 export default function SettingsScreen() {
   const themeColors = useThemeColors();

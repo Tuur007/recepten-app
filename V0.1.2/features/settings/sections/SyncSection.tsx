@@ -12,10 +12,10 @@ import {
   deleteQueueRow,
   flushQueue,
   type QueueRow,
-} from '../../../../services/sync/queue';
-import { colors } from '../../../../constants/Designsystem';
-import { haptics, toast } from '../../../../utils/feedback';
-import { RuleWithLabel } from '../../../../components/ui/EditorialBits';
+} from '../../../services/sync/queue';
+import { colors } from '../../../constants/Designsystem';
+import { haptics, toast } from '../../../utils/feedback';
+import { RuleWithLabel } from '../../../components/ui/EditorialBits';
 import { styles } from '../styles';
 import { Row } from './Row';
 

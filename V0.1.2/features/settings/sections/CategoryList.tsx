@@ -1,8 +1,8 @@
 import React from 'react';
 import { Text, View, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Category } from '../../../../features/categories/repository';
-import { colors } from '../../../../constants/Designsystem';
+import { Category } from '../../../features/categories/repository';
+import { colors } from '../../../constants/Designsystem';
 import { styles } from '../styles';
 
 // Inline category list (sub-content of the "onze recepten" rows).

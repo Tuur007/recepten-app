@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
 import { View, TextInput, Alert } from 'react-native';
 
-import { useCategories } from '../../../../store/categoriesStore';
-import { Category } from '../../../../features/categories/repository';
-import { RuleWithLabel } from '../../../../components/ui/EditorialBits';
+import { useCategories } from '../../../store/categoriesStore';
+import { Category } from '../../../features/categories/repository';
+import { RuleWithLabel } from '../../../components/ui/EditorialBits';
 import { styles } from '../styles';
 import { Row } from './Row';
 import { CategoryList } from './CategoryList';

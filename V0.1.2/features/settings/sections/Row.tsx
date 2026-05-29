@@ -1,6 +1,6 @@
 import { Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../../../constants/Designsystem';
+import { colors } from '../../../constants/Designsystem';
 import { styles } from '../styles';
 
 // Mockup setting row: label | mono value | chevron.

@@ -2,10 +2,10 @@ import { useRef, useState } from 'react';
 import { Text, View, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useShopsStore, useShopsActions } from '../../../../store/shopsStore';
-import { colors } from '../../../../constants/Designsystem';
-import { haptics } from '../../../../utils/feedback';
-import { RuleWithLabel } from '../../../../components/ui/EditorialBits';
+import { useShopsStore, useShopsActions } from '../../../store/shopsStore';
+import { colors } from '../../../constants/Designsystem';
+import { haptics } from '../../../utils/feedback';
+import { RuleWithLabel } from '../../../components/ui/EditorialBits';
 import { styles } from '../styles';
 import { Row } from './Row';
 

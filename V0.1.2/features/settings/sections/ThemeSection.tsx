@@ -1,9 +1,9 @@
 import { Text, View, TouchableOpacity } from 'react-native';
 
-import { colors } from '../../../../constants/Designsystem';
-import { useThemeColors, useThemeMode, type ThemeMode } from '../../../../theme';
-import { haptics } from '../../../../utils/feedback';
-import { RuleWithLabel } from '../../../../components/ui/EditorialBits';
+import { colors } from '../../../constants/Designsystem';
+import { useThemeColors, useThemeMode, type ThemeMode } from '../../../theme';
+import { haptics } from '../../../utils/feedback';
+import { RuleWithLabel } from '../../../components/ui/EditorialBits';
 import { styles } from '../styles';
 import { Row } from './Row';
 

@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { Text, View, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { FAMILY_COLORS, useFamilyActions, useFamilyStore } from '../../../../store/familyStore';
-import { useAuthStore } from '../../../../store/authStore';
-import { ALLERGENS } from '../../../../types/recipe';
-import { colors } from '../../../../constants/Designsystem';
-import { haptics, toast } from '../../../../utils/feedback';
-import { RuleWithLabel, FamilyDot } from '../../../../components/ui/EditorialBits';
+import { FAMILY_COLORS, useFamilyActions, useFamilyStore } from '../../../store/familyStore';
+import { useAuthStore } from '../../../store/authStore';
+import { ALLERGENS } from '../../../types/recipe';
+import { colors } from '../../../constants/Designsystem';
+import { haptics, toast } from '../../../utils/feedback';
+import { RuleWithLabel, FamilyDot } from '../../../components/ui/EditorialBits';
 import { styles } from '../styles';
 
 // "Het gezin" — toont cloud family-leden. Alleen het eigen profiel (auth.uid)

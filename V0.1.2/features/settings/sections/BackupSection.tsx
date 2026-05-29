@@ -10,11 +10,11 @@ import {
   pickAndPreviewImport,
   shareExport,
   type AppExport,
-} from '../../../../services/sync';
-import { requestNotificationPermission } from '../../../../services/notifications';
-import { colors } from '../../../../constants/Designsystem';
-import { haptics, toast } from '../../../../utils/feedback';
-import { RuleWithLabel } from '../../../../components/ui/EditorialBits';
+} from '../../../services/sync';
+import { requestNotificationPermission } from '../../../services/notifications';
+import { colors } from '../../../constants/Designsystem';
+import { haptics, toast } from '../../../utils/feedback';
+import { RuleWithLabel } from '../../../components/ui/EditorialBits';
 import { styles, formatExportDate } from '../styles';
 import { Row } from './Row';
 

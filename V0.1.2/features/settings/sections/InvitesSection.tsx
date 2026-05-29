@@ -3,11 +3,11 @@ import { Clipboard, Text, View, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useAuthStore } from '../../../../store/authStore';
-import { createInviteCode, listInviteCodes } from '../../../../services/inviteService';
-import { colors, spacing } from '../../../../constants/Designsystem';
-import { haptics, toast } from '../../../../utils/feedback';
-import { RuleWithLabel } from '../../../../components/ui/EditorialBits';
+import { useAuthStore } from '../../../store/authStore';
+import { createInviteCode, listInviteCodes } from '../../../services/inviteService';
+import { colors, spacing } from '../../../constants/Designsystem';
+import { haptics, toast } from '../../../utils/feedback';
+import { RuleWithLabel } from '../../../components/ui/EditorialBits';
 import { styles } from '../styles';
 import { Row } from './Row';
 

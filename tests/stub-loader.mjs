@@ -4,6 +4,7 @@
 const STUBS = new Set([
   'react-native',
   '@react-native-async-storage/async-storage',
+  'expo-secure-store',
   'expo-sqlite',
   'expo-image-manipulator',
   'expo-haptics',

@@ -8,9 +8,71 @@ import { tryParseHeuristic } from './heuristic';
 import { isMarleySpoonUrl, fetchMarleySpoonRecipe } from './marleyspoon';
 import type { ParsedRecipe } from './types';
 
-// Matches private/loopback ranges that must never be fetched (SSRF guard).
-const PRIVATE_HOST_RE =
-  /^(localhost|127\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|\[::1\])/i;
+/**
+ * SSRF guard. Blokkeert loopback/private/link-local adressen en de gangbare
+ * trucs om die te verbergen: IPv4-mapped IPv6 (::ffff:127.0.0.1), decimale en
+ * hex-IPv4 (2130706433 / 0x7f000001), octale octetten en IPv6 unique-local/
+ * link-local ranges (fc00::/7, fe80::/10). DNS-rebinding kunnen we vanuit RN
+ * niet afvangen (geen resolver), maar dit dekt de letterlijke adresvormen.
+ */
+function isBlockedHost(rawHost: string): boolean {
+  let host = rawHost.toLowerCase().trim();
+  // Strip IPv6-brackets: [::1] -> ::1
+  if (host.startsWith('[') && host.endsWith(']')) host = host.slice(1, -1);
+
+  if (host === 'localhost' || host.endsWith('.localhost') || host === '') return true;
+
+  // IPv6 (bevat ':')
+  if (host.includes(':')) {
+    if (host === '::1' || host === '::') return true;
+    // IPv4-mapped/embedded: ::ffff:127.0.0.1 of ::ffff:7f00:1 -> check de v4-staart
+    const tail = host.split(':').pop() ?? '';
+    if (tail.includes('.') && isBlockedIpv4(tail)) return true;
+    // unique-local fc00::/7 (fc.. / fd..) en link-local fe80::/10
+    if (/^f[cd][0-9a-f]*:/.test(host)) return true;
+    if (/^fe[89ab][0-9a-f]*:/.test(host)) return true;
+    return false;
+  }
+
+  return isBlockedIpv4(host);
+}
+
+function isBlockedIpv4(host: string): boolean {
+  // Dotted-quad, mogelijk met octale/hex octetten.
+  const parts = host.split('.');
+  if (parts.length === 4) {
+    const octets = parts.map((p) => {
+      if (/^0x[0-9a-f]+$/.test(p)) return Number.parseInt(p, 16);
+      if (/^0[0-7]+$/.test(p)) return Number.parseInt(p, 8);
+      if (/^\d+$/.test(p)) return Number.parseInt(p, 10);
+      return Number.NaN;
+    });
+    if (octets.every((o) => Number.isInteger(o) && o >= 0 && o <= 255)) {
+      return isPrivateIpv4(octets[0], octets[1]);
+    }
+  }
+
+  // Geen dotted-quad maar wel puur numeriek/hex -> decimale of hex-vorm van een
+  // IPv4 (bv. 2130706433 of 0x7f000001). Decodeer naar octetten.
+  let n: number | null = null;
+  if (/^0x[0-9a-f]+$/.test(host)) n = Number.parseInt(host, 16);
+  else if (/^\d+$/.test(host)) n = Number.parseInt(host, 10);
+  if (n != null && Number.isInteger(n) && n >= 0 && n <= 0xffffffff) {
+    return isPrivateIpv4((n >>> 24) & 0xff, (n >>> 16) & 0xff);
+  }
+
+  return false;
+}
+
+function isPrivateIpv4(a: number, b: number): boolean {
+  if (a === 0 || a === 127) return true; // 0.0.0.0/8, loopback
+  if (a === 10) return true; // 10.0.0.0/8
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+  if (a === 192 && b === 168) return true; // 192.168.0.0/16
+  if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local
+  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
+  return false;
+}
 
 export const MAX_HTML_BYTES = 10_000_000; // 10 MB — sane upper bound for a recipe page
 export const FETCH_TIMEOUT_MS = 15_000;
@@ -28,7 +90,7 @@ export function assertSafeUrl(rawUrl: string): void {
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
     throw new Error("Alleen http(s) URL's zijn toegestaan.");
   }
-  if (PRIVATE_HOST_RE.test(parsed.hostname)) {
+  if (isBlockedHost(parsed.hostname)) {
     throw new Error('Interne netwerkadressen zijn niet toegestaan.');
   }
 }

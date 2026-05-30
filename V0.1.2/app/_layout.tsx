@@ -16,6 +16,17 @@ if (SENTRY_DSN) {
     dsn: SENTRY_DSN,
     tracesSampleRate: 0.1,
     environment: __DEV__ ? 'development' : 'production',
+    // Geen PII naar derden: scrub e-mail/naam en losse request-payloads voor
+    // het event de deur uitgaat. We houden enkel een opaque user-id over zodat
+    // crashes nog te correleren zijn zonder persoonsgegevens te lekken.
+    sendDefaultPii: false,
+    beforeSend(event) {
+      if (event.user) {
+        event.user = { id: event.user.id };
+      }
+      delete event.request;
+      return event;
+    },
   });
 }
 

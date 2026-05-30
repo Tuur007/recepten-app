@@ -7,6 +7,7 @@
       "react-native": ["./empty-stub.mjs"],
       "react-native/*": ["./empty-stub.mjs"],
       "@react-native-async-storage/async-storage": ["./empty-stub.mjs"],
+      "expo-secure-store": ["./empty-stub.mjs"],
       "expo-sqlite": ["./empty-stub.mjs"],
       "expo-sqlite/*": ["./empty-stub.mjs"],
       "expo-image-manipulator": ["./empty-stub.mjs"],

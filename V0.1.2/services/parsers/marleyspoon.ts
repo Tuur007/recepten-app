@@ -22,6 +22,10 @@ export interface FetchOptions {
 
 const MARLEY_SPOON_HOST_RE = /^(?:www\.)?marleyspoon\.(?:com|nl|be|de|at|se|dk)$/i;
 
+// Bovengrens voor het GraphQL-antwoord: een recept is enkele KB, dus 4 MB is
+// ruim. Voorkomt geheugen-/DoS-druk bij een onverwacht of vijandig groot body.
+const MAX_JSON_BYTES = 4_000_000;
+
 const MARLEY_SPOON_QUERY = `query GetRecipe($id: String!) {
   recipe(id: $id) {
     id
@@ -57,14 +61,30 @@ interface GonBootstrap {
   apiHost: string;
 }
 
+// Een geldig bootstrap-token is een korte-levensduur JWT: drie base64url-delen
+// gescheiden door punten. We sturen het token enkel door als het die vorm
+// heeft, zodat we geen willekeurige string uit de HTML als Bearer-credential
+// naar de API lekken.
+const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+
 function extractGonBootstrap(html: string): GonBootstrap | null {
   const tokenMatch = html.match(/gon\.api_token\s*=\s*"([^"]+)"/);
   const hostMatch = html.match(/gon\.api_host\s*=\s*"([^"]+)"/);
   if (!tokenMatch || !hostMatch) return null;
+  const apiToken = tokenMatch[1];
+  if (!JWT_RE.test(apiToken)) {
+    warn('[marleyspoon] gon.api_token heeft geen JWT-vorm — genegeerd');
+    return null;
+  }
   // gon.api_host is JSON-escaped (e.g. "https:\/\/api.marleyspoon.com").
   const apiHost = hostMatch[1].replace(/\\\//g, '/');
-  if (!/^https?:\/\//i.test(apiHost)) return null;
-  return { apiToken: tokenMatch[1], apiHost };
+  // Stuur het Bearer-token enkel naar Marley Spoon's eigen API, nooit naar een
+  // willekeurige host die de pagina zou kunnen injecteren.
+  if (!/^https:\/\/[a-z0-9.-]*marleyspoon\.com\b/i.test(apiHost)) {
+    warn('[marleyspoon] gon.api_host is geen marleyspoon.com endpoint — genegeerd');
+    return null;
+  }
+  return { apiToken, apiHost };
 }
 
 /**
@@ -134,10 +154,20 @@ export async function fetchMarleySpoonRecipe(
     throw new Error(`Marley Spoon API gaf fout (HTTP ${response.status}).`);
   }
 
+  const contentLength = response.headers.get('content-length');
+  if (contentLength && Number.parseInt(contentLength, 10) > MAX_JSON_BYTES) {
+    throw new Error('Marley Spoon API-antwoord is te groot om te verwerken.');
+  }
+
   let payload: unknown;
   try {
-    payload = await response.json();
-  } catch {
+    const text = await response.text();
+    if (text.length > MAX_JSON_BYTES) {
+      throw new Error('Marley Spoon API-antwoord is te groot om te verwerken.');
+    }
+    payload = JSON.parse(text);
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('te groot')) throw e;
     warn('[marleyspoon] GraphQL response was not JSON');
     throw new Error('Marley Spoon API gaf geen geldig JSON-antwoord.');
   }

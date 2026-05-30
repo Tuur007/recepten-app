@@ -5,24 +5,24 @@ export const TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 /**
  * Genereert een crypto-veilige token van `length` tekens uit `alphabet`.
- * Gebruikt crypto.getRandomValues; valt alleen terug op Math.random als de
- * crypto-API echt ontbreekt.
+ * Gebruikt uitsluitend crypto.getRandomValues. Dit voedt o.a. de
+ * uitnodigingscodes (services/inviteService.ts) die familietoegang geven, dus
+ * faalt fail-closed: ontbreekt de crypto-API, dan gooien we een fout in plaats
+ * van terug te vallen op het voorspelbare Math.random (dat zou raadbare codes
+ * opleveren).
  */
 export function randomToken(length: number, alphabet: string = TOKEN_ALPHABET): string {
   if (length <= 0) return '';
-  const chars: string[] = new Array(length);
 
-  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
-    const bytes = new Uint8Array(length);
-    crypto.getRandomValues(bytes);
-    for (let i = 0; i < length; i++) {
-      chars[i] = alphabet[bytes[i] % alphabet.length];
-    }
-  } else {
-    warn('[randomToken] crypto API niet beschikbaar — gebruikt onveilige terugval');
-    for (let i = 0; i < length; i++) {
-      chars[i] = alphabet[Math.floor(Math.random() * alphabet.length)];
-    }
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    throw new Error('[randomToken] crypto API niet beschikbaar — kan geen veilige token genereren');
+  }
+
+  const chars: string[] = new Array(length);
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  for (let i = 0; i < length; i++) {
+    chars[i] = alphabet[bytes[i] % alphabet.length];
   }
 
   return chars.join('');

@@ -4,6 +4,7 @@
 // dinermaaltijd. Eén notificatie per dag, herplant zichzelf alleen als de
 // gebruiker een nieuwe maaltijd ingeeft of een bestaande wijzigt.
 
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { warn } from '../utils/logger';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
@@ -11,6 +12,12 @@ import { openDatabaseSync } from 'expo-sqlite';
 
 const DB_NAME = 'recepten.db';
 const PREF_PREFIX = 'notif_';
+
+// Web heeft geen geplande lokale notificaties en `openDatabaseSync` valt op web
+// terug op het synchrone worker-kanaal (SharedArrayBuffer) dat cross-origin
+// isolation vereist. Op web no-op'en we dus volledig — de native iOS/Android
+// flow blijft ongemoeid.
+const IS_WEB = Platform.OS === 'web';
 
 // Use openDatabaseSync because callers can run outside React (e.g. wakeup from
 // an event handler). The handle is cached so we don't reopen on every call.
@@ -58,6 +65,7 @@ async function deleteNotificationId(dayKey: string): Promise<void> {
  * weigering. Gooit nooit — falen wordt enkel gelogd.
  */
 export async function requestNotificationPermission(): Promise<boolean> {
+  if (IS_WEB) return false;
   try {
     const settings = await Notifications.getPermissionsAsync();
     if (settings.granted || settings.status === 'granted') return true;
@@ -84,6 +92,7 @@ export async function scheduleDinnerNotification(
   recipeTitle: string,
   dateForDay: Date,
 ): Promise<void> {
+  if (IS_WEB) return;
   // Niet plannen voor het verleden.
   const target = new Date(dateForDay);
   target.setHours(16, 0, 0, 0);
@@ -120,6 +129,7 @@ export async function scheduleDinnerNotification(
  * Annuleert de geplande notificatie voor een specifieke dag (indien aanwezig).
  */
 export async function cancelDinnerNotification(dayKey: string): Promise<void> {
+  if (IS_WEB) return;
   const id = await readNotificationId(dayKey);
   if (!id) return;
   try {
@@ -135,6 +145,7 @@ export async function cancelDinnerNotification(dayKey: string): Promise<void> {
  * import-flows waar de hele weekplanner wordt vervangen.
  */
 export async function cancelAllNotifications(): Promise<void> {
+  if (IS_WEB) return;
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
   } catch (err) {

@@ -110,6 +110,21 @@ Typecheck via: cd V0.1.2 && npm run typecheck
 ## Builds
 EAS via eas.json. Preview + production profiles voor iOS en Android.
 
+## Web-deploy (Vercel) — extra target, naast native
+De app draait ook als statische web-app om met testers te delen via URL. De
+native iOS/Android flow blijft ongemoeid; web is enkel een extra target.
+- `app.json` → `web.output: "single"` (SPA, geen SSR). SSR/`static` botst met de
+  client-only SQLite/native APIs en de React 18-render — daarom single.
+- `metro.config.js` voegt `.wasm` toe als asset zodat `expo-sqlite` (wa-sqlite)
+  op web bundelt. OPFS-persistentie in een Web Worker.
+- App gebruikt enkel de **async** SQLite-API → **geen** COOP/COEP cross-origin
+  isolation nodig → Supabase-images blijven laden. Gebruik geen `*Sync`
+  SQLite-methodes in code die op web kan draaien (die vereisen SharedArrayBuffer).
+- `services/notifications.ts` no-opt op web (geen lokale notificaties in browser).
+- Web-deps in package.json: `react-dom`, `react-native-web`, `@expo/metro-runtime`.
+- Deploy: Vercel Root Directory = `V0.1.2`, config in `V0.1.2/vercel.json`. Volledige
+  handleiding in `docs/VERCEL.md`. Lokaal: `npx expo export --platform web` → `dist/`.
+
 ## Nog te doen vóór publish
 
 ### Assets (ontbreken in V0.1.2/assets/)

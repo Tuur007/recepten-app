@@ -27,7 +27,7 @@ export function CategoryList({
   editingName: string;
   addingHere: boolean;
   newName: string;
-  newInputRef: React.RefObject<TextInput>;
+  newInputRef: React.RefObject<TextInput | null>;
   onEditStart: (cat: Category) => void;
   onEditChange: (v: string) => void;
   onEditSubmit: () => void;

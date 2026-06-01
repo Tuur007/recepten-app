@@ -47,7 +47,6 @@
       "expo-sqlite",
       "expo-file-system",
       "expo-document-picker",
-      "@sentry/react-native/expo",
       [
         "expo-notifications",
         {

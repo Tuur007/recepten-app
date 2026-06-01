@@ -1,7 +1,10 @@
 module.exports = function (api) {
   api.cache(true);
+  const isWeb = process.env.EXPO_PLATFORM === 'web';
   return {
     presets: ['babel-preset-expo'],
-    plugins: ['react-native-worklets/plugin'],
+    plugins: [
+      !isWeb && 'react-native-worklets/plugin',
+    ].filter(Boolean),
   };
 };

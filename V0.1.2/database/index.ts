@@ -1,5 +1,5 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
-import { log, warn } from '../utils/logger';
+import { log, warn, error as logError } from '../utils/logger';
 import {
   CREATE_GROCERY_ITEMS_TABLE,
   CREATE_RECIPES_TABLE,
@@ -9,6 +9,7 @@ import {
   CREATE_COLLECTION_RECIPES_TABLE,
   CREATE_PREFS_TABLE,
   CREATE_SYNC_QUEUE_TABLE,
+  CREATE_INDEXES,
   DEFAULT_RECIPE_CATEGORIES,
   DEFAULT_GROCERY_CATEGORIES,
   MIGRATIONS,
@@ -16,6 +17,7 @@ import {
 import { initImageDirectory } from '../utils/imageStorage';
 import { generateId } from '../utils/id';
 import { RecipeRepository } from '../features/recipes/repository';
+import type { Recipe } from '../types/recipe';
 import { STARTER_RECIPES } from './seeds';
 
 export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
@@ -54,6 +56,9 @@ export async function initializeDatabase(db: SQLiteDatabase): Promise<void> {
     await db.execAsync(CREATE_RECIPES_TABLE);
     await applyPendingMigrations(db, currentVersion);
   }
+
+  // Ná de migraties: indexes verwijzen naar kolommen die migraties toevoegen.
+  await db.execAsync(CREATE_INDEXES);
 
   // Seed default categories if table is empty
   const catCount = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM categories');
@@ -95,7 +100,9 @@ export async function applyPendingMigrations(
       );
       log(`[DB] Migration v${i + 1} applied`);
     } catch (err) {
-      await db.execAsync('ROLLBACK;').catch(() => {});
+      await db.execAsync('ROLLBACK;').catch((rbErr) =>
+        logError('[DB] ROLLBACK failed:', rbErr),
+      );
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[DB] Migration v${i + 1} FAILED:`, msg);
       throw err;
@@ -103,10 +110,25 @@ export async function applyPendingMigrations(
   }
 }
 
+function seedSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
 /**
  * Voert de starter-recepten in bij een verse installatie. Idempotent: doet
  * niets als de recepten-tabel al rijen bevat, dus bestaande gebruikers zien
  * deze seeds nooit terug.
+ *
+ * Deterministische ids (`seed-<slug>`) zodat meerdere toestellen in hetzelfde
+ * gezin niet elk hun eigen kopie van de starters de cloud in duwen — de
+ * initial backfill upsert dan dezelfde rijen i.p.v. duplicaten te maken.
+ * Bewust via upsertMany (geen outbox-write, geen image-upload): de seeds
+ * bereiken de cloud uitsluitend via de initial backfill.
  */
 export async function seedStarterRecipes(db: SQLiteDatabase): Promise<void> {
   const result = await db.getFirstAsync<{ count: number }>(
@@ -114,14 +136,26 @@ export async function seedStarterRecipes(db: SQLiteDatabase): Promise<void> {
   );
   if ((result?.count ?? 0) > 0) return;
 
-  let inserted = 0;
-  for (const recipe of STARTER_RECIPES) {
-    try {
-      await RecipeRepository.create(db, recipe);
-      inserted++;
-    } catch (err) {
-      console.error(`[db] seed "${recipe.title}" failed:`, err);
-    }
+  const base = Date.now();
+  const recipes: Recipe[] = STARTER_RECIPES.map((input, i) => {
+    // createdAt loopt af zodat de eerste seed bovenaan staat in "recent".
+    const ts = new Date(base - i * 1000).toISOString();
+    return {
+      ...input,
+      id: `seed-${seedSlug(input.title)}`,
+      category: input.category ?? '',
+      isFavorite: input.isFavorite ?? false,
+      allergens: input.allergens ?? [],
+      timesCooked: input.timesCooked ?? 0,
+      createdAt: ts,
+      updatedAt: ts,
+    };
+  });
+
+  try {
+    await RecipeRepository.upsertMany(db, recipes);
+    log(`[db] seeded ${recipes.length} starter recipes`);
+  } catch (err) {
+    logError('[db] seeding failed:', err);
   }
-  log(`[db] seeded ${inserted} starter recipes`);
 }

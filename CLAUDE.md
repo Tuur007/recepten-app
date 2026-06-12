@@ -155,6 +155,37 @@ worden door `app.json` verwacht. Maak ze aan (geen placeholders gegenereerd):
   Settings → `SyncSection` voor wachtrij-diepte + dead-letter recovery.
 - Auth UX: `authStore.waitForUser()` i.p.v. een vaste setTimeout, wachtwoord ≥ 8.
 
+## Sprint 38 — sync-audit hardening
+- Realtime delete-handlers gebruiken `deleteLocal` (geen outbox-write meer; de
+  oude flow veroorzaakte een oneindige delete-pingpong tussen toestellen).
+  Soft-deletes in de queue zijn idempotent (`.is('deleted_at', null)`).
+- Weekplanner: remote applies via `applyRemoteWeeks` (weekPlannerStore) — de
+  outbox-subscriber skipt die; diff op inhoud i.p.v. referentie.
+- `pullAll`: tombstones worden lokaal verwijderd (geen resurrectie van remote
+  verwijderde recepten), store-merge i.p.v. -vervanging (lokaal-only items
+  blijven zichtbaar), pull-errors worden gelogd.
+- Outbox: rijen dragen `family_id` (migratie v29); flush stempelt niet meer met
+  het familyId van het moment van flushen (cross-family leak). Pre-login
+  writes queuen met `family_id NULL` en flushen na login. Gezinswissel op één
+  toestel wist lokale synced data (`resetLocalDataForFamilySwitch`).
+- Foreground-sync (`useForegroundSync`): AppState active → flush + pull +
+  `auth.startAutoRefresh`; NetInfo-reconnect pullt nu ook.
+- LWW: `upsertMany` (recipes) heeft een `julianday(updated_at)`-guard; de
+  recipeStore behoudt nieuwere lokale edits i.p.v. ze te overschrijven.
+- Seeds: deterministische ids (`seed-<slug>`) via upsertMany — geen duplicaten
+  per toestel meer na de initial backfill (pref nu per gezin).
+- Delen: `fetchSharedRecipe` via `get_shared_recipe_payload` RPC
+  (`supabase/migrations/shared_recipe_payload.sql`) — de directe table-reads
+  konden door RLS nooit werken. Family-setup atomisch via
+  `create_family_with_owner` RPC (`create_family_atomic.sql`).
+- Onboarding-flag pas na geslaagde profiel-save; dead-letter geeft toast +
+  `error()`-log (Sentry); authStore familyId-lookup checkt errors en zet bij
+  een transient fout het bestaande familyId niet meer op null;
+  `updateMyProfile` rolt de optimistische update terug bij een cloud-fout.
+- Scan-scherm heeft een web-fallback (expo-camera werkt niet in de browser);
+  share-als-tekst gebruikt de geschaalde hoeveelheden; Marley Spoon
+  `gon.api_host` heeft een hostname-allowlist.
+
 ### Nog te doen vóór publish (handmatig)
 - `eas.json`: vervang de `VERVANG_MET_*` placeholders door je Apple ID /
   Team ID / ASC App ID.
@@ -162,6 +193,9 @@ worden door `app.json` verwacht. Maak ze aan (geen placeholders gegenereerd):
   gelogd onder "## Nog te doen vóór publish" hierboven).
 - Supabase dashboard → Authentication → password min length op 8.
 - `supabase/migrations/release_hardening.sql` op het Supabase project uitvoeren.
+- `supabase/migrations/shared_recipe_payload.sql` en
+  `supabase/migrations/create_family_atomic.sql` uitvoeren (sprint 38 —
+  recepten delen en family-setup werken er niet zonder).
 - iOS privacy manifest (NSPrivacyAccessedAPITypes) vóór App Store submit:
   Snack kan `expo-build-properties` niet laden, dus tijdelijk uit deze branch
   gehaald. Vóór een EAS production build voeg je hem terug toe met

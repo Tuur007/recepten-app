@@ -106,8 +106,17 @@ export const CREATE_SYNC_QUEUE_TABLE = `
     attempts      INTEGER NOT NULL DEFAULT 0,
     last_error    TEXT,
     dead          INTEGER NOT NULL DEFAULT 0,
-    next_retry_at TEXT
+    next_retry_at TEXT,
+    family_id     TEXT
   );
+`;
+
+// Idempotent (IF NOT EXISTS) — draait bij elke init zodat ook verse installs
+// (die de migratielijst overslaan) de indexes krijgen.
+export const CREATE_INDEXES = `
+  CREATE INDEX IF NOT EXISTS idx_grocery_checked_created ON grocery_items(checked, created_at);
+  CREATE INDEX IF NOT EXISTS idx_sync_queue_drain ON sync_queue(dead, family_id, next_retry_at);
+  CREATE INDEX IF NOT EXISTS idx_collection_recipes_recipe ON collection_recipes(recipe_id);
 `;
 
 export const DEFAULT_RECIPE_CATEGORIES = [
@@ -205,4 +214,8 @@ export const MIGRATIONS: string[] = [
   // hele queue niet meer blokkeren (zie services/sync/queue.ts).
   `ALTER TABLE sync_queue ADD COLUMN dead INTEGER NOT NULL DEFAULT 0;
    ALTER TABLE sync_queue ADD COLUMN next_retry_at TEXT`,
+  // v29: outbox-rijen dragen het gezin waarvoor ze bedoeld zijn. flushQueue
+  // stempelt niet langer met het familyId van het moment van flushen — dat
+  // lekte data van gezin A naar gezin B bij account-wissel op één toestel.
+  `ALTER TABLE sync_queue ADD COLUMN family_id TEXT`,
 ];

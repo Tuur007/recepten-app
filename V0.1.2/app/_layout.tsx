@@ -25,6 +25,7 @@ import { LoadingScreen } from '../components/LoadingScreen';
 import { SplashScreen } from '../components/Splashscreen';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { initializeDatabase, seedStarterRecipes } from '../database';
+import { error as logError } from '../utils/logger';
 import { toastConfig } from '../components/ui/ToastConfig';
 import { useHydrateTheme, useResolvedScheme, useThemeColors } from '../theme';
 import { useFamilyStore, useHydrateFamily } from '../store/familyStore';
@@ -55,8 +56,15 @@ export default function RootLayout() {
           <SQLiteProvider
             databaseName="recepten.db"
             onInit={async (db) => {
-              await initializeDatabase(db);
-              await seedStarterRecipes(db);
+              try {
+                await initializeDatabase(db);
+                await seedStarterRecipes(db);
+              } catch (err) {
+                // Rethrow zodat de ErrorBoundary de recovery-UI toont, maar
+                // eerst loggen — `error` blijft actief in productie (Sentry).
+                logError('[db] init failed:', err);
+                throw err;
+              }
             }}
           >
             <ThemedRoot />

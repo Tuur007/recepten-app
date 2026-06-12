@@ -63,7 +63,15 @@ function extractGonBootstrap(html: string): GonBootstrap | null {
   if (!tokenMatch || !hostMatch) return null;
   // gon.api_host is JSON-escaped (e.g. "https:\/\/api.marleyspoon.com").
   const apiHost = hostMatch[1].replace(/\\\//g, '/');
-  if (!/^https?:\/\//i.test(apiHost)) return null;
+  // Allowlist: de host komt uit de opgehaalde pagina — zonder check kan een
+  // kwaadaardige pagina het token + de query naar een eigen server sturen.
+  try {
+    const parsed = new URL(apiHost);
+    if (parsed.protocol !== 'https:') return null;
+    if (!/(^|\.)marleyspoon\.[a-z]{2,6}$/i.test(parsed.hostname)) return null;
+  } catch {
+    return null;
+  }
   return { apiToken: tokenMatch[1], apiHost };
 }
 

@@ -73,11 +73,12 @@ function makeInMemoryDb() {
     async runAsync(sql, params = []) {
       const s = String(sql).trim().replace(/\s+/g, ' ');
       if (/^INSERT INTO sync_queue/i.test(s)) {
-        const [id, op, entity, entity_id, payload, created_at] = params;
+        const [id, op, entity, entity_id, payload, created_at, family_id] = params;
         rows.set(id, {
           id, op, entity, entity_id, payload,
           created_at, attempts: 0, last_error: null,
           dead: 0, next_retry_at: null,
+          family_id: family_id ?? null,
         });
         return { changes: 1 };
       }
@@ -98,13 +99,19 @@ function makeInMemoryDb() {
       }
       throw new Error(`mock-db runAsync unmatched: ${s}`);
     },
-    async getFirstAsync(sql) {
+    async getFirstAsync(sql, params = []) {
       const s = String(sql).trim().replace(/\s+/g, ' ');
       if (/SELECT COUNT/i.test(s)) {
         return { count: rows.size };
       }
       if (/SELECT \* FROM sync_queue WHERE dead = 0/i.test(s)) {
-        const eligible = [...rows.values()].filter(isEligible).sort(byCreatedAt);
+        // Spiegelt de family-filter in flushQueue: rijen van een ander gezin
+        // worden nooit met het huidige familyId gestempeld.
+        const familyId = params[0];
+        const eligible = [...rows.values()]
+          .filter(isEligible)
+          .filter((r) => r.family_id == null || r.family_id === familyId)
+          .sort(byCreatedAt);
         return eligible[0] ?? null;
       }
       return null;
@@ -133,12 +140,18 @@ function makeClient(behavior) {
       return Promise.resolve(res);
     },
     update(patch) {
-      // .update().eq('id', x) — return chainable
+      // .update().eq('id', x).is('deleted_at', null) — de .is() maakt de
+      // soft-delete idempotent (geen nieuwe timestamp op een al verwijderde
+      // rij, anders ontstaat een realtime delete-pingpong).
       const chain = {
         eq(_col, id) {
-          const res = behavior(name, 'delete', id);
-          calls.push({ table: name, op: 'delete', id, patch });
-          return Promise.resolve(res);
+          return {
+            is(_isCol, _isVal) {
+              const res = behavior(name, 'delete', id);
+              calls.push({ table: name, op: 'delete', id, patch });
+              return Promise.resolve(res);
+            },
+          };
         },
       };
       return chain;
@@ -166,11 +179,25 @@ await test('enqueue zet een rij in sync_queue', async () => {
   assert.equal(JSON.parse(row.payload).title, 'Soep');
 });
 
-await test('enqueue skipt de INSERT zonder familyId', async () => {
+await test('enqueue zonder familyId queued met family_id NULL (flusht na login)', async () => {
   useAuthStore.setState({ familyId: null });
   const db = makeInMemoryDb();
   await queue.enqueue(db, 'upsert', 'recipe', 'r1', { id: 'r1' });
-  assert.equal(db.rows.size, 0, 'geen rij gequeued zonder gekoppeld gezin');
+  assert.equal(db.rows.size, 1, 'pre-login writes mogen niet verloren gaan');
+  const row = [...db.rows.values()][0];
+  assert.equal(row.family_id, null);
+});
+
+await test('flushQueue slaat rijen van een ander gezin over', async () => {
+  useAuthStore.setState({ familyId: 'fam-1' });
+  const db = makeInMemoryDb();
+  await queue.enqueue(db, 'upsert', 'recipe', 'r1', { id: 'r1' });
+  // Gezinswissel: de oude rij mag niet met fam-2 gestempeld worden.
+  useAuthStore.setState({ familyId: 'fam-2' });
+  const client = makeClient(() => ({ error: null }));
+  const result = await queue.flushQueue(db, client);
+  assert.equal(result.processed, 0, 'rij van fam-1 niet geflusht als fam-2');
+  assert.equal(client.calls.length, 0);
 });
 
 await test('flushQueue zonder familyId no-opt', async () => {

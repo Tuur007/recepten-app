@@ -228,6 +228,85 @@ await test('twee clients verliezen geen weken bij merge', async () => {
 });
 
 console.log('\n══════════════════════════════════════════════');
+console.log(' pullAll → tombstones + merge (#3)');
+console.log('══════════════════════════════════════════════\n');
+
+const baseRecipeRow = {
+  ingredients: [], steps: [], source_url: null, duration: null, category: '',
+  is_favorite: false, image_uri: null, allergens: [], difficulty: null,
+  preparation_time: null, cooking_time: null, servings: null, rating: null,
+  times_cooked: 0, last_cooked: null, notes: null, equipment: null,
+  deleted_at: null,
+  created_at: '2026-05-01T00:00:00Z', updated_at: '2026-05-01T00:00:00Z',
+};
+
+await test('remote tombstone verwijdert de lokale rij + store-entry', async () => {
+  useAuthStore.setState({ familyId: 'fam-1', user: { id: 'u' } });
+  useRecipeStore.setState({
+    recipes: [{ id: 'r-del', title: 'Weg ermee', updatedAt: '2026-05-01T00:00:00Z' }],
+  });
+
+  const client = makeMockClient({
+    recipes: {
+      data: [{ ...baseRecipeRow, id: 'r-del', title: 'Weg ermee', deleted_at: '2026-05-02T00:00:00Z' }],
+      error: null,
+    },
+    grocery_items: { data: [], error: null },
+    week_plans: { data: [], error: null },
+  });
+
+  const db = makeMockDb();
+  await sync.pullAll(db, client);
+
+  const deletes = db.calls.filter((c) => /DELETE FROM recipes/i.test(c.head));
+  assert.equal(deletes.length, 1, 'lokale rij moet verwijderd worden');
+  assert.equal(
+    useRecipeStore.getState().recipes.some((r) => r.id === 'r-del'),
+    false,
+    'tombstoned recept mag niet in de store blijven (resurrectie-bug)',
+  );
+});
+
+await test('pullAll laat lokaal-only (unsynced) recepten in de store staan', async () => {
+  useAuthStore.setState({ familyId: 'fam-1', user: { id: 'u' } });
+  useRecipeStore.setState({
+    recipes: [{ id: 'r-local', title: 'Offline gemaakt', updatedAt: '2026-05-03T00:00:00Z' }],
+  });
+
+  const client = makeMockClient({
+    recipes: {
+      data: [{ ...baseRecipeRow, id: 'r-remote', title: 'Uit de cloud' }],
+      error: null,
+    },
+    grocery_items: { data: [], error: null },
+    week_plans: { data: [], error: null },
+  });
+
+  await sync.pullAll(makeMockDb(), client);
+
+  const ids = useRecipeStore.getState().recipes.map((r) => r.id).sort();
+  assert.deepEqual(ids, ['r-local', 'r-remote'], 'merge: lokaal-only + remote naast elkaar');
+});
+
+console.log('\n══════════════════════════════════════════════');
+console.log(' applyRemoteWeeks → geen outbox-echo (#4)');
+console.log('══════════════════════════════════════════════\n');
+
+await test('isApplyingRemoteWeeks is true binnen de subscriber tijdens een remote apply', async () => {
+  const { applyRemoteWeeks, isApplyingRemoteWeeks } = await import(
+    '../V0.1.2/store/weekPlannerStore.ts'
+  );
+  let observed = null;
+  const unsub = useWeekPlannerStore.subscribe(() => {
+    observed = isApplyingRemoteWeeks();
+  });
+  applyRemoteWeeks({ '2026-W22': {} });
+  unsub();
+  assert.equal(observed, true, 'subscriber moet remote applies kunnen herkennen (anders sync-echo)');
+  assert.equal(isApplyingRemoteWeeks(), false, 'flag moet na de apply terug af staan');
+});
+
+console.log('\n══════════════════════════════════════════════');
 console.log(` Result: ${passed} passed, ${failed} failed`);
 console.log('══════════════════════════════════════════════\n');
 process.exit(failed === 0 ? 0 : 1);

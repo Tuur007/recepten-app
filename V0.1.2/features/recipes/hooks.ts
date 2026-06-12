@@ -7,17 +7,17 @@ import { haptics, toast } from '../../utils/feedback';
 
 export function useRecipes() {
   const db = useSQLiteContext();
-  const {
-    recipes,
-    isLoading,
-    hasLoaded,
-    setRecipes,
-    setLoading,
-    setLoaded,
-    addRecipe,
-    applyLocalEdit,
-    removeRecipe,
-  } = useRecipeStore();
+  // Per-veld selectors: een subscribe op de hele store laat élke consumer
+  // re-renderen bij élke store-wijziging (incl. realtime-events).
+  const recipes = useRecipeStore((s) => s.recipes);
+  const isLoading = useRecipeStore((s) => s.isLoading);
+  const hasLoaded = useRecipeStore((s) => s.hasLoaded);
+  const setRecipes = useRecipeStore((s) => s.setRecipes);
+  const setLoading = useRecipeStore((s) => s.setLoading);
+  const setLoaded = useRecipeStore((s) => s.setLoaded);
+  const addRecipe = useRecipeStore((s) => s.addRecipe);
+  const applyLocalEdit = useRecipeStore((s) => s.applyLocalEdit);
+  const removeRecipe = useRecipeStore((s) => s.removeRecipe);
 
   useEffect(() => {
     if (hasLoaded) return;
@@ -56,8 +56,10 @@ export function useRecipes() {
   const update = useCallback(
     async (id: string, changes: RecipeUpdate): Promise<void> => {
       try {
-        await RecipeRepository.update(db, id, changes);
-        applyLocalEdit(id, changes);
+        const updatedAt = await RecipeRepository.update(db, id, changes);
+        // Zelfde timestamp als SQLite/queue, anders kloppen LWW-vergelijkingen
+        // tussen store en database niet.
+        applyLocalEdit(id, { ...changes, updatedAt });
       } catch (err) {
         console.error('[useRecipes.update] Failed:', err);
         toast.error('Niet opgeslagen', 'Wijziging is niet bewaard.');

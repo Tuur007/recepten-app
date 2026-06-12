@@ -1,10 +1,12 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
-import { warn } from '../../utils/logger';
 import { RecipeRepository } from '../../features/recipes/repository';
 import { GroceryRepository } from '../../features/grocery/repository';
+import { useAuthStore } from '../../store/authStore';
 import type { MealPlan, WeeksMap } from '../../store/weekPlannerStore';
 import { enqueue, flushQueue } from './queue';
 
+// Per gezin (suffix): wie van gezin wisselt op hetzelfde toestel krijgt voor
+// het nieuwe gezin opnieuw een one-shot backfill.
 const PREF_INITIAL_BACKFILL = 'initial_backfill_done';
 // Spiegelt PREF_KEY in store/weekPlannerStore.ts. We lezen rechtstreeks uit
 // app_prefs zodat de backfill niet afhangt van store-hydratie-timing.
@@ -36,9 +38,15 @@ async function readWeeks(db: SQLiteDatabase): Promise<WeeksMap> {
  * Idempotent via de `initial_backfill_done` pref — draait exact één keer.
  */
 export async function runInitialBackfill(db: SQLiteDatabase): Promise<void> {
+  const familyId = useAuthStore.getState().familyId;
+  if (!familyId) return;
+
+  const prefKey = `${PREF_INITIAL_BACKFILL}:${familyId}`;
   const done = await db.getFirstAsync<{ value: string }>(
-    'SELECT value FROM app_prefs WHERE key = ?',
-    [PREF_INITIAL_BACKFILL],
+    'SELECT value FROM app_prefs WHERE key IN (?, ?)',
+    // Legacy: vóór de per-gezin sleutel was de pref globaal. Een toestel dat
+    // toen al backfillde hoeft het voor datzelfde gezin niet opnieuw te doen.
+    [prefKey, PREF_INITIAL_BACKFILL],
   );
   if (done?.value === '1') return;
 
@@ -59,7 +67,7 @@ export async function runInitialBackfill(db: SQLiteDatabase): Promise<void> {
 
   await db.runAsync(
     'INSERT INTO app_prefs (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-    [PREF_INITIAL_BACKFILL, '1'],
+    [prefKey, '1'],
   );
   void flushQueue(db);
 }

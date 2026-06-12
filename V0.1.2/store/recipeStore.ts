@@ -40,29 +40,34 @@ export const useRecipeStore = create<RecipeState>()(
     addRecipe: (recipe) =>
       set((s) => { s.recipes.unshift(recipe); }),
 
-    // Lokale edit: wij zijn de bron, dus updatedAt = now() voor LWW.
+    // Lokale edit: wij zijn de bron, dus updatedAt = now() voor LWW — tenzij
+    // de caller de exacte timestamp van de repository-write meegeeft.
     applyLocalEdit: (id, updates) =>
       set((s) => {
         const r = s.recipes.find((r) => r.id === id);
-        if (r) Object.assign(r, updates, { updatedAt: new Date().toISOString() });
+        if (r) Object.assign(r, { updatedAt: new Date().toISOString() }, updates);
       }),
 
     // Remote update (Supabase realtime): behoud updatedAt zoals binnenkomt,
-    // anders gaat de LWW-volgorde verloren. Logt als een nieuwere lokale edit
-    // overschreven wordt — Sentry pikt dit op via de console.error-bridge.
-    replaceFromRemote: (id, recipe) =>
+    // anders gaat de LWW-volgorde verloren. Een nieuwere lokale edit wint en
+    // wordt NIET overschreven (de edit zit al in de outbox en bereikt de cloud
+    // alsnog); we loggen het conflict zodat Sentry het ziet.
+    replaceFromRemote: (id, recipe) => {
+      const local = get().recipes.find((r) => r.id === id);
+      if (!local) return;
+      if (new Date(local.updatedAt).getTime() > new Date(recipe.updatedAt).getTime()) {
+        console.error('[sync] LWW kept newer local edit', {
+          id,
+          localUpdatedAt: local.updatedAt,
+          remoteUpdatedAt: recipe.updatedAt,
+        });
+        return;
+      }
       set((s) => {
         const r = s.recipes.find((r) => r.id === id);
-        if (!r) return;
-        if (new Date(r.updatedAt).getTime() > new Date(recipe.updatedAt).getTime()) {
-          console.error('[sync] LWW overwrote newer local edit', {
-            id,
-            localUpdatedAt: r.updatedAt,
-            remoteUpdatedAt: recipe.updatedAt,
-          });
-        }
-        Object.assign(r, recipe);
-      }),
+        if (r) Object.assign(r, recipe);
+      });
+    },
 
     removeRecipe: (id) =>
       set((s) => { s.recipes = s.recipes.filter((r) => r.id !== id); }),

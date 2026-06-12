@@ -53,6 +53,21 @@ export default function ScanRecipeScreen() {
   const [scanError, setScanError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // expo-camera werkt niet in de web-build — toon een nette melding i.p.v.
+  // een kapot scherm.
+  if (Platform.OS === 'web') {
+    return (
+      <SafeAreaView style={[styles.fill, { backgroundColor: themeColors.background }]}>
+        <View style={styles.webFallback}>
+          <Text style={[typography.bodyItalic, styles.webFallbackText]}>
+            Scannen werkt enkel in de app op je telefoon.
+          </Text>
+          <Button label="Terug" onPress={() => router.back()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const handleCapture = async () => {
     if (!cameraRef.current) return;
     haptics.selection();
@@ -356,6 +371,14 @@ export default function ScanRecipeScreen() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   center: { alignItems: 'center', justifyContent: 'center' },
+  webFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  webFallbackText: { textAlign: 'center' },
 
   headerBar: {
     flexDirection: 'row',

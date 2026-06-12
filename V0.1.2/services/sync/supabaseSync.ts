@@ -1,9 +1,15 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { error as logError, warn } from '../../utils/logger';
 import { supabase as defaultSupabase } from '../supabase';
 import { useRecipeStore } from '../../store/recipeStore';
 import { useGroceryStore } from '../../store/groceryStore';
-import { useWeekPlannerStore, type MealPlan, type WeeksMap } from '../../store/weekPlannerStore';
+import {
+  useWeekPlannerStore,
+  applyRemoteWeeks,
+  type MealPlan,
+  type WeeksMap,
+} from '../../store/weekPlannerStore';
 import { useAuthStore } from '../../store/authStore';
 import { RecipeRepository } from '../../features/recipes/repository';
 import { GroceryRepository } from '../../features/grocery/repository';
@@ -78,9 +84,40 @@ function mergeIncomingWeeks(existing: WeeksMap, rows: WeekPlanRow[]): WeeksMap {
 }
 
 /**
+ * Mergt remote rijen in de bestaande store-lijst op id. Lokaal-only items
+ * (offline aangemaakt, zitten nog in de outbox) blijven staan — een pull mag
+ * die niet uit de UI laten verdwijnen. Tombstoned ids verdwijnen wél.
+ */
+function mergeIntoList<T extends { id: string; }>(
+  current: T[],
+  incoming: T[],
+  deletedIds: Set<string>,
+): T[] {
+  const incomingById = new Map(incoming.map((r) => [r.id, r]));
+  const merged: T[] = [];
+  for (const item of current) {
+    if (deletedIds.has(item.id)) continue;
+    const remote = incomingById.get(item.id);
+    if (remote) {
+      merged.push(remote);
+      incomingById.delete(item.id);
+    } else {
+      merged.push(item);
+    }
+  }
+  // Nieuwe remote rijen die lokaal nog niet bestonden.
+  for (const remote of incomingById.values()) {
+    if (!deletedIds.has(remote.id)) merged.push(remote);
+  }
+  return merged;
+}
+
+/**
  * Haalt alle gezins-data uit Supabase en schrijft die door naar SQLite én
- * naar de in-memory stores. Het `client`-argument is overridebaar voor tests;
- * in productie wordt de default Supabase-client gebruikt.
+ * naar de in-memory stores. Tombstones (deleted_at gezet) worden lokaal
+ * verwijderd — zonder dat resurrecten remote verwijderde recepten op
+ * toestellen die het realtime-event gemist hebben. Het `client`-argument is
+ * overridebaar voor tests.
  */
 export async function pullAll(
   db: SQLiteDatabase,
@@ -91,32 +128,43 @@ export async function pullAll(
   if (!familyId) return;
 
   const [recipesRes, groceryRes, weeksRes] = await Promise.all([
-    client
-      .from('recipes')
-      .select('*')
-      .eq('family_id', familyId)
-      .is('deleted_at', null),
-    client
-      .from('grocery_items')
-      .select('*')
-      .eq('family_id', familyId)
-      .is('deleted_at', null),
-    client
-      .from('week_plans')
-      .select('*')
-      .eq('family_id', familyId),
+    client.from('recipes').select('*').eq('family_id', familyId),
+    client.from('grocery_items').select('*').eq('family_id', familyId),
+    client.from('week_plans').select('*').eq('family_id', familyId),
   ]);
 
+  if (recipesRes.error) warn('[sync] pull recipes failed:', recipesRes.error.message);
+  if (groceryRes.error) warn('[sync] pull grocery failed:', groceryRes.error.message);
+  if (weeksRes.error) warn('[sync] pull week_plans failed:', weeksRes.error.message);
+
   if (recipesRes.data && Array.isArray(recipesRes.data)) {
-    const recipes = recipesRes.data.map(rowToRecipe);
-    await RecipeRepository.upsertMany(db, recipes);
-    useRecipeStore.getState().setRecipes(recipes);
+    const live = recipesRes.data.filter((row) => !row.deleted_at).map(rowToRecipe);
+    const deletedIds = new Set<string>(
+      recipesRes.data.filter((row) => row.deleted_at).map((row) => row.id as string),
+    );
+    await RecipeRepository.upsertMany(db, live);
+    for (const id of deletedIds) {
+      await RecipeRepository.deleteLocal(db, id).catch((err) =>
+        warn('[sync] local tombstone delete failed:', err),
+      );
+    }
+    const store = useRecipeStore.getState();
+    store.setRecipes(mergeIntoList(store.recipes, live, deletedIds));
   }
 
   if (groceryRes.data && Array.isArray(groceryRes.data)) {
-    const items = groceryRes.data.map(rowToGrocery);
-    await GroceryRepository.upsertMany(db, items);
-    useGroceryStore.getState().setItems(items);
+    const live = groceryRes.data.filter((row) => !row.deleted_at).map(rowToGrocery);
+    const deletedIds = new Set<string>(
+      groceryRes.data.filter((row) => row.deleted_at).map((row) => row.id as string),
+    );
+    await GroceryRepository.upsertMany(db, live);
+    for (const id of deletedIds) {
+      await GroceryRepository.deleteLocal(db, id).catch((err) =>
+        warn('[sync] local tombstone delete failed:', err),
+      );
+    }
+    const store = useGroceryStore.getState();
+    store.setItems(mergeIntoList(store.items, live, deletedIds));
   }
 
   if (weeksRes.data && Array.isArray(weeksRes.data)) {
@@ -124,11 +172,23 @@ export async function pullAll(
       useWeekPlannerStore.getState().weeks,
       weeksRes.data as WeekPlanRow[],
     );
-    useWeekPlannerStore.getState().setWeeks(merged);
+    // Via applyRemoteWeeks zodat de outbox-subscriber dit niet terug omhoog
+    // duwt (zie weekPlannerStore).
+    applyRemoteWeeks(merged);
   }
 }
 
 // ─── Realtime subscriptions ───────────────────────────────────────────────────
+
+// Een kanaal dat stilletjes wegvalt betekent gemiste events tot de volgende
+// pull (app-start of foreground). Minstens loggen zodat Sentry het ziet.
+function logChannelStatus(name: string): (status: string, err?: Error) => void {
+  return (status, err) => {
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+      warn(`[sync] realtime channel ${name}: ${status}`, err?.message ?? '');
+    }
+  };
+}
 
 export function subscribeToFamily(
   familyId: string,
@@ -149,19 +209,24 @@ export function subscribeToFamily(
         if (payload.eventType === 'DELETE' || newRow?.deleted_at) {
           const id = (oldRow?.id ?? newRow?.id) as string;
           store.removeRecipe(id);
-          RecipeRepository.delete(db, id).catch(console.error);
-        } else if (payload.eventType === 'INSERT' && newRow) {
+          // deleteLocal: een remote delete mag nooit terug de outbox in,
+          // anders kaatsen toestellen de delete eindeloos naar elkaar.
+          RecipeRepository.deleteLocal(db, id).catch(logError);
+        } else if (newRow && (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE')) {
           const recipe = rowToRecipe(newRow);
-          store.addRecipe(recipe);
-          RecipeRepository.upsertMany(db, [recipe]).catch(console.error);
-        } else if (payload.eventType === 'UPDATE' && newRow) {
-          const recipe = rowToRecipe(newRow);
-          store.replaceFromRemote(recipe.id, recipe);
-          RecipeRepository.upsertMany(db, [recipe]).catch(console.error);
+          // Eigen pushes echoën ook terug — bestaat de rij al, dan is dit een
+          // update (replaceFromRemote bewaakt LWW), anders een insert.
+          const exists = store.recipes.some((r) => r.id === recipe.id);
+          if (exists) {
+            store.replaceFromRemote(recipe.id, recipe);
+          } else {
+            store.addRecipe(recipe);
+          }
+          RecipeRepository.upsertMany(db, [recipe]).catch(logError);
         }
       },
     )
-    .subscribe();
+    .subscribe(logChannelStatus(`recipes:${familyId}`));
 
   const groceryChannel = client
     .channel(`grocery:${familyId}`)
@@ -175,19 +240,20 @@ export function subscribeToFamily(
         if (payload.eventType === 'DELETE' || newRow?.deleted_at) {
           const id = (oldRow?.id ?? newRow?.id) as string;
           store.deleteItem(id);
-          GroceryRepository.delete(db, id).catch(console.error);
-        } else if (payload.eventType === 'INSERT' && newRow) {
+          GroceryRepository.deleteLocal(db, id).catch(logError);
+        } else if (newRow && (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE')) {
           const item = rowToGrocery(newRow);
-          store.addItem(item);
-          GroceryRepository.upsertMany(db, [item]).catch(console.error);
-        } else if (payload.eventType === 'UPDATE' && newRow) {
-          const item = rowToGrocery(newRow);
-          store.replaceFromRemote(item.id, item);
-          GroceryRepository.upsertMany(db, [item]).catch(console.error);
+          const exists = store.items.some((i) => i.id === item.id);
+          if (exists) {
+            store.replaceFromRemote(item.id, item);
+          } else {
+            store.addItem(item);
+          }
+          GroceryRepository.upsertMany(db, [item]).catch(logError);
         }
       },
     )
-    .subscribe();
+    .subscribe(logChannelStatus(`grocery:${familyId}`));
 
   const weekPlanChannel = client
     .channel(`weekplans:${familyId}`)
@@ -204,10 +270,10 @@ export function subscribeToFamily(
           useWeekPlannerStore.getState().weeks,
           [{ week_key: weekKey, plan_data: planData }],
         );
-        useWeekPlannerStore.getState().setWeeks(merged);
+        applyRemoteWeeks(merged);
       },
     )
-    .subscribe();
+    .subscribe(logChannelStatus(`weekplans:${familyId}`));
 
   return () => {
     client.removeChannel(recipeChannel);

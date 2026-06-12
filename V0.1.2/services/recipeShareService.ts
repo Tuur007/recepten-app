@@ -29,20 +29,17 @@ export async function shareRecipeViaWhatsApp(recipe: Recipe): Promise<void> {
 
 export async function fetchSharedRecipe(token: string): Promise<Recipe | null> {
   if (!supabase) return null;
-  const { data: shareRow } = await supabase
-    .from('shared_recipes')
-    .select('recipe_id, from_family_id')
-    .eq('share_token', token)
-    .single();
+  // Via de SECURITY DEFINER RPC: shared_recipes heeft bewust geen
+  // SELECT-policy, en het recept zelf hoort bij een ander gezin — RLS staat
+  // een rechtstreekse read dus nooit toe. De functie joint token → recept
+  // server-side en checkt de expiry (zie
+  // supabase/migrations/shared_recipe_payload.sql).
+  const { data, error } = await supabase.rpc('get_shared_recipe_payload', {
+    token: token.trim(),
+  });
+  if (error || !data) return null;
 
-  if (!shareRow) return null;
-
-  const { data: recipe } = await supabase
-    .from('recipes')
-    .select('*')
-    .eq('id', shareRow.recipe_id)
-    .single();
-
+  const recipe = Array.isArray(data) ? data[0] : data;
   if (!recipe) return null;
 
   return {

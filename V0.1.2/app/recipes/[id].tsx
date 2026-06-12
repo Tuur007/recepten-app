@@ -123,11 +123,13 @@ export default function RecipeDetailScreen() {
   const handleShareText = async () => {
     setShareMenuVisible(false);
     haptics.light();
-    const lines: string[] = [recipe.title, ''];
-    if (recipe.ingredients?.length) {
+    // Geschaalde hoeveelheden — delen wat op het scherm staat, niet de
+    // basisporties terwijl de gebruiker net naar 6 personen schaalde.
+    const lines: string[] = [recipe.title, `Voor ${currentServings} personen`, ''];
+    if (scaledIngredients.length) {
       lines.push('Ingrediënten:');
-      recipe.ingredients.forEach((ing) => {
-        const qty = ing.quantity ? `${ing.quantity} ` : '';
+      scaledIngredients.forEach((ing) => {
+        const qty = ing.displayQty ? `${ing.displayQty} ` : '';
         const unit = ing.unit ? `${ing.unit} ` : '';
         lines.push(`- ${qty}${unit}${ing.name}`.trim());
       });

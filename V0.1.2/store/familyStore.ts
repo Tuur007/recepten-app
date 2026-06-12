@@ -203,16 +203,25 @@ export function useFamilyActions() {
 
   const updateMyProfile = async (updates: ProfileUpdate): Promise<void> => {
     // Optimistisch: eigen rij in de store bijwerken voor directe UI-feedback.
+    // Faalt de cloud-write, dan rollen we terug — anders staan store en cache
+    // permanent uit de pas met de server.
     const userId = useAuthStore.getState().user?.id;
+    const previous = useFamilyStore.getState().members;
     if (userId) {
       const patch = withoutUndefined(updates);
-      const next = useFamilyStore
-        .getState()
-        .members.map((m) => (m.userId === userId ? { ...m, ...patch } : m));
+      const next = previous.map((m) => (m.userId === userId ? { ...m, ...patch } : m));
       useFamilyStore.getState().setMembersInternal(next);
-      cacheMembers(db, next);
+      await cacheMembers(db, next);
     }
-    await cloudUpdateMyProfile(updates);
+    try {
+      await cloudUpdateMyProfile(updates);
+    } catch (err) {
+      if (userId) {
+        useFamilyStore.getState().setMembersInternal(previous);
+        await cacheMembers(db, previous);
+      }
+      throw err;
+    }
   };
 
   const setActive = (active: boolean): Promise<void> => updateMyProfile({ active });

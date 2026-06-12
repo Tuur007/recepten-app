@@ -99,6 +99,26 @@ export const useWeekPlannerStore = create<WeekPlannerState>()(
   })),
 );
 
+// Remote-applicaties (pullAll/realtime) mogen NIET opnieuw de outbox in:
+// anders ontstaat een push→realtime-echo→push-lus die nooit stopt en waarbij
+// elke app-start alle geplulde weken terug omhoog duwt. Zustand-subscribers
+// vuren synchroon binnen set(), dus een module-flag volstaat.
+let applyingRemoteWeeks = false;
+
+export function isApplyingRemoteWeeks(): boolean {
+  return applyingRemoteWeeks;
+}
+
+/** Enige toegestane pad voor remote → store (pullAll + realtime). */
+export function applyRemoteWeeks(weeks: WeeksMap): void {
+  applyingRemoteWeeks = true;
+  try {
+    useWeekPlannerStore.getState().setWeeks(weeks);
+  } finally {
+    applyingRemoteWeeks = false;
+  }
+}
+
 /** Reactieve hook voor één week — gebruikt door de planner en home. */
 export function useMealPlan(weekKey: string): MealPlan {
   return useWeekPlannerStore((s) => s.weeks[weekKey] ?? EMPTY_WEEK_FROZEN);
@@ -180,8 +200,10 @@ export function useHydrateWeekPlanner(): void {
       writePref(db, PREF_KEY, JSON.stringify(state.weeks)).catch((err) =>
         warn('[weekplanner] persist failed:', err),
       );
-      // Queue per gewijzigde week — pullAll fan-out (setWeeks) is bulk, dus
-      // diff per key i.p.v. één grote payload.
+      // Remote-applicatie: wél lokaal persisten (hierboven), maar nooit terug
+      // de outbox in — dat was de bron van een eindeloze sync-echo.
+      if (isApplyingRemoteWeeks()) return;
+      // Queue per gewijzigde week — diff per key i.p.v. één grote payload.
       const changed = changedWeekKeys(prev.weeks, state.weeks);
       for (const key of changed) {
         const plan = state.weeks[key];
@@ -200,7 +222,11 @@ function changedWeekKeys(prev: WeeksMap, next: WeeksMap): string[] {
   const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
   const out: string[] = [];
   for (const k of keys) {
-    if (prev[k] !== next[k]) out.push(k);
+    if (prev[k] === next[k]) continue;
+    // Nieuwe referentie maar identieke inhoud (bv. een realtime-echo van onze
+    // eigen push) is geen wijziging — voorkomt zinloze re-pushes.
+    if (prev[k] && next[k] && JSON.stringify(prev[k]) === JSON.stringify(next[k])) continue;
+    out.push(k);
   }
   return out;
 }

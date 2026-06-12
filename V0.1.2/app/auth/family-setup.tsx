@@ -43,19 +43,17 @@ export default function FamilySetupScreen() {
 
     setLoading(true);
     try {
-      const { data: family, error: familyError } = await supabase
-        .from('families')
-        .insert({ name: familyName.trim(), owner_id: user.id })
-        .select('id')
-        .single();
+      // Atomisch (gezin + owner-lidmaatschap in één transactie) — twee losse
+      // inserts lieten bij een fout een gezin zonder leden achter. Zie
+      // supabase/migrations/create_family_atomic.sql.
+      const { data: familyId, error: createError } = await supabase.rpc(
+        'create_family_with_owner',
+        { family_name: familyName.trim() },
+      );
 
-      if (familyError || !family) throw familyError ?? new Error('Gezin aanmaken mislukt.');
-
-      const { error: memberError } = await supabase
-        .from('family_members')
-        .insert({ family_id: family.id, user_id: user.id, role: 'owner' });
-
-      if (memberError) throw memberError;
+      if (createError || !familyId) {
+        throw createError ?? new Error('Gezin aanmaken mislukt.');
+      }
 
       // Pas een in onboarding bewaard profiel toe op de zojuist aangemaakte rij.
       await applyPendingProfile(db).catch((e) =>
@@ -63,7 +61,7 @@ export default function FamilySetupScreen() {
       );
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setFamilyId(family.id);
+      setFamilyId(familyId as string);
       // Auth guard in _layout will redirect to onboarding or (tabs)/home
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Gezin aanmaken mislukt.';

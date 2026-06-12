@@ -1,5 +1,6 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
-import { warn } from '../../utils/logger';
+import { error as logError } from '../../utils/logger';
+import { toast } from '../../utils/feedback';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase as defaultSupabase } from '../supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -22,6 +23,9 @@ export interface QueueRow {
   last_error: string | null;
   dead: number;
   next_retry_at: string | null;
+  // Gezin waarvoor deze rij bedoeld is. NULL = geschreven zonder login; zo'n
+  // rij hoort bij de user die zich daarna op dit toestel aanmeldt.
+  family_id: string | null;
 }
 
 // Na zoveel mislukte pogingen markeren we een rij als dead-letter zodat één
@@ -34,8 +38,11 @@ export interface WeekPlanPayload {
 }
 
 // Re-entrancy guard: een tweede flushQueue() terwijl er nog één loopt is
-// dubbel werk en kan rij-orde verstoren.
+// dubbel werk en kan rij-orde verstoren. Wordt er tijdens een flush opnieuw
+// geflusht (nieuwe write), dan draaien we na de drain nog één ronde — anders
+// blijft die write hangen tot het volgende NetInfo-event.
 let flushing = false;
+let reflushRequested = false;
 
 export async function enqueue(
   db: SQLiteDatabase,
@@ -44,14 +51,15 @@ export async function enqueue(
   entityId: string,
   payload: unknown | null,
 ): Promise<void> {
-  // Zonder cloud-config of gekoppeld gezin kan deze rij nooit flushen
-  // (flushQueue bailt op net dezelfde voorwaarden). Niet queuen voorkomt dat de
-  // outbox onbeperkt groeit bij users die maandenlang puur lokaal draaien.
-  if (!defaultSupabase || !useAuthStore.getState().familyId) return;
+  // Zonder cloud-config kan deze rij nooit flushen — niet queuen voorkomt dat
+  // de outbox onbeperkt groeit bij users die puur lokaal draaien. Zonder
+  // familyId queuen we WEL (family_id = NULL): die writes horen bij de user
+  // die zich daarna aanmeldt en flushen dan alsnog.
+  if (!defaultSupabase) return;
 
   await db.runAsync(
-    `INSERT INTO sync_queue (id, op, entity, entity_id, payload, created_at, attempts)
-     VALUES (?, ?, ?, ?, ?, ?, 0)`,
+    `INSERT INTO sync_queue (id, op, entity, entity_id, payload, created_at, attempts, family_id)
+     VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
     [
       generateId(),
       op,
@@ -59,6 +67,7 @@ export async function enqueue(
       entityId,
       payload == null ? null : JSON.stringify(payload),
       new Date().toISOString(),
+      useAuthStore.getState().familyId,
     ],
   );
 }
@@ -158,10 +167,14 @@ async function executeRow(
         .upsert(recipeToRow(payload as Recipe, familyId));
       if (error) throw error;
     } else {
+      // `.is('deleted_at', null)` maakt de delete idempotent: een rij die al
+      // verwijderd is krijgt geen nieuwe timestamp en dus geen nieuw
+      // realtime-event (anders pingpongen toestellen elkaars deletes rond).
       const { error } = await client
         .from('recipes')
         .update({ deleted_at: new Date().toISOString() })
-        .eq('id', row.entity_id);
+        .eq('id', row.entity_id)
+        .is('deleted_at', null);
       if (error) throw error;
     }
     return;
@@ -177,7 +190,8 @@ async function executeRow(
       const { error } = await client
         .from('grocery_items')
         .update({ deleted_at: new Date().toISOString() })
-        .eq('id', row.entity_id);
+        .eq('id', row.entity_id)
+        .is('deleted_at', null);
       if (error) throw error;
     }
     return;
@@ -220,7 +234,10 @@ export async function flushQueue(
   db: SQLiteDatabase,
   client: SupabaseClient | null = defaultSupabase,
 ): Promise<FlushResult> {
-  if (flushing) return { processed: 0, remaining: await getQueueDepth(db) };
+  if (flushing) {
+    reflushRequested = true;
+    return { processed: 0, remaining: await getQueueDepth(db) };
+  }
   if (!client) return { processed: 0, remaining: await getQueueDepth(db) };
 
   const familyId = useAuthStore.getState().familyId;
@@ -231,46 +248,59 @@ export async function flushQueue(
   let failedAt: FlushResult['failedAt'] | undefined;
 
   try {
-    while (true) {
-      const row = await db.getFirstAsync<QueueRow>(
-        `SELECT * FROM sync_queue
-         WHERE dead = 0 AND (next_retry_at IS NULL OR next_retry_at < datetime('now'))
-         ORDER BY created_at ASC LIMIT 1`,
-      );
-      if (!row) break;
-
-      try {
-        await executeRow(row, client, familyId);
-        await db.runAsync('DELETE FROM sync_queue WHERE id = ?', [row.id]);
-        processed++;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        const attempts = row.attempts + 1;
-        const dead = attempts >= MAX_ATTEMPTS ? 1 : 0;
-        const backoffSeconds = Math.min(2 ** attempts, 300);
-        await db.runAsync(
-          `UPDATE sync_queue
-           SET attempts = ?, last_error = ?, dead = ?, next_retry_at = datetime('now', ?)
-           WHERE id = ?`,
-          [attempts, msg, dead, `+${backoffSeconds} seconds`, row.id],
+    do {
+      reflushRequested = false;
+      while (true) {
+        // Alleen rijen van het actieve gezin (of pre-login rijen zonder
+        // family_id) — rijen van een vorig gezin mogen NOOIT met het huidige
+        // familyId gestempeld worden (cross-family leak).
+        const row = await db.getFirstAsync<QueueRow>(
+          `SELECT * FROM sync_queue
+           WHERE dead = 0 AND (family_id IS NULL OR family_id = ?)
+             AND (next_retry_at IS NULL OR next_retry_at < datetime('now'))
+           ORDER BY created_at ASC LIMIT 1`,
+          [familyId],
         );
-        if (dead) {
-          // Dead-letter: Sentry pikt dit op via de console.error-bridge.
-          warn('[sync] dead row', {
-            id: row.id,
-            entity: row.entity,
-            op: row.op,
-            entity_id: row.entity_id,
-            attempts,
-            last_error: msg,
-            payload: row.payload,
-          });
+        if (!row) break;
+
+        try {
+          await executeRow(row, client, familyId);
+          await db.runAsync('DELETE FROM sync_queue WHERE id = ?', [row.id]);
+          processed++;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          const attempts = row.attempts + 1;
+          const dead = attempts >= MAX_ATTEMPTS ? 1 : 0;
+          const backoffSeconds = Math.min(2 ** attempts, 300);
+          await db.runAsync(
+            `UPDATE sync_queue
+             SET attempts = ?, last_error = ?, dead = ?, next_retry_at = datetime('now', ?)
+             WHERE id = ?`,
+            [attempts, msg, dead, `+${backoffSeconds} seconds`, row.id],
+          );
+          if (dead) {
+            // `error` is ook in productie actief, dus Sentry ziet dit.
+            logError('[sync] dead row', {
+              id: row.id,
+              entity: row.entity,
+              op: row.op,
+              entity_id: row.entity_id,
+              attempts,
+              last_error: msg,
+            });
+            // De gebruiker moet weten dat een wijziging niet synct — anders
+            // is dit stille dataverlies richting de rest van het gezin.
+            toast.error(
+              'Synchronisatie vastgelopen',
+              'Bekijk Instellingen → synchronisatie om opnieuw te proberen.',
+            );
+          }
+          failedAt = { id: row.id, error: msg };
+          // Niet breaken: de gefaalde rij is nu uitgesloten via next_retry_at,
+          // de volgende eligible rij krijgt nog een kans in deze flush.
         }
-        failedAt = { id: row.id, error: msg };
-        // Niet breaken: de gefaalde rij is nu uitgesloten via next_retry_at,
-        // de volgende eligible rij krijgt nog een kans in deze flush.
       }
-    }
+    } while (reflushRequested);
   } finally {
     flushing = false;
   }

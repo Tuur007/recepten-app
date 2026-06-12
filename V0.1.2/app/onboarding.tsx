@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 
 import {
   EditorialTitle,
@@ -66,11 +67,11 @@ export default function OnboardingScreen() {
       allergies: myAllergies,
     };
 
-    completeOnboarding();
-    haptics.success();
-
     // Heeft de gebruiker al een gezin (bv. via uitnodigingscode)? Dan meteen
     // naar de cloud. Anders bewaren we het profiel tot na family-setup.
+    // De onboarding-flag pas NA een geslaagde save zetten: anders is de
+    // onboarding "klaar" terwijl het profiel ontbreekt en kan de gebruiker
+    // het nooit meer aanvullen.
     try {
       if (familyId) {
         await updateMyProfile(profile);
@@ -79,7 +80,17 @@ export default function OnboardingScreen() {
       }
     } catch (err) {
       warn('[onboarding] profiel bewaren mislukt:', err);
+      haptics.error();
+      Toast.show({
+        type: 'error',
+        text1: 'Profiel niet bewaard',
+        text2: 'Controleer je verbinding en probeer opnieuw.',
+      });
+      return;
     }
+
+    completeOnboarding();
+    haptics.success();
 
     // Vraag notificatiepermissie — niet-blokkerend.
     requestNotificationPermission().catch(() => {});

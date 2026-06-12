@@ -1,5 +1,5 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
-import { log } from '../../utils/logger';
+import { log, warn } from '../../utils/logger';
 import { Recipe, RecipeInput, RecipeUpdate } from '../../types/recipe';
 import { generateId } from '../../utils/id';
 import { deleteRecipeImage } from '../../utils/imageStorage';
@@ -35,13 +35,24 @@ interface RecipeRow {
   nutrition: string | null;
 }
 
+function safeParse<T>(raw: string | null, fallback: T, field: string, id: string): T {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    warn(`[recipes] corrupt ${field} JSON for ${id} — fallback gebruikt`);
+    return fallback;
+  }
+}
+
 function rowToRecipe(row: RecipeRow): Recipe {
-  let allergens: string[] = [];
-  try { allergens = JSON.parse(row.allergens ?? '[]'); } catch { allergens = []; }
-  let equipment: string[] | undefined;
-  try { equipment = row.equipment ? JSON.parse(row.equipment) : undefined; } catch { equipment = undefined; }
-  let nutrition: Recipe['nutrition'];
-  try { nutrition = row.nutrition ? JSON.parse(row.nutrition) : undefined; } catch { nutrition = undefined; }
+  const allergens = safeParse<string[]>(row.allergens, [], 'allergens', row.id);
+  const equipment = row.equipment
+    ? safeParse<string[] | undefined>(row.equipment, undefined, 'equipment', row.id)
+    : undefined;
+  const nutrition = row.nutrition
+    ? safeParse<Recipe['nutrition']>(row.nutrition, undefined, 'nutrition', row.id)
+    : undefined;
 
   // Derive duration from prep + cook when not set explicitly so the detail
   // stat reflects total time even before migration v21 has touched the row.
@@ -54,8 +65,8 @@ function rowToRecipe(row: RecipeRow): Recipe {
   return {
     id: row.id,
     title: row.title,
-    ingredients: JSON.parse(row.ingredients),
-    steps: JSON.parse(row.steps),
+    ingredients: safeParse<Recipe['ingredients']>(row.ingredients, [], 'ingredients', row.id),
+    steps: safeParse<string[]>(row.steps, [], 'steps', row.id),
     sourceUrl: row.source_url ?? undefined,
     duration: derivedDuration,
     category: (row.category ?? '') as Recipe['category'],
@@ -77,6 +88,67 @@ function rowToRecipe(row: RecipeRow): Recipe {
   };
 }
 
+// LWW-guard: een binnenkomende (remote) rij mag een nieuwere lokale edit niet
+// overschrijven. julianday() i.p.v. string-vergelijking omdat Supabase- en
+// JS-timestamps verschillend geformatteerd kunnen zijn.
+async function upsertRows(db: SQLiteDatabase, recipes: Recipe[]): Promise<void> {
+  for (const r of recipes) {
+    await db.runAsync(
+      `INSERT INTO recipes (
+         id, title, ingredients, steps, source_url, duration, category, is_favorite,
+         image_uri, allergens, created_at, updated_at, difficulty, preparation_time,
+         cooking_time, servings, rating, times_cooked, last_cooked, notes, equipment, nutrition
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         title = excluded.title,
+         ingredients = excluded.ingredients,
+         steps = excluded.steps,
+         source_url = excluded.source_url,
+         duration = excluded.duration,
+         category = excluded.category,
+         is_favorite = excluded.is_favorite,
+         image_uri = excluded.image_uri,
+         allergens = excluded.allergens,
+         updated_at = excluded.updated_at,
+         difficulty = excluded.difficulty,
+         preparation_time = excluded.preparation_time,
+         cooking_time = excluded.cooking_time,
+         servings = excluded.servings,
+         rating = excluded.rating,
+         times_cooked = excluded.times_cooked,
+         last_cooked = excluded.last_cooked,
+         notes = excluded.notes,
+         equipment = excluded.equipment,
+         nutrition = excluded.nutrition
+       WHERE julianday(excluded.updated_at) > julianday(recipes.updated_at)`,
+      [
+        r.id,
+        r.title,
+        JSON.stringify(r.ingredients ?? []),
+        JSON.stringify(r.steps ?? []),
+        r.sourceUrl ?? null,
+        r.duration ?? null,
+        r.category ?? '',
+        r.isFavorite ? 1 : 0,
+        r.imageUri ?? null,
+        JSON.stringify(r.allergens ?? []),
+        r.createdAt,
+        r.updatedAt,
+        r.difficulty ?? null,
+        r.preparationTime ?? null,
+        r.cookingTime ?? null,
+        r.servings ?? null,
+        r.rating ?? null,
+        r.timesCooked ?? 0,
+        r.lastCooked ?? null,
+        r.notes ?? null,
+        r.equipment ? JSON.stringify(r.equipment) : null,
+        r.nutrition ? JSON.stringify(r.nutrition) : null,
+      ],
+    );
+  }
+}
+
 export const RecipeRepository = {
   async getAll(db: SQLiteDatabase): Promise<Recipe[]> {
     const rows = await db.getAllAsync<RecipeRow>(
@@ -94,59 +166,13 @@ export const RecipeRepository = {
   },
 
   async upsertMany(db: SQLiteDatabase, recipes: Recipe[]): Promise<void> {
-    for (const r of recipes) {
-      await db.runAsync(
-        `INSERT INTO recipes (
-           id, title, ingredients, steps, source_url, duration, category, is_favorite,
-           image_uri, allergens, created_at, updated_at, difficulty, preparation_time,
-           cooking_time, servings, rating, times_cooked, last_cooked, notes, equipment, nutrition
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           title = excluded.title,
-           ingredients = excluded.ingredients,
-           steps = excluded.steps,
-           source_url = excluded.source_url,
-           duration = excluded.duration,
-           category = excluded.category,
-           is_favorite = excluded.is_favorite,
-           image_uri = excluded.image_uri,
-           allergens = excluded.allergens,
-           updated_at = excluded.updated_at,
-           difficulty = excluded.difficulty,
-           preparation_time = excluded.preparation_time,
-           cooking_time = excluded.cooking_time,
-           servings = excluded.servings,
-           rating = excluded.rating,
-           times_cooked = excluded.times_cooked,
-           last_cooked = excluded.last_cooked,
-           notes = excluded.notes,
-           equipment = excluded.equipment,
-           nutrition = excluded.nutrition`,
-        [
-          r.id,
-          r.title,
-          JSON.stringify(r.ingredients ?? []),
-          JSON.stringify(r.steps ?? []),
-          r.sourceUrl ?? null,
-          r.duration ?? null,
-          r.category ?? '',
-          r.isFavorite ? 1 : 0,
-          r.imageUri ?? null,
-          JSON.stringify(r.allergens ?? []),
-          r.createdAt,
-          r.updatedAt,
-          r.difficulty ?? null,
-          r.preparationTime ?? null,
-          r.cookingTime ?? null,
-          r.servings ?? null,
-          r.rating ?? null,
-          r.timesCooked ?? 0,
-          r.lastCooked ?? null,
-          r.notes ?? null,
-          r.equipment ? JSON.stringify(r.equipment) : null,
-          r.nutrition ? JSON.stringify(r.nutrition) : null,
-        ],
-      );
+    // Eén transactie i.p.v. N losse WAL-commits (pullAll kan tientallen rijen
+    // tegelijk schrijven). Test-mocks hebben niet altijd withTransactionAsync.
+    const run = () => upsertRows(db, recipes);
+    if (typeof db.withTransactionAsync === 'function') {
+      await db.withTransactionAsync(run);
+    } else {
+      await run();
     }
   },
 
@@ -209,7 +235,9 @@ export const RecipeRepository = {
     return recipe;
   },
 
-  async update(db: SQLiteDatabase, id: string, changes: RecipeUpdate): Promise<void> {
+  /** Returnt de `updatedAt` die naar SQLite én de queue ging, zodat de store
+   *  exact dezelfde timestamp kan voeren (LWW-vergelijkingen). */
+  async update(db: SQLiteDatabase, id: string, changes: RecipeUpdate): Promise<string> {
     const current = await RecipeRepository.getById(db, id);
     if (!current) throw new Error(`Recipe not found: ${id}`);
 
@@ -265,6 +293,7 @@ export const RecipeRepository = {
 
     await enqueue(db, 'upsert', 'recipe', id, { ...merged, imageUri: finalImageUri, updatedAt: now });
     void flushQueue(db);
+    return now;
   },
 
   async delete(db: SQLiteDatabase, id: string): Promise<void> {
@@ -277,5 +306,19 @@ export const RecipeRepository = {
     await db.runAsync('DELETE FROM recipes WHERE id = ?', [id]);
     await enqueue(db, 'delete', 'recipe', id, null);
     void flushQueue(db);
+  },
+
+  /**
+   * Verwijdert alleen de lokale kopie (rij + lokaal fotobestand). Voor het
+   * verwerken van remote deletes (realtime/pull): GEEN outbox-write en GEEN
+   * cloud-storage delete — anders kaatsen toestellen elkaars deletes eindeloos
+   * rond via realtime-events.
+   */
+  async deleteLocal(db: SQLiteDatabase, id: string): Promise<void> {
+    const recipe = await RecipeRepository.getById(db, id);
+    if (recipe?.imageUri) {
+      await deleteRecipeImage(recipe.imageUri);
+    }
+    await db.runAsync('DELETE FROM recipes WHERE id = ?', [id]);
   },
 };

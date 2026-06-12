@@ -1,7 +1,29 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { Session, User } from '@supabase/supabase-js';
+import { warn } from '../utils/logger';
 import { supabase } from '../services/supabase';
+
+/**
+ * Haalt het familyId van een user op. Onderscheidt "geen gezin" (null) van
+ * "kon het niet bepalen" (undefined, bv. netwerkfout): in dat laatste geval
+ * mag de caller het bestaande familyId NIET op null zetten — dat schakelt
+ * heel de sync-laag uit terwijl de user gewoon een gezin heeft.
+ */
+async function resolveFamilyId(userId: string): Promise<string | null | undefined> {
+  if (!supabase) return undefined;
+  const { data, error } = await supabase
+    .from('family_members')
+    .select('family_id')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    warn('[auth] familyId lookup failed:', error.message);
+    return undefined;
+  }
+  return data?.family_id ?? null;
+}
 
 interface AuthState {
   session: Session | null;
@@ -36,36 +58,22 @@ export const useAuthStore = create<AuthState>()(
         set({ session, user: session?.user ?? null });
 
         if (session?.user) {
-          try {
-            const { data } = await supabase
-              .from('family_members')
-              .select('family_id')
-              .eq('user_id', session.user.id)
-              .single();
-            set({ familyId: data?.family_id ?? null });
-          } catch {
-            // Network/RLS may block this; safe to continue
-          }
+          const familyId = await resolveFamilyId(session.user.id);
+          if (familyId !== undefined) set({ familyId });
         }
 
         set({ isInitialized: true });
 
         supabase.auth.onAuthStateChange(async (_event, session) => {
           set({ session, user: session?.user ?? null });
-          if (!session?.user || !supabase) {
+          if (!session?.user) {
             set({ familyId: null });
             return;
           }
-          try {
-            const { data } = await supabase
-              .from('family_members')
-              .select('family_id')
-              .eq('user_id', session.user.id)
-              .single();
-            set({ familyId: data?.family_id ?? null });
-          } catch {
-            // ignore
-          }
+          const familyId = await resolveFamilyId(session.user.id);
+          // Bij een lookup-fout (undefined) behouden we het bekende familyId —
+          // null zetten zou sync + outbox uitschakelen op een netwerkblip.
+          if (familyId !== undefined) set({ familyId });
         });
       } catch {
         set({ isInitialized: true });

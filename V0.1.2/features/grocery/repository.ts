@@ -40,6 +40,38 @@ function rowToItem(row: GroceryRow): GroceryItem {
   };
 }
 
+async function upsertRows(db: SQLiteDatabase, items: GroceryItem[]): Promise<void> {
+  for (const item of items) {
+    await db.runAsync(
+      `INSERT INTO grocery_items (id, name, unit, category, sources, total_quantity, checked, created_at, aisle, price, store_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         unit = excluded.unit,
+         category = excluded.category,
+         sources = excluded.sources,
+         total_quantity = excluded.total_quantity,
+         checked = excluded.checked,
+         aisle = excluded.aisle,
+         price = excluded.price,
+         store_id = excluded.store_id`,
+      [
+        item.id,
+        item.name,
+        item.unit,
+        item.category ?? '',
+        JSON.stringify(item.sources),
+        item.totalQuantity,
+        item.checked ? 1 : 0,
+        item.createdAt,
+        item.aisle ?? null,
+        item.price ?? null,
+        item.storeId ?? null,
+      ],
+    );
+  }
+}
+
 export const GroceryRepository = {
   async getAll(db: SQLiteDatabase): Promise<GroceryItem[]> {
     const rows = await db.getAllAsync<GroceryRow>(
@@ -67,34 +99,13 @@ export const GroceryRepository = {
   },
 
   async upsertMany(db: SQLiteDatabase, items: GroceryItem[]): Promise<void> {
-    for (const item of items) {
-      await db.runAsync(
-        `INSERT INTO grocery_items (id, name, unit, category, sources, total_quantity, checked, created_at, aisle, price, store_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           name = excluded.name,
-           unit = excluded.unit,
-           category = excluded.category,
-           sources = excluded.sources,
-           total_quantity = excluded.total_quantity,
-           checked = excluded.checked,
-           aisle = excluded.aisle,
-           price = excluded.price,
-           store_id = excluded.store_id`,
-        [
-          item.id,
-          item.name,
-          item.unit,
-          item.category ?? '',
-          JSON.stringify(item.sources),
-          item.totalQuantity,
-          item.checked ? 1 : 0,
-          item.createdAt,
-          item.aisle ?? null,
-          item.price ?? null,
-          item.storeId ?? null,
-        ],
-      );
+    // Eén transactie i.p.v. N losse WAL-commits. Test-mocks hebben niet altijd
+    // withTransactionAsync.
+    const run = () => upsertRows(db, items);
+    if (typeof db.withTransactionAsync === 'function') {
+      await db.withTransactionAsync(run);
+    } else {
+      await run();
     }
   },
 
@@ -140,6 +151,12 @@ export const GroceryRepository = {
     await db.runAsync('DELETE FROM grocery_items WHERE id = ?', [id]);
     await enqueue(db, 'delete', 'grocery', id, null);
     void flushQueue(db);
+  },
+
+  /** Lokale verwijdering voor remote deletes (realtime/pull) — geen
+   *  outbox-write, anders ontstaat een delete-pingpong tussen toestellen. */
+  async deleteLocal(db: SQLiteDatabase, id: string): Promise<void> {
+    await db.runAsync('DELETE FROM grocery_items WHERE id = ?', [id]);
   },
 
   async clearChecked(db: SQLiteDatabase): Promise<void> {
